@@ -45,5 +45,6 @@ for ATTEMPT in 1 2 3 4 5 6; do
   echo "stapler 第 $ATTEMPT 次失败（多半是网络抖动），20 秒后重试"
   sleep 20
 done
-xcrun stapler validate "$TARGET"
+# 不再单独 validate：staple 成功时会输出 “The staple and validate action worked!”，已经校验过；
+# 单独的 validate 还会再去 Apple 取一次票据，网络抖动时白白失败。
 rm -f "$TMP/AuthKey.p8" "$TMP/notarize-"*.zip
