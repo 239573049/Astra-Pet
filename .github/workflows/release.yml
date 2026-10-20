@@ -235,7 +235,13 @@ jobs:
                 echo "::error::公证没有通过，日志见上"
                 exit 1
               fi
-              xcrun stapler staple "$APP"
+              # stapler 要去 Apple 的 CloudKit 取公证票据，CI 上偶尔会 “The network connection was lost”（公证本身已经通过了），重试几次。
+              for ATTEMPT in 1 2 3 4 5 6; do
+                if xcrun stapler staple "$APP"; then break; fi
+                if [ "$ATTEMPT" = 6 ]; then echo "::error::stapler 重试 6 次仍失败"; exit 1; fi
+                echo "stapler 第 $ATTEMPT 次失败（多半是网络抖动），20 秒后重试"
+                sleep 20
+              done
               spctl --assess --type execute --verbose=2 "$APP"
               rm -f "$RUNNER_TEMP/AuthKey.p8"
             else
