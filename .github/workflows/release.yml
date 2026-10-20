@@ -1,0 +1,237 @@
+name: release
+
+# 打 v* 标签（例如 v0.2.0、v0.3.0-preview.1）或手动触发：三个平台各编一份 Native AOT 的包，
+# 冒烟通过后打成压缩包，上传到 LocalGate 站点（/api/pet-releases/upload），站点的 /pet 页就会出现新版本，
+# 正在运行的宠物下次检测更新时会冒气泡提醒。
+#
+# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 src/AstraPet.csproj 的 UpdateBaseUrl）。
+# 需要在 GitHub 仓库里配置一个 Secret：
+#   PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致
+# 没配时工作流只构建，不上传（会在日志里说明）。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本号，x.y.z（正式版）或 x.y.z-preview.N（预览版）
+        required: true
+        type: string
+      upload:
+        description: 构建后上传到站点
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      channel: ${{ steps.v.outputs.channel }}
+      upload: ${{ steps.v.outputs.upload }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            UPLOAD="${{ inputs.upload }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+            UPLOAD=true
+          fi
+          # 版本号规则和站点一致：x.y.z 是正式版，x.y.z-preview.N 是预览版，别的一律拒绝。
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CHANNEL=stable
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[1-9][0-9]*$ ]]; then
+            CHANNEL=preview
+          else
+            echo "::error::版本号 '$VERSION' 不合法，需要 x.y.z 或 x.y.z-preview.N"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "upload=$UPLOAD" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: osx-arm64, platform: darwin-arm64, os: macos-15 }
+          - { rid: osx-x64, platform: darwin-x64, os: macos-15-intel }
+          - { rid: win-x64, platform: win32-x64, os: windows-latest }
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build (Native AOT)
+        shell: bash
+        # 先 build 再 publish --no-build：直接 publish 开着 AOT 时，Avalonia 的 XAML 编译会被跳过，
+        # App.Initialize 里的 AvaloniaXamlLoader.Load 不会被改写，程序一启动就报 “No precompiled XAML found”。
+        run: |
+          ARGS="-c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:Version=$VERSION"
+          dotnet build src/AstraPet.csproj $ARGS
+          dotnet publish src/AstraPet.csproj $ARGS --no-build -o publish
+
+      - name: Smoke test
+        shell: bash
+        # 起 Avalonia 和 AtomUI、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then ./publish/AstraPet.exe --smoke; else ./publish/AstraPet --smoke; fi
+
+      # ── 自带 ffmpeg：宠物动画是带透明通道的 VP9，必须有带 libvpx-vp9 的 ffmpeg，不能指望用户自己装。
+      #    用 tools/ffmpeg/build.sh 从官方源码构建 LGPL 精简版（几 MB，静态链接，不含 GPL 组件），按脚本内容缓存。
+      - name: Cache ffmpeg
+        id: ffcache
+        uses: actions/cache@v4
+        with:
+          path: ffmpeg-out
+          key: ffmpeg-${{ matrix.platform }}-${{ hashFiles('tools/ffmpeg/build.sh') }}
+
+      - name: Build ffmpeg (macOS)
+        if: runner.os == 'macOS' && steps.ffcache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          brew install nasm pkg-config
+          tools/ffmpeg/build.sh ffmpeg-out
+
+      - name: Set up MSYS2 (Windows)
+        if: runner.os == 'Windows' && steps.ffcache.outputs.cache-hit != 'true'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            make diffutils nasm pkgconf perl tar xz curl binutils
+            mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build ffmpeg (Windows)
+        if: runner.os == 'Windows' && steps.ffcache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: tools/ffmpeg/build.sh ffmpeg-out
+
+      - name: Check ffmpeg
+        shell: bash
+        # 用真实素材跑一遍程序用到的两条命令，并确认解出来的帧带透明通道。
+        run: |
+          CLIP=$(find src/Assets/videos/idle -name '*.webm' | head -n 1)
+          FF=ffmpeg-out/ffmpeg; [ -f ffmpeg-out/ffmpeg.exe ] && FF=ffmpeg-out/ffmpeg.exe
+          tools/ffmpeg/selftest.sh "$FF" "$CLIP"
+
+      - name: Package (macOS .app)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="stage/Astra Pet.app"
+          mkdir -p "$APP/Contents/MacOS"
+          cp -R publish/. "$APP/Contents/MacOS/"
+          cp ffmpeg-out/ffmpeg "$APP/Contents/MacOS/ffmpeg"
+          codesign --force --sign - "$APP/Contents/MacOS/ffmpeg"
+          rm -rf "$APP/Contents/MacOS/"*.dSYM
+          cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Astra Pet</string>
+            <key>CFBundleDisplayName</key><string>Astra Pet</string>
+            <key>CFBundleIdentifier</key><string>ai.astra.pet</string>
+            <key>CFBundleExecutable</key><string>AstraPet</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>$VERSION</string>
+            <key>CFBundleVersion</key><string>$VERSION</string>
+            <key>LSMinimumSystemVersion</key><string>12.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          PLIST
+          # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。下载后仍会被 Gatekeeper 拦，见下载页的说明。
+          codesign --force --deep --sign - "$APP"
+          ditto -c -k --keepParent "$APP" "AstraPet-$VERSION-${{ matrix.platform }}.zip"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Remove-Item publish/*.pdb -ErrorAction SilentlyContinue
+          Copy-Item ffmpeg-out/ffmpeg.exe publish/ffmpeg.exe
+          Compress-Archive -Path publish/* -DestinationPath "AstraPet-$env:VERSION-${{ matrix.platform }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AstraPet-${{ matrix.platform }}
+          path: AstraPet-*.zip
+          if-no-files-found: error
+
+  upload:
+    needs: [meta, build]
+    if: needs.meta.outputs.upload == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.meta.outputs.version }}
+      CHANNEL: ${{ needs.meta.outputs.channel }}
+      SITE: https://astra-gate.si
+      TOKEN: ${{ secrets.PET_UPLOAD_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload to LocalGate
+        shell: bash
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::没有配置 PET_UPLOAD_TOKEN（Secrets），跳过上传。构建产物在本次运行的 Artifacts 里。"
+            exit 0
+          fi
+
+          # 版本说明：上一个标签到这次之间的提交标题。
+          PREV=$(git describe --tags --abbrev=0 --match 'v*' "HEAD^" 2>/dev/null || true)
+          RANGE=${PREV:+$PREV..}HEAD
+          NOTES=$(git log --no-merges --pretty='- %s' $RANGE | head -n 50)
+          NOTES_B64=$(printf '%s' "$NOTES" | base64 | tr -d '\n')
+
+          for FILE in dist/AstraPet-*.zip; do
+            NAME=$(basename "$FILE")
+            PLATFORM=${NAME#AstraPet-$VERSION-}
+            PLATFORM=${PLATFORM%.zip}
+            echo "上传 $NAME（$PLATFORM）"
+            curl --fail-with-body -sS -X POST "$SITE/api/pet-releases/upload" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "x-astra-version: $VERSION" \
+              -H "x-astra-channel: $CHANNEL" \
+              -H "x-astra-platform: $PLATFORM" \
+              -H "x-astra-kind: zip" \
+              -H "x-astra-notes-b64: $NOTES_B64" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$FILE" -o response.json
+            # 站点返回它自己算的 sha256，和本地文件核对，防止传了一半或被中间人改过。
+            LOCAL=$(sha256sum "$FILE" | cut -d' ' -f1)
+            REMOTE=$(python3 -c "import json;print(json.load(open('response.json'))['file']['sha256'])")
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "::error::$NAME 的 sha256 对不上：本地 $LOCAL，站点 $REMOTE"
+              exit 1
+            fi
+          done
+          echo "已上传 $VERSION（$CHANNEL）：$SITE/pet"

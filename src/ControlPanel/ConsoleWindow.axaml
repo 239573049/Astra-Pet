@@ -1,0 +1,1118 @@
+<atom:Window xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:atom="https://atomui.net"
+             xmlns:local="using:AstraPet.ControlPanel"
+             xmlns:core="using:AstraPet.Core"
+             x:Class="AstraPet.ControlPanel.ConsoleWindow"
+             x:DataType="local:ConsoleViewModel"
+             Title="Astra Pet 控制台" atom:MacStandardWindowButtons.OffsetX="22"
+             Width="980" Height="760" MinWidth="760" MinHeight="560"
+             FontSize="12" RequestedThemeVariant="Dark"
+             Background="#F0171919" TransparencyLevelHint="AcrylicBlur,Blur"
+             TransparencyBackgroundFallback="#191B1B"
+             TitleBarFrameBackground="#D91B1D1D" IsTitleVisible="False"
+             WindowStartupLocation="CenterScreen">
+    <atom:Window.Resources>
+        <SolidColorBrush x:Key="ConsoleText">#E8E9E9</SolidColorBrush>
+        <SolidColorBrush x:Key="ConsoleMuted">#8D9190</SolidColorBrush>
+        <SolidColorBrush x:Key="ConsoleLine">#26FFFFFF</SolidColorBrush>
+        <SolidColorBrush x:Key="ConsoleAccent">#32AA7D</SolidColorBrush>
+        <!-- Liquid Glass 的边缘光：左上亮、右下次亮、中间几乎透明 -->
+        <LinearGradientBrush x:Key="GlassRim" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#44FFFFFF" Offset="0" />
+            <GradientStop Color="#10FFFFFF" Offset="0.4" />
+            <GradientStop Color="#0CFFFFFF" Offset="0.7" />
+            <GradientStop Color="#26FFFFFF" Offset="1" />
+        </LinearGradientBrush>
+    </atom:Window.Resources>
+    <atom:Window.Styles>
+        <Style Selector="atom|Window.glass /template/ Panel#TitleBarPanel">
+            <Setter Property="Margin" Value="0 0 0 -52" />
+            <Setter Property="ZIndex" Value="1" />
+        </Style>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource ConsoleText}" />
+        </Style>
+        <Style Selector="TextBlock.note">
+            <Setter Property="Foreground" Value="{DynamicResource ConsoleMuted}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="LineHeight" Value="17" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0 0 0 10" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="atom|Button">
+            <Setter Property="SizeType" Value="Small" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="10 3" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="atom|ComboBox">
+            <Setter Property="SizeType" Value="Small" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="atom|ToggleSwitch">
+            <Setter Property="SizeType" Value="Small" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource ConsoleText}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="10 0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="NavSurface" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav">
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <ThicknessTransition Property="Padding" Duration="0:0:0.28" Easing="QuinticEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav /template/ Border#NavSurface">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav:pointerover /template/ Border#NavSurface">
+            <Setter Property="Background" Value="#12FFFFFF" />
+        </Style>
+        <Style Selector="Button.nav:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.96)" />
+        </Style>
+        <Style Selector="Button.nav.active">
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <!-- 选中高亮：一块浮在导航项下面的玻璃胶囊，换页时滑过去 -->
+        <Style Selector="Border.nav-pill">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="#26FFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassRim}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
+        <Style Selector="Control.fade">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav:focus-visible /template/ Border#NavSurface">
+            <Setter Property="BorderBrush" Value="#8AABBFB5" />
+        </Style>
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassRim}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.sidebar">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassRim}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="BoxShadow" Value="0 6 24 0 #33000000" />
+            <Setter Property="Margin" Value="10 10 0 10" />
+            <Setter Property="Padding" Value="8 16 8 12" />
+        </Style>
+        <Style Selector="atom|Window.glass Border.sidebar">
+            <Setter Property="Padding" Value="8 50 8 12" />
+        </Style>
+        <Style Selector="Grid.page">
+            <Setter Property="Margin" Value="32 20 20 16" />
+        </Style>
+        <Style Selector="atom|Window.glass Grid.page">
+            <Setter Property="Margin" Value="32 14 20 16" />
+        </Style>
+        <Style Selector="Border.setting-row">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.18" />
+                </Transitions>
+            </Setter>
+            <Setter Property="Padding" Value="16 12" />
+            <Setter Property="MinHeight" Value="58" />
+            <Setter Property="BorderBrush" Value="#16FFFFFF" />
+            <Setter Property="BorderThickness" Value="0 0 0 1" />
+        </Style>
+        <Style Selector="Border.setting-row:pointerover">
+            <Setter Property="Background" Value="#0BFFFFFF" />
+        </Style>
+        <Style Selector="Border.setting-row.last">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="Background" Value="#162FBA81" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="7 3" />
+        </Style>
+            <Style Selector="atom|LineEdit">
+            <Setter Property="SizeType" Value="Small" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="atom|TextArea">
+            <Setter Property="SizeType" Value="Small" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#B8BFBB" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.ok">
+            <Setter Property="Foreground" Value="#8AC8AA" />
+        </Style>
+        <Style Selector="TextBlock.err">
+            <Setter Property="Foreground" Value="#E0A0A0" />
+        </Style>
+    </atom:Window.Styles>
+    <Grid>
+        <!-- 压一层薄薄的暗色：玻璃会随背后的内容变亮，没有它的话背后是浅色窗口时灰字对比度不够 -->
+        <Border IsHitTestVisible="False" Background="#3A000000" />
+        <Border IsHitTestVisible="False">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,100%" EndPoint="100%,0%">
+                    <GradientStop Color="#15325F51" Offset="0" />
+                    <GradientStop Color="#00191B1B" Offset="0.55" />
+                    <GradientStop Color="#07FFFFFF" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
+        <Grid ColumnDefinitions="Auto,*">
+            <Border Classes="sidebar" Width="{Binding SidebarWidth}">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Width" Duration="0:0:0.28" Easing="QuinticEaseOut" />
+                    </Transitions>
+                </Border.Transitions>
+                <Grid RowDefinitions="Auto,Auto,*,Auto" ClipToBounds="True">
+                    <Grid ColumnDefinitions="*,Auto" Margin="8 0 0 22">
+                        <StackPanel VerticalAlignment="Center" Classes="fade" Opacity="{Binding SidebarLabelOpacity}" Spacing="3">
+                            <TextBlock Text="Astra Pet" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="控制台" Classes="note" FontSize="10" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="nav" Click="OnToggleSidebar" Width="30" Height="28" Padding="7"
+                                Margin="{Binding SidebarToggleMargin}"
+                                ToolTip.Tip="展开 / 收起菜单" AutomationProperties.Name="展开或收起侧边菜单">
+                            <Button.Transitions>
+                                <Transitions>
+                                    <ThicknessTransition Property="Margin" Duration="0:0:0.28" Easing="QuinticEaseOut" />
+                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Button.Transitions>
+                            <Path Data="M 3,4 L 21,4 L 21,20 L 3,20 Z M 9,4 L 9,20"
+                                  Stroke="#ADB3B0" StrokeThickness="1.5" Width="15" Height="15" Stretch="Uniform" />
+                        </Button>
+                    </Grid>
+                    <Grid Grid.Row="1">
+                    <Border x:Name="NavPill" Classes="nav-pill" Margin="{Binding NavHighlightMargin}" />
+                    <ItemsControl ItemsSource="{Binding Pages}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Spacing="3" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:NavItem">
+                                <Button Classes="nav" Classes.active="{Binding IsActive}" Tag="{Binding Key}" Click="OnNavigate"
+                                        Padding="{Binding $parent[ItemsControl].((local:ConsoleViewModel)DataContext).NavPadding}"
+                                        ToolTip.Tip="{Binding Label}" AutomationProperties.Name="{Binding Label}">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Path Data="{Binding Icon}" Stroke="#CFD3D0" StrokeThickness="1.5" Width="15" Height="15" Stretch="Uniform" />
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Classes="fade"
+                                                   Opacity="{Binding $parent[ItemsControl].((local:ConsoleViewModel)DataContext).SidebarLabelOpacity}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </Grid>
+                    <StackPanel Grid.Row="3" Spacing="8">
+                        <Border Height="1" Background="#16FFFFFF" Margin="8 0 8 4" />
+                        <Button Classes="nav" Click="OnExit" Padding="{Binding NavPadding}" ToolTip.Tip="退出宠物" AutomationProperties.Name="退出宠物">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Path Data="M 12,2 L 12,12 M 6,5 A 9,9 0 1 0 18,5" Stroke="#C48D8D" StrokeThickness="1.5" Width="15" Height="15" Stretch="Uniform" />
+                                <TextBlock Text="退出宠物" Foreground="#CFA0A0" Classes="fade" Opacity="{Binding SidebarLabelOpacity}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Grid Grid.Column="1" Classes="page" RowDefinitions="Auto,*" MaxWidth="820">
+                <StackPanel x:Name="PageHeader" Spacing="5" Margin="0 0 0 20">
+                    <TextBlock Text="{Binding PageTitle}" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding PageDescription}" Classes="note" />
+                </StackPanel>
+                <Grid Grid.Row="1" x:Name="PageHost">
+<ScrollViewer IsVisible="{Binding IsGeneral}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="启动" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="开机自启" Classes="label" />
+    <TextBlock Text="登录系统后自动启动 Astra Pet。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoStart, Mode=TwoWay}" IsEnabled="{Binding AutoStartSupported}" AutomationProperties.Name="开机自启" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="窗口" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="窗口置顶" Classes="label" />
+    <TextBlock Text="宠物始终显示在其他窗口上方。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Topmost, Mode=TwoWay}" AutomationProperties.Name="窗口置顶" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="全屏隐藏" Classes="label" />
+    <TextBlock Text="其他应用全屏时（看视频、玩游戏、演示）不显示宠物。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.HideInFullscreen, Mode=TwoWay}" AutomationProperties.Name="全屏隐藏" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="允许录屏捕获" Classes="label" />
+    <TextBlock Text="让 OBS 等录屏、直播软件可以录到宠物。关闭后录屏里看不到它。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AllowCapture, Mode=TwoWay}" AutomationProperties.Name="允许录屏捕获" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="透明处点击穿透" Classes="label" />
+    <TextBlock Text="鼠标可以穿过角色周围的透明区域，点到下面的窗口。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickThrough, Mode=TwoWay}" AutomationProperties.Name="透明处点击穿透" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<TextBlock Text="{Binding PlatformNote}" Classes="note" />
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="更新" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="当前版本" Classes="label" />
+    <TextBlock Text="{Binding Update.CurrentVersion}" Classes="note" />
+    <TextBlock Text="{Binding Update.Status}" Classes="note" />
+    <TextBlock Text="{Binding Update.CheckedAt}" Classes="note" IsVisible="{Binding Update.HasChecked}" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="检查更新" VerticalAlignment="Center" Click="OnCheckUpdate" IsEnabled="{Binding Update.CanCheck}" />
+</Grid>
+</Border>
+<Border Classes="setting-row" IsVisible="{Binding Update.HasUpdate}">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="{Binding Update.NewVersion}" Classes="label" />
+    <TextBlock Text="{Binding Update.NewNotes}" Classes="note" IsVisible="{Binding Update.HasNotes}" MaxLines="6" TextTrimming="CharacterEllipsis" />
+    <TextBlock Text="下载后解压，覆盖旧版本即可，设置和记忆会保留。" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" ButtonType="Primary" Content="下载更新" VerticalAlignment="Center" Click="OnDownloadUpdate" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="自动检查更新" Classes="label" />
+    <TextBlock Text="启动后和每隔几小时检查一次，有新版本时宠物会冒气泡提醒（同一个版本只提醒一次）。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoCheckUpdate, Mode=TwoWay}" AutomationProperties.Name="自动检查更新" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="接收预览版" Classes="label" />
+    <TextBlock Text="同时检查预览版。预览版带有还没正式发布的新功能，可能不稳定。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Update.UsePreview, Mode=TwoWay}" AutomationProperties.Name="接收预览版" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<StackPanel Spacing="8">
+<StackPanel Spacing="3">
+    <TextBlock Text="更新服务器" Classes="label" />
+    <TextBlock Text="LocalGate 站点的地址，例如 https://astra-gate.si。留空就用程序内置的地址。" Classes="note" />
+</StackPanel>
+<atom:LineEdit Text="{Binding Settings.UpdateServer, Mode=TwoWay}" PlaceholderText="https://…" />
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="关于与许可" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="版权与许可" Classes="label" />
+    <TextBlock Text="程序源码以 MIT 协议开源：github.com/239573049/Astra-Pet" Classes="note" />
+    <TextBlock Text="宠物形象和动画的版权归 RoutinAI (routin.ai) 所有，保留所有权利，不在 MIT 授权范围内。" Classes="note" />
+    <TextBlock Text="第三方组件各有各的许可，其中控件库 AtomUI 是 LGPL-3.0。许可全文在程序目录的 licenses 文件夹里。" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="打开许可文件夹" VerticalAlignment="Center" Click="OnOpenLicenses" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="数据" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="设置文件" Classes="label" />
+<TextBlock Text="{Binding SettingsPath}" Classes="note" />
+<TextBlock Text="所有设置（包括 API Key 和记忆）都明文保存在这里，改动会自动保存。" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="打开目录" VerticalAlignment="Center" Click="OnOpenSettingsFolder" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsPet}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="角色" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="9">
+<StackPanel Spacing="3">
+<TextBlock Text="当前角色" Classes="label" />
+<TextBlock Text="{Binding PetInfo}" Classes="note" />
+</StackPanel>
+<atom:ComboBox ItemsSource="{Binding Pets}" SelectedItem="{Binding SelectedPet, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="当前角色" />
+<TextBlock Text="{Binding PetStatus}" Classes="note" IsVisible="{Binding HasPetStatus}" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="角色目录" Classes="label" />
+<TextBlock Text="{Binding PetsDirectory}" Classes="note" />
+<TextBlock Text="每个角色一个文件夹，里面放 videos 文件夹，videos 下按 idle、click、drag、move、turn 分类（sing 可选），每类至少一段 640×360 带透明通道的 webm。把仓库 characters 下的角色文件夹拷进来，点「刷新」就能选。" Classes="note" />
+<StackPanel Spacing="3" Margin="0 4 0 0" IsVisible="{Binding HasPetProblems}">
+<TextBlock Text="下面的文件夹素材不全，选不了：" Classes="note" />
+<TextBlock Text="{Binding PetProblems}" Classes="note" />
+</StackPanel>
+</StackPanel>
+<StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+<atom:Button Content="打开目录" HorizontalAlignment="Stretch" Click="OnOpenPetsFolder" />
+<atom:Button Content="刷新" HorizontalAlignment="Stretch" Click="OnRefreshPets" />
+</StackPanel>
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="状态" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="当前状态" Classes="label" />
+<TextBlock Text="{Binding StatusText}" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="回到屏幕中央" VerticalAlignment="Center" Click="OnResetPosition" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="显示宠物" Classes="label" />
+    <TextBlock Text="隐藏后可以在这里重新打开。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Visible, Mode=TwoWay}" AutomationProperties.Name="显示宠物" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="暂停动画" Classes="label" />
+    <TextBlock Text="定格在当前帧，不占 CPU。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Paused, Mode=TwoWay}" AutomationProperties.Name="暂停动画" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="外观" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="宠物大小" Classes="label" />
+    <TextBlock Text="调整桌面角色的大小。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Scale, StringFormat={}{0:P0}}" />
+</Grid>
+<atom:Slider Minimum="0.25" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.Scale, Mode=TwoWay}" AutomationProperties.Name="宠物大小" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="气泡文字大小" Classes="label" />
+    <TextBlock Text="头顶对话气泡的字号。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.BubbleFontSize, StringFormat={}{0:0} px}" />
+</Grid>
+<atom:Slider Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.BubbleFontSize, Mode=TwoWay}" AutomationProperties.Name="气泡文字大小" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="透明度" Classes="label" />
+    <TextBlock Text="整个角色的不透明程度。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Opacity, StringFormat={}{0:P0}}" />
+</Grid>
+<atom:Slider Minimum="0.2" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.Opacity, Mode=TwoWay}" AutomationProperties.Name="透明度" />
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="动画" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="动画播放速度" Classes="label" />
+    <TextBlock Text="加快或放慢动画，走路速度跟着变。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Speed, StringFormat={}{0:0.0}×}" />
+</Grid>
+<atom:Slider Minimum="0.5" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.Speed, Mode=TwoWay}" AutomationProperties.Name="动画播放速度" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="动作间隔时间" Classes="label" />
+    <TextBlock Text="两次自动动作之间至少待机多久，0 表示不限制。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.ActionInterval, StringFormat={}{0} 秒}" />
+</Grid>
+<atom:Slider Minimum="0" Maximum="300" TickFrequency="5" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.ActionInterval, Mode=TwoWay}" AutomationProperties.Name="动作间隔时间" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="不移动" Classes="label" />
+    <TextBlock Text="不再自动走来走去，只在原地做动作。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.StayStill, Mode=TwoWay}" AutomationProperties.Name="不移动" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="省电与感知" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="省电模式" Classes="label" />
+    <TextBlock Text="一段时间没有操作键盘鼠标时，只播待机动画并降低帧率。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.PowerSaving, Mode=TwoWay}" AutomationProperties.Name="省电模式" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="多久算离开" Classes="label" />
+    <TextBlock Text="没有操作超过这个时间后进入省电。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PowerSavingMinutes, StringFormat={}{0} 分钟}" />
+</Grid>
+<atom:Slider Minimum="1" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.PowerSaving}"
+             Value="{Binding Settings.PowerSavingMinutes, Mode=TwoWay}" AutomationProperties.Name="多久算离开" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="音乐检测" Classes="label" />
+<TextBlock Text="{Binding MusicNote}" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.MusicDetect, Mode=TwoWay}" AutomationProperties.Name="音乐检测" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsInteraction}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="互动方式" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="单击回应" Classes="label" />
+    <TextBlock Text="单击角色时播放一段回应动作。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickReact, Mode=TwoWay}" AutomationProperties.Name="单击回应" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="单击说话" Classes="label" />
+    <TextBlock Text="单击时从下面的台词里随机说一句。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickBubble, Mode=TwoWay}" AutomationProperties.Name="单击说话" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="双击聊天" Classes="label" />
+    <TextBlock Text="双击角色打开对话框，和智能体聊天。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DoubleClickChat, Mode=TwoWay}" AutomationProperties.Name="双击聊天" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="拖拽移动" Classes="label" />
+    <TextBlock Text="按住角色拖动，它会悬空挣扎。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DragEnabled, Mode=TwoWay}" AutomationProperties.Name="拖拽移动" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="摸摸头" Classes="label" />
+    <TextBlock Text="鼠标在角色身上来回划动，它会害羞地回应。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Petting, Mode=TwoWay}" AutomationProperties.Name="摸摸头" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="点击台词" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<StackPanel Spacing="9">
+<TextBlock Text="一行一句，单击时随机挑一句。" Classes="note" />
+<atom:TextArea Text="{Binding Settings.ClickLines, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
+               Height="130" VerticalContentAlignment="Top" AutomationProperties.Name="点击台词" />
+<atom:Button HorizontalAlignment="Right" Content="说一句试试" Click="OnSayLine" />
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="互动动作" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<StackPanel Spacing="10">
+<TextBlock Text="点一下让它马上做这个动作，做完回到待机。" Classes="note" />
+<ItemsControl ItemsSource="{Binding ActionOptions}">
+<ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+<ItemsControl.ItemTemplate>
+<DataTemplate x:DataType="local:ActionOption">
+<atom:Button Content="{Binding Label}" Tag="{Binding Category}" MinWidth="64" Click="OnPlayAction" />
+</DataTemplate>
+</ItemsControl.ItemTemplate>
+</ItemsControl>
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsMenu}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="右键菜单" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<TextBlock Text="打开开关的项会出现在宠物的右键菜单里，用箭头调整顺序。「退出」始终保留。" Classes="note" />
+</Border>
+<Border Classes="setting-row" Padding="0" MinHeight="0">
+<ItemsControl ItemsSource="{Binding Settings.MenuItems}">
+<ItemsControl.ItemTemplate>
+<DataTemplate x:DataType="core:MenuEntry">
+<Border BorderBrush="#1CFFFFFF" BorderThickness="0 0 0 1" Padding="16 10">
+<Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="{Binding Label}" Classes="label" />
+<TextBlock Text="{Binding Description}" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="↑" Tag="{Binding}" Click="OnMenuUp" ToolTip.Tip="上移" />
+<atom:Button Grid.Column="2" Content="↓" Tag="{Binding}" Click="OnMenuDown" ToolTip.Tip="下移" />
+<atom:ToggleSwitch Grid.Column="3" Margin="10 0 0 0" IsChecked="{Binding Visible, Mode=TwoWay}" IsEnabled="{Binding CanHide}" />
+</Grid>
+</Border>
+</DataTemplate>
+</ItemsControl.ItemTemplate>
+</ItemsControl>
+</Border>
+<Border Classes="setting-row last">
+<atom:Button HorizontalAlignment="Right" Content="恢复默认" Click="OnResetMenu" />
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsWidgets}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="问候与报时" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="每日问候" Classes="label" />
+    <TextBlock Text="启动时按早中晚打个招呼。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DailyGreeting, Mode=TwoWay}" AutomationProperties.Name="每日问候" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="整点报时" Classes="label" />
+    <TextBlock Text="每到整点在头顶报一次时间。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.HourlyChime, Mode=TwoWay}" AutomationProperties.Name="整点报时" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="健康提醒" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="喝水提醒" Classes="label" />
+    <TextBlock Text="定时提醒你喝水。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DrinkReminder, Mode=TwoWay}" AutomationProperties.Name="喝水提醒" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="喝水间隔" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.DrinkMinutes, StringFormat={}{0} 分钟}" />
+</Grid>
+<atom:Slider Minimum="10" Maximum="240" TickFrequency="5" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.DrinkReminder}"
+             Value="{Binding Settings.DrinkMinutes, Mode=TwoWay}" AutomationProperties.Name="喝水间隔" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="久坐提醒" Classes="label" />
+    <TextBlock Text="连续使用电脑太久时提醒起身活动，离开 5 分钟以上会重新计时。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SitReminder, Mode=TwoWay}" AutomationProperties.Name="久坐提醒" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="久坐时长" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SitMinutes, StringFormat={}{0} 分钟}" />
+</Grid>
+<atom:Slider Minimum="10" Maximum="240" TickFrequency="5" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.SitReminder}"
+             Value="{Binding Settings.SitMinutes, Mode=TwoWay}" AutomationProperties.Name="久坐时长" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="试一下" Classes="label" />
+    <TextBlock Text="在宠物头顶冒一条测试提醒。" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="测试气泡" VerticalAlignment="Center" Click="OnTestBubble" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="番茄钟" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="专注时长" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PomodoroWork, StringFormat={}{0} 分钟}" />
+</Grid>
+<atom:Slider Minimum="5" Maximum="90" TickFrequency="5" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.PomodoroWork, Mode=TwoWay}" AutomationProperties.Name="专注时长" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="休息时长" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PomodoroRest, StringFormat={}{0} 分钟}" />
+</Grid>
+<atom:Slider Minimum="1" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.PomodoroRest, Mode=TwoWay}" AutomationProperties.Name="休息时长" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="当前状态" Classes="label" />
+<TextBlock Text="{Binding PomodoroStatus}" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" ButtonType="Primary" Content="{Binding PomodoroButtonText}" VerticalAlignment="Center" Click="OnTogglePomodoro" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsAi}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<local:ProvidersPanel DataContext="{Binding Hub}" />
+<StackPanel>
+<TextBlock Classes="section" Text="对话参数" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="温度" Classes="label" />
+    <TextBlock Text="越高回答越随性，越低越稳定。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Temperature, StringFormat={}{0:0.0}}" />
+</Grid>
+<atom:Slider Minimum="0" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.Temperature, Mode=TwoWay}" AutomationProperties.Name="温度" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="最大回复长度" Classes="label" />
+    <TextBlock Text="单次回复最多的 token 数。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.MaxTokens, StringFormat={}{0} tokens}" />
+</Grid>
+<atom:Slider Minimum="64" Maximum="4096" TickFrequency="64" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.MaxTokens, Mode=TwoWay}" AutomationProperties.Name="最大回复长度" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="上下文轮数" Classes="label" />
+    <TextBlock Text="每次请求带上最近几轮对话，0 表示不带。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.ContextTurns, StringFormat={}{0} 轮}" />
+</Grid>
+<atom:Slider Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.ContextTurns, Mode=TwoWay}" AutomationProperties.Name="上下文轮数" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="超时时间" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.TimeoutSeconds, StringFormat={}{0} 秒}" />
+</Grid>
+<atom:Slider Minimum="10" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.TimeoutSeconds, Mode=TwoWay}" AutomationProperties.Name="超时时间" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="打开对话" Classes="label" />
+    <TextBlock Text="也可以双击宠物，或在右键菜单里选「和我聊天」。" Classes="note" />
+</StackPanel>
+<atom:Button Grid.Column="1" ButtonType="Primary" Content="和它聊天" VerticalAlignment="Center" Click="OnOpenChat" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="系统提示词" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row last">
+<StackPanel Spacing="9">
+<TextBlock Text="设定它的性格和说话方式。发送时会自动在后面附上记忆和当前时间。" Classes="note" />
+<atom:TextArea Text="{Binding Settings.SystemPrompt, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
+               Height="140" VerticalContentAlignment="Top" AutomationProperties.Name="系统提示词" />
+<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+<atom:Button Content="恢复默认" Click="OnResetPrompt" />
+<atom:Button Content="预览完整提示词" Click="OnPreviewPrompt" />
+</StackPanel>
+<SelectableTextBlock Text="{Binding PromptPreview}" TextWrapping="Wrap" FontSize="11" Foreground="#B8BFBB"
+                     IsVisible="{Binding PromptPreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="记忆" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="启用记忆" Classes="label" />
+    <TextBlock Text="把记住的用户信息写进系统提示词，聊天时它会记得你。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.MemoryEnabled, Mode=TwoWay}" AutomationProperties.Name="启用记忆" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="自动记忆" Classes="label" />
+    <TextBlock Text="每轮对话后让模型提取兴趣爱好、习惯等值得记住的信息（会多一次请求）。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoMemory, Mode=TwoWay}" IsEnabled="{Binding Settings.MemoryEnabled}" AutomationProperties.Name="自动记忆" />
+</Grid>
+</Border>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+<atom:LineEdit Text="{Binding NewMemory, Mode=TwoWay}" PlaceholderText="手动添加，例如：用户喜欢猫，养了一只橘猫叫团子" KeyDown="OnMemoryKeyDown" />
+<atom:Button Grid.Column="1" Content="添加" Click="OnAddMemory" />
+</Grid>
+</Border>
+<Border Classes="setting-row last" Padding="0" MinHeight="0">
+<StackPanel>
+<ItemsControl ItemsSource="{Binding Settings.Memories}">
+<ItemsControl.ItemTemplate>
+<DataTemplate x:DataType="core:MemoryItem">
+<Border BorderBrush="#1CFFFFFF" BorderThickness="0 0 0 1" Padding="16 9">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+<StackPanel Spacing="3">
+<TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+<TextBlock Text="{Binding Meta}" Classes="note" FontSize="10" />
+</StackPanel>
+<atom:Button Grid.Column="1" Content="删除" Tag="{Binding}" Click="OnRemoveMemory" VerticalAlignment="Center" />
+</Grid>
+</Border>
+</DataTemplate>
+</ItemsControl.ItemTemplate>
+</ItemsControl>
+<TextBlock Text="还没有记忆。和它聊聊你的爱好吧。" Classes="note" Margin="16 12" IsVisible="{Binding !Settings.Memories.Count}" />
+<Grid ColumnDefinitions="*,Auto" Margin="16 10">
+<TextBlock Text="{Binding Settings.Memories.Count, StringFormat=共 {0} 条（最多 100 条，超出时丢弃最早的）}" Classes="note" VerticalAlignment="Center" />
+<atom:Button Grid.Column="1" Content="清空记忆" IsDanger="True" Click="OnClearMemories" />
+</Grid>
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+<ScrollViewer IsVisible="{Binding IsVoice}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Spacing="20" Margin="0 0 12 4">
+<StackPanel>
+<TextBlock Classes="section" Text="朗读" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="朗读回复" Classes="label" />
+    <TextBlock Text="智能体的回复同时用语音念出来。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SpeakReplies, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读回复" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="朗读提醒" Classes="label" />
+    <TextBlock Text="问候、报时、喝水等提醒和点击台词也念出来。" Classes="note" />
+</StackPanel>
+<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SpeakReminders, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读提醒" />
+</Grid>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+<StackPanel>
+<TextBlock Classes="section" Text="声音" />
+<Border Classes="card">
+<StackPanel>
+<Border Classes="setting-row">
+<StackPanel Spacing="9">
+<StackPanel Spacing="3">
+<TextBlock Text="语音" Classes="label" />
+<TextBlock Text="使用系统自带的语音，中文语音排在前面。macOS 可在「系统设置 → 辅助功能 → 朗读内容」下载更多语音。" Classes="note" />
+</StackPanel>
+<atom:ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="语速" Classes="label" />
+    <TextBlock Text="每分钟大约念多少字。" Classes="note" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SpeechRate, StringFormat={}{0}}" />
+</Grid>
+<atom:Slider Minimum="80" Maximum="400" TickFrequency="10" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.SpeechRate, Mode=TwoWay}" AutomationProperties.Name="语速" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row">
+<StackPanel Spacing="10">
+<Grid ColumnDefinitions="*,Auto">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+    <TextBlock Text="音量" Classes="label" />
+</StackPanel>
+<TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SpeechVolume, StringFormat={}{0:P0}}" />
+</Grid>
+<atom:Slider Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+             Value="{Binding Settings.SpeechVolume, Mode=TwoWay}" AutomationProperties.Name="音量" />
+</StackPanel>
+</Border>
+<Border Classes="setting-row last">
+<StackPanel Spacing="9">
+<TextBlock Text="试听" Classes="label" />
+<Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+<atom:LineEdit Text="{Binding SpeechSample, Mode=TwoWay}" />
+<atom:Button Grid.Column="1" ButtonType="Primary" Content="试听" Click="OnTestSpeech" />
+<atom:Button Grid.Column="2" Content="停止" Click="OnStopSpeech" />
+</Grid>
+</StackPanel>
+</Border>
+</StackPanel>
+</Border>
+</StackPanel>
+</StackPanel>
+</ScrollViewer>
+                </Grid>
+            </Grid>
+        </Grid>
+        <local:ProviderDialogs DataContext="{Binding Hub}" />
+    </Grid>
+</atom:Window>

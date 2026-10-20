@@ -1,0 +1,41 @@
+MIT License
+
+Copyright (c) 2026 RoutinAI (https://routin.ai)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+SCOPE OF THIS LICENSE / 本许可的适用范围
+
+This license covers the SOURCE CODE of Astra Pet only.
+
+It does NOT cover the pet characters, animations and related artwork
+("Pet Assets"), such as the files under src/Assets/videos/, characters/ and
+astra/. The Pet Assets are copyright (c) 2026 RoutinAI (https://routin.ai),
+ALL RIGHTS RESERVED, and are licensed separately: see LICENSE-ASSETS.md.
+
+Third-party components keep their own licenses: see THIRD_PARTY_NOTICES.md.
+
+本许可只适用于 Astra Pet 的【源代码】。
+
+宠物形象、动画和相关美术素材（"宠物素材"，例如 src/Assets/videos/、characters/、
+astra/ 下的文件）不在本许可范围内。宠物素材的版权归 RoutinAI (https://routin.ai)
+所有，保留所有权利，另行授权，见 LICENSE-ASSETS.md。
+
+第三方组件保留各自的许可，见 THIRD_PARTY_NOTICES.md。

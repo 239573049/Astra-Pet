@@ -1,0 +1,50 @@
+<atom:Window xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:atom="https://atomui.net"
+             xmlns:local="using:AstraPet.ControlPanel"
+             xmlns:sm="clr-namespace:StreamMark.Avalonia;assembly=StreamMark.Avalonia"
+             x:Class="AstraPet.ControlPanel.ChatWindow"
+             x:DataType="local:ChatViewModel"
+             Title="和 Astra 聊天"
+             Width="380" Height="520" MinWidth="320" MinHeight="360"
+             FontSize="12" RequestedThemeVariant="Dark"
+             Background="#F0171919" TransparencyLevelHint="AcrylicBlur,Blur"
+             TransparencyBackgroundFallback="#191B1B"
+             TitleBarFrameBackground="#D91B1D1D" IsTitleVisible="False"
+             WindowStartupLocation="CenterScreen">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16 12 16 14">
+        <Grid ColumnDefinitions="*,Auto" Margin="0 0 0 10">
+            <StackPanel Spacing="2">
+                <TextBlock Text="和 Astra 聊天" FontSize="14" FontWeight="SemiBold" Foreground="#E8E9E9" />
+                <TextBlock Text="{Binding ProviderText}" FontSize="10.5" Foreground="#8D9190" />
+            </StackPanel>
+            <atom:Button Grid.Column="1" Content="清空上下文" SizeType="Small" VerticalAlignment="Center" Click="OnClear" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Lines}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Spacing="8" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:ChatLine">
+                        <Border CornerRadius="10" Padding="10 7" MaxWidth="330"
+                                HorizontalAlignment="{Binding Alignment}" Background="{Binding Background}">
+                            <Panel>
+                                <SelectableTextBlock Text="{Binding Text}" IsVisible="{Binding IsPlain}" TextWrapping="Wrap"
+                                                     Foreground="{Binding Foreground}" LineHeight="18" />
+                                <sm:MarkdownView Markdown="{Binding Text}" IsVisible="{Binding IsMarkdown}" />
+                            </Panel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+        <TextBlock Grid.Row="1" Text="说点什么吧～ 回车发送，回复也会出现在宠物头顶。" FontSize="11" Foreground="#8D9190"
+                   IsVisible="{Binding !Lines.Count}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0 12 0 0">
+            <atom:LineEdit x:Name="Input" Text="{Binding Input, Mode=TwoWay}" PlaceholderText="和它说话…"
+                           SizeType="Middle" KeyDown="OnInputKeyDown" IsEnabled="{Binding !Busy}" />
+            <atom:Button Grid.Column="1" ButtonType="Primary" Content="发送" Click="OnSend" IsEnabled="{Binding !Busy}" />
+        </Grid>
+    </Grid>
+</atom:Window>

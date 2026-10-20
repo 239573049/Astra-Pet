@@ -1,0 +1,13 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:smt="clr-namespace:StreamMark.Avalonia.Themes;assembly=StreamMark.Avalonia"
+             xmlns:smatom="clr-namespace:StreamMark.Theme.AtomUI;assembly=StreamMark.Theme.AtomUI"
+             x:Class="AstraPet.App"
+             RequestedThemeVariant="Dark">
+    <!-- AtomUI 的主题由它自己在 App.Initialize 里装，这里不再挂 FluentTheme。
+         Markdown 的样式在 XAML 里引入：编译期解析，NativeAOT 安全（代码里 new StyleInclude 会产生 IL2026）。 -->
+    <Application.Styles>
+        <smt:StreamMarkTheme />
+        <smatom:AtomUIMarkdownTheme />
+    </Application.Styles>
+</Application>

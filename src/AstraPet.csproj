@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- 版本号：发布时由 GitHub 工作流用 -p:Version=x.y.z 覆盖，更新检测拿它和服务器上的最新版本比较。 -->
+    <Version>0.1.0</Version>
+    <Product>Astra Pet</Product>
+    <Authors>RoutinAI</Authors>
+    <Company>RoutinAI</Company>
+    <RepositoryUrl>https://github.com/239573049/Astra-Pet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Copyright>Copyright (c) 2026 RoutinAI (https://routin.ai). Source code: MIT. Pet artwork: all rights reserved, see LICENSE-ASSETS.md.</Copyright>
+    <!-- 更新服务器：LocalGate 官网，固定是这个地址。用户可以在控制台里改成别的；构建时也能用 -p:UpdateBaseUrl=https://… 覆盖。 -->
+    <UpdateBaseUrl Condition="'$(UpdateBaseUrl)' == ''">https://astra-gate.si</UpdateBaseUrl>
+    <!-- NativeAOT：编译期就把裁剪和 AOT 的问题报出来，不要等到运行时才炸。 -->
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+  </PropertyGroup>
+
+  <!-- 版本号和更新服务器地址写成常量，不靠 Assembly.GetCustomAttributes 反射读：NativeAOT 下那条路会因为元数据被裁掉而读不到。 -->
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <BuildInfoFile>$(IntermediateOutputPath)BuildInfo.g.cs</BuildInfoFile>
+      <BuildInfoSource>namespace AstraPet.Core%3B internal static class BuildInfo { public const string Version = "$(Version)"%3B public const string UpdateBaseUrl = "$(UpdateBaseUrl)"%3B }</BuildInfoSource>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(BuildInfoFile)" Lines="$(BuildInfoSource)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(BuildInfoFile)" />
+      <FileWrites Include="$(BuildInfoFile)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.2.6" />
+    <PackageReference Include="AtomUI.Generator" Version="6.2.6" PrivateAssets="all" />
+    <!-- 流式 Markdown 渲染（对话框里的回复用）。包名在 nuget.org 上是 TKCode.StreamMark.*，程序集和命名空间仍是 StreamMark.*。 -->
+    <PackageReference Include="TKCode.StreamMark.Avalonia" Version="0.1.0-alpha.22" />
+    <PackageReference Include="TKCode.StreamMark.Highlighting.TextMate" Version="0.1.0-alpha.22" />
+    <PackageReference Include="TKCode.StreamMark.Theme.AtomUI" Version="0.1.0-alpha.22" />
+    <!-- 从其他应用导入提供商：CC Switch 是 SQLite，Codex 是 TOML，DeepSeek Harness 是 YAML。 -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 提供商图标，来自 LobeHub Icons，见 tools/fetch_provider_icons.sh -->
+    <AvaloniaResource Include="Assets\providers\**\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 内置的模型参数库，来自 models.dev，见 tools/fetch_models_dev.py。Core 不依赖 Avalonia，所以内嵌成程序集资源。 -->
+    <EmbeddedResource Include="Assets\models.dev.json" LogicalName="models.dev.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\videos\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 许可文件随程序一起分发（开发运行和发布包里都在程序目录下的 licenses/），LGPL 和宠物素材的版权声明都要求附带。 -->
+    <Content Include="..\LICENSE;..\LICENSE-ASSETS.md;..\THIRD_PARTY_NOTICES.md" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

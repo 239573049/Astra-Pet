@@ -1,0 +1,20 @@
+# 构建产物
+bin/
+obj/
+publish/
+*.dSYM/
+
+# 编辑器、系统
+.DS_Store
+.vs/
+
+# 素材生成工具的 Python 环境
+tools/petgen/.venv/
+__pycache__/
+*.pyc
+
+# 第三方素材（来自 dsh-pet，不是 RoutinAI 的作品，不能随本仓库公开发布，见 LICENSE-ASSETS.md 第 2 节）
+characters/deepseek/
+
+# 素材生成的任务记录（petgen 用它防止重复提交付费任务）。里面有带签名的下载链接，含云服务的 Access Key ID，不能公开。
+characters/**/*.task.json

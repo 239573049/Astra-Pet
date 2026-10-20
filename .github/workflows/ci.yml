@@ -1,0 +1,24 @@
+name: ci
+
+# 每次推送和 PR 都编一遍 Native AOT 的 macOS 版并跑一次冒烟，尽早发现 AOT 警告变成运行时错误。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build (Native AOT)
+        # 先 build 再 publish --no-build：直接 publish 开着 AOT 时，Avalonia 的 XAML 编译会被跳过，
+        # App.Initialize 里的 AvaloniaXamlLoader.Load 不会被改写，程序一启动就报 “No precompiled XAML found”。
+        run: |
+          dotnet build src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true
+          dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
+      - name: Smoke test
+        run: ./publish/AstraPet --smoke

@@ -1,0 +1,211 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:atom="https://atomui.net"
+             xmlns:local="using:AstraPet.ControlPanel"
+             x:Class="AstraPet.ControlPanel.ProvidersPanel"
+             x:DataType="local:ProvidersViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.pcard">
+            <Setter Property="Background" Value="#B31D1F1F" />
+            <Setter Property="BorderBrush" Value="#24FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="228" />
+            <Setter Property="Margin" Value="0 0 12 12" />
+        </Style>
+        <Style Selector="Border.pcard:pointerover">
+            <Setter Property="BorderBrush" Value="#45FFFFFF" />
+        </Style>
+        <Style Selector="Border.pcard.active">
+            <Setter Property="BorderBrush" Value="#9932AA7D" />
+        </Style>
+        <Style Selector="Border.icontile">
+            <Setter Property="Background" Value="#F1F3F2" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+        </Style>
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6 2" />
+            <Setter Property="Margin" Value="0 0 4 4" />
+        </Style>
+        <Style Selector="Border.chip TextBlock">
+            <Setter Property="FontFamily" Value="Menlo,Consolas,monospace" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="#B8BFBB" />
+        </Style>
+        <Style Selector="Border.status">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="8 2" />
+        </Style>
+        <Style Selector="Border.status Ellipse.dot">
+            <Setter Property="Fill" Value="#6B716F" />
+        </Style>
+        <Style Selector="Border.status.on">
+            <Setter Property="Background" Value="#2432AA7D" />
+        </Style>
+        <Style Selector="Border.status.on Ellipse.dot">
+            <Setter Property="Fill" Value="#4CD39F" />
+        </Style>
+        <Style Selector="Border.notice">
+            <Setter Property="Background" Value="#1A32AA7D" />
+            <Setter Property="BorderBrush" Value="#4032AA7D" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12 8" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="Menlo,Consolas,monospace" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="#8D9190" />
+        </Style>
+        <Style Selector="TextBlock.warn">
+            <Setter Property="Foreground" Value="#D9B36C" />
+        </Style>
+        <Style Selector="Button.iconbtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="6">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.iconbtn:pointerover /template/ Border#Surface">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+        <Style Selector="Button.iconbtn:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="3" VerticalAlignment="Center">
+                <TextBlock Classes="section" Text="提供商" Margin="0" />
+                <TextBlock Classes="note" Text="{Binding CountText}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <atom:Button Click="OnImport" AutomationProperties.Name="从其他应用导入">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="M 12,4 L 12,15 M 7,10 L 12,15 L 17,10 M 5,20 L 19,20" Stroke="#CFD3D0" StrokeThickness="1.6"
+                              Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="从其他应用导入" VerticalAlignment="Center" />
+                    </StackPanel>
+                </atom:Button>
+                <atom:Button ButtonType="Primary" Click="OnAdd" AutomationProperties.Name="添加提供商">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="M 12,5 L 12,19 M 5,12 L 19,12" Stroke="White" StrokeThickness="1.8"
+                              Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="添加提供商" Foreground="White" VerticalAlignment="Center" />
+                    </StackPanel>
+                </atom:Button>
+            </StackPanel>
+        </Grid>
+
+        <Border Classes="notice" IsVisible="{Binding HasNotice}">
+            <TextBlock Text="{Binding Notice}" Foreground="#9ED9BE" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid IsVisible="{Binding IsEmpty}" Height="170">
+            <Rectangle Stroke="#38FFFFFF" StrokeThickness="1" StrokeDashArray="4,4" RadiusX="12" RadiusY="12" />
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                <TextBlock Text="还没有提供商" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="从常用服务商里挑一个，或者把 CC Switch、Codex、Claude Code、DeepSeek Harness 里已有的配置导进来。"
+                           Classes="note" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="420" />
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <atom:Button Content="从其他应用导入" Click="OnImport" />
+                    <atom:Button ButtonType="Primary" Content="添加提供商" Click="OnAdd" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding Cards}" IsVisible="{Binding HasCards}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="local:ProviderCard">
+                    <Border Classes="pcard" Classes.active="{Binding IsActive}" Tag="{Binding}" Tapped="OnCardTapped">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Border Background="{Binding HeaderBrush}" Padding="12 10">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Border Classes="icontile">
+                                            <Grid>
+                                                <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" Width="22" Height="22"
+                                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                                <TextBlock Text="{Binding Glyph}" IsVisible="{Binding !HasIcon}" Foreground="#2B332F"
+                                                           FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Column="2" Classes="status" Classes.on="{Binding IsActive}" VerticalAlignment="Top">
+                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                                <Ellipse Classes="dot" Width="6" Height="6" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding StatusText}" FontSize="10" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBlock Classes="mono" Text="{Binding Host}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="note" FontSize="10" Text="{Binding ModelCountText}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel Grid.Row="1" Margin="12 10 12 4" Spacing="3">
+                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="note" Text="{Binding ProtocolLabel}" TextWrapping="NoWrap" />
+                                <ItemsControl ItemsSource="{Binding ModelChips}" Margin="0 5 0 0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Border Classes="chip">
+                                                <TextBlock Text="{Binding}" MaxWidth="180" TextTrimming="CharacterEllipsis" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Classes="note" Classes.ok="{Binding TestOk}" Classes.err="{Binding !TestOk}"
+                                           Text="{Binding TestText}" IsVisible="{Binding HasTestText}"
+                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding TestText}" />
+                            </StackPanel>
+                            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="2" Margin="12 2 10 10" Tapped="OnFooterTapped">
+                                <TextBlock Classes="mono" Classes.warn="{Binding KeyMissing}" Text="{Binding KeyText}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="1" Classes="iconbtn" Tag="{Binding}" Click="OnTestCard" IsEnabled="{Binding !Testing}"
+                                        ToolTip.Tip="测试连接（发送一条 “Say 1”）" AutomationProperties.Name="测试连接">
+                                    <Path Data="M 9,3 L 15,3 M 10,3 L 10,9 L 4.5,19 A 1.5,1.5 0 0 0 5.8,21 L 18.2,21 A 1.5,1.5 0 0 0 19.5,19 L 14,9 L 14,3 M 7.5,15 L 16.5,15"
+                                          Stroke="#C5CBC8" StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
+                                </Button>
+                                <Button Grid.Column="2" Classes="iconbtn" Tag="{Binding}" Click="OnEditCard"
+                                        ToolTip.Tip="编辑" AutomationProperties.Name="编辑">
+                                    <Path Data="M 4,20 L 4,16 L 16,4 L 20,8 L 8,20 Z M 13,7 L 17,11"
+                                          Stroke="#C5CBC8" StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" />
+                                </Button>
+                                <atom:ToggleSwitch Grid.Column="3" IsChecked="{Binding IsActive, Mode=TwoWay}" Margin="4 0 0 0"
+                                                   ToolTip.Tip="打开后，对话使用这个提供商" AutomationProperties.Name="使用这个提供商" />
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>
