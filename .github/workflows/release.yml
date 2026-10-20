@@ -223,7 +223,7 @@ jobs:
               xcrun stapler staple "$APP"
               spctl --assess --type execute --verbose=2 "$APP"
             else
-              echo "::warning::已用 Developer ID 签名，但没有配置 APPLE_ID（变量）和 APPLE_APP_PASSWORD（Secret），跳过公证。"
+              echo "::notice::已用 Developer ID 签名，未公证（没配 APPLE_ID 变量和 APPLE_APP_PASSWORD 密钥，这是有意的）。用户首次打开需要在「系统设置 → 隐私与安全性」里点「仍要打开」。"
             fi
           else
             # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。下载后仍会被 Gatekeeper 拦，见下载页的说明。
