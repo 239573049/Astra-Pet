@@ -18,12 +18,13 @@ TMP="$(mktemp)"
 "$FF" -v error -nostats -c:v libvpx-vp9 -i "$CLIP" -fps_mode passthrough -frames:v 1 -f rawvideo -pix_fmt rgba - > "$TMP"
 SIZE="$(wc -c < "$TMP" | tr -d ' ')"
 [ "$SIZE" = "921600" ] || { echo "第一帧大小 $SIZE，应该是 921600" >&2; exit 1; }
+# 输出只用 ASCII：Windows 的 Python 默认用 cp1252 打印，中文会直接抛 UnicodeEncodeError。
 python3 - "$TMP" <<'PY'
 import sys
 d = open(sys.argv[1], "rb").read()
 transparent = sum(1 for i in range(3, len(d), 4) if d[i] == 0)
 total = len(d) // 4
-print(f"透明像素 {transparent}/{total} ({transparent*100//total}%)")
+print(f"transparent pixels {transparent}/{total} ({transparent*100//total}%)")
 sys.exit(0 if transparent > total // 4 else 1)
 PY
 rm -f "$TMP"
