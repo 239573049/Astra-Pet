@@ -73,6 +73,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.meta.outputs.version }}
+      # macOS 代码签名和公证（都配了才签；没配就退回 ad-hoc 签名，用户首次打开会被 Gatekeeper 拦）
+      MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      APPLE_ID: ${{ vars.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -136,6 +141,29 @@ jobs:
           FF=ffmpeg-out/ffmpeg; [ -f ffmpeg-out/ffmpeg.exe ] && FF=ffmpeg-out/ffmpeg.exe
           tools/ffmpeg/selftest.sh "$FF" "$CLIP"
 
+      - name: Import signing certificate (macOS)
+        if: runner.os == 'macOS' && env.MACOS_CERT_P12_BASE64 != '' && env.MACOS_CERT_PASSWORD != ''
+        shell: bash
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep "Developer ID Application" | head -n 1 | sed -E 's/^[^"]*"(.*)"$/\1/')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::证书里没有 'Developer ID Application' 身份。公证只认这种证书（Apple Development / Distribution 不行）。证书里现有的身份："
+            security find-identity -v -p codesigning "$KEYCHAIN"
+            exit 1
+          fi
+          echo "签名身份: $IDENTITY"
+          echo "MACOS_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
       - name: Package (macOS .app)
         if: runner.os == 'macOS'
         shell: bash
@@ -161,8 +189,35 @@ jobs:
             <key>NSHighResolutionCapable</key><true/>
           </dict></plist>
           PLIST
-          # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。下载后仍会被 Gatekeeper 拦，见下载页的说明。
-          codesign --force --deep --sign - "$APP"
+          if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+            # Developer ID 签名。公证要求每个 Mach-O 都签、开 hardened runtime、带时间戳；由内到外：动态库和 ffmpeg，主程序，最后是 .app。
+            SIGN=(codesign --force --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY")
+            find "$APP/Contents/MacOS" -type f \( -name "*.dylib" -o -name ffmpeg \) -exec "${SIGN[@]}" {} \;
+            "${SIGN[@]}" "$APP/Contents/MacOS/AstraPet"
+            "${SIGN[@]}" "$APP"
+            codesign --verify --strict --verbose=2 "$APP"
+
+            if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ]; then
+              # 团队 ID 就写在签名身份的括号里：Developer ID Application: 名字 (TEAMID)
+              TEAM_ID=$(echo "$MACOS_SIGN_IDENTITY" | sed -E 's/.*\(([A-Z0-9]+)\)$/\1/')
+              ditto -c -k --keepParent "$APP" notarize.zip
+              RESULT=$(xcrun notarytool submit notarize.zip --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" --wait 2>&1) || true
+              echo "$RESULT"
+              if ! echo "$RESULT" | grep -q "status: Accepted"; then
+                ID=$(echo "$RESULT" | grep -m1 "id:" | awk '{print $2}')
+                [ -n "$ID" ] && xcrun notarytool log "$ID" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" || true
+                echo "::error::公证没有通过，日志见上"
+                exit 1
+              fi
+              xcrun stapler staple "$APP"
+              spctl --assess --type execute --verbose=2 "$APP"
+            else
+              echo "::warning::已用 Developer ID 签名，但没有配置 APPLE_ID（变量）和 APPLE_APP_PASSWORD（Secret），跳过公证。"
+            fi
+          else
+            # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。下载后仍会被 Gatekeeper 拦，见下载页的说明。
+            codesign --force --deep --sign - "$APP"
+          fi
           ditto -c -k --keepParent "$APP" "AstraPet-$VERSION-${{ matrix.platform }}.zip"
 
       - name: Package (Windows)
