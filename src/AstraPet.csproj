@@ -10,7 +10,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- 版本号：发布时由 GitHub 工作流用 -p:Version=x.y.z 覆盖，更新检测拿它和服务器上的最新版本比较。 -->
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Product>Astra Pet</Product>
     <Authors>RoutinAI</Authors>
     <Company>RoutinAI</Company>
