@@ -4,6 +4,7 @@
              xmlns:local="using:AstraPet.ControlPanel"
              xmlns:sm="clr-namespace:StreamMark.Avalonia;assembly=StreamMark.Avalonia"
              x:Class="AstraPet.ControlPanel.ChatWindow"
+             Icon="avares://AstraPet/Assets/icons/app.png"
              x:DataType="local:ChatViewModel"
              Title="和 Astra 聊天"
              Width="380" Height="520" MinWidth="320" MinHeight="360"

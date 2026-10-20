@@ -11,6 +11,7 @@
 #
 # 用法：tools/ffmpeg/build.sh <输出目录>
 #   macOS：需要 clang、make、pkg-config；x86_64 还需要 nasm（brew install nasm pkg-config）。
+#   Linux：需要 gcc 或 clang、make、pkg-config、nasm（apt install build-essential nasm pkg-config）。
 #   Windows：在 MSYS2 UCRT64 里跑，需要 mingw-w64-ucrt-x86_64-gcc、make、nasm、diffutils、pkgconf、perl。
 # 产物：<输出目录>/ffmpeg（Windows 是 ffmpeg.exe）。
 #
@@ -39,6 +40,14 @@ case "$OS" in
     case "$ARCH" in
       arm64) VPX_TARGET="arm64-darwin20-gcc" ;;
       x86_64) VPX_TARGET="x86_64-darwin20-gcc" ;;
+      *) echo "不支持的架构 $ARCH" >&2; exit 1 ;;
+    esac
+    FFMPEG_TARGET=()
+    ;;
+  Linux)
+    case "$ARCH" in
+      x86_64) VPX_TARGET="x86_64-linux-gcc" ;;
+      aarch64|arm64) VPX_TARGET="arm64-linux-gcc" ;;
       *) echo "不支持的架构 $ARCH" >&2; exit 1 ;;
     esac
     FFMPEG_TARGET=()
@@ -98,6 +107,9 @@ echo "== 自检"
 "$OUT/ffmpeg$EXE" -hide_banner -decoders 2>/dev/null | grep -q libvpx-vp9 || { echo "缺少 libvpx_vp9 解码器" >&2; exit 1; }
 if "$OUT/ffmpeg$EXE" -version | grep -E -q -- '--enable-(gpl|nonfree|version3)'; then
   echo "这不是 LGPL 构建（configure 里有 gpl / nonfree / version3）" >&2; exit 1
+fi
+if [ "$OS" = Linux ] && ldd "$OUT/ffmpeg" | grep -i -E "libvpx|libav"; then
+  echo "ffmpeg 还动态依赖 libvpx 或 libav*，应该是静态链接的" >&2; exit 1
 fi
 if [ -n "$EXE" ]; then
   # Windows：只允许依赖系统自带的 DLL

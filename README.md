@@ -11,7 +11,7 @@
 | 内容 / What | 许可 / License | 文件 / File |
 |---|---|---|
 | 程序源码 / Source code | **MIT** © 2026 RoutinAI | [LICENSE](LICENSE) |
-| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/videos/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
+| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/videos/`、`src/Assets/icons/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
 | 第三方库、数据、随包分发的 FFmpeg / Third-party libraries, data, bundled FFmpeg | 各自的许可，其中 AtomUI 是 LGPL-3.0 / their own licenses (AtomUI is LGPL-3.0) | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
 要点：你可以自由使用、修改、发布这份**代码**；但**不能**把宠物素材拿去单独使用、修改、商用或再分发，也不能把它们打进你自己的发布包。想发布自己的版本，请换成你自己的角色（见 [LICENSE-ASSETS.md](LICENSE-ASSETS.md) 第 5 节）。
@@ -43,13 +43,24 @@ dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --
 
 ### 发布
 
-给仓库打 `v*` 标签（例如 `v0.2.0`、`v0.3.0-preview.1`），GitHub 工作流 `.github/workflows/release.yml` 会构建三个平台的包并上传到 <https://astra-gate.si>。上传需要在仓库 Secrets 里配置 `PET_UPLOAD_TOKEN`。
+给仓库打 `v*` 标签（例如 `v0.2.0`、`v0.3.0-preview.1`），GitHub 工作流 `.github/workflows/release.yml` 会构建各平台的安装包并上传到 <https://astra-gate.si>：
+
+| 平台 | 安装包 | 说明 |
+|---|---|---|
+| macOS（Apple 芯片、Intel） | `.dmg` | Developer ID 签名；配了公证凭据就公证并钉票据 |
+| Windows x64 | `.exe` 安装程序（Inno Setup） | 装到当前用户目录，不需要管理员权限；没有代码签名 |
+| Linux x64 | `.deb`（Debian / Ubuntu） | 实验性：开机自启、朗读、点击穿透、听歌检测暂不支持 |
+
+三个平台的包都自带精简的 LGPL 版 ffmpeg。需要在仓库 Secrets 里配置 `PET_UPLOAD_TOKEN`（上传）和 `MACOS_CERT_P12_BASE64`、`MACOS_CERT_PASSWORD`（macOS 签名）。
+
+应用图标由 `python3 tools/icon/make_icons.py` 从角色立绘生成（`.icns` 只能在 macOS 上生成，生成后提交到仓库）。
 
 ## 目录
 
 ```
 src/            程序源码（Avalonia + AtomUI）
 characters/     宠物角色（素材，见上面的许可表）
-tools/          素材生成（petgen）、ffmpeg 构建、第三方声明生成等脚本
+installer/      Windows 安装程序脚本（Inno Setup）
+tools/          素材生成（petgen）、ffmpeg 构建、打包（dmg / deb / 公证）、图标、第三方声明生成等脚本
 licenses/       随包分发的第三方许可证全文
 ```

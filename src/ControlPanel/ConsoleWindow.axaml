@@ -4,6 +4,7 @@
              xmlns:local="using:AstraPet.ControlPanel"
              xmlns:core="using:AstraPet.Core"
              x:Class="AstraPet.ControlPanel.ConsoleWindow"
+             Icon="avares://AstraPet/Assets/icons/app.png"
              x:DataType="local:ConsoleViewModel"
              Title="Astra Pet 控制台" atom:MacStandardWindowButtons.OffsetX="22"
              Width="980" Height="760" MinWidth="760" MinHeight="560"
@@ -359,7 +360,7 @@
 <StackPanel Spacing="3" VerticalAlignment="Center">
     <TextBlock Text="{Binding Update.NewVersion}" Classes="label" />
     <TextBlock Text="{Binding Update.NewNotes}" Classes="note" IsVisible="{Binding Update.HasNotes}" MaxLines="6" TextTrimming="CharacterEllipsis" />
-    <TextBlock Text="下载后解压，覆盖旧版本即可，设置和记忆会保留。" Classes="note" />
+    <TextBlock Text="下载后打开安装包安装即可，设置和记忆会保留。" Classes="note" />
 </StackPanel>
 <atom:Button Grid.Column="1" ButtonType="Primary" Content="下载更新" VerticalAlignment="Center" Click="OnDownloadUpdate" />
 </Grid>

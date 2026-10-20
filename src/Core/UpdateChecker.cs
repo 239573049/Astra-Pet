@@ -92,8 +92,8 @@ public sealed class UpdateChecker : Observable
                 Fail("服务器返回的版本信息无法识别");
                 return null;
             }
-            // 优先本机平台的压缩包；没有就退到下载页。
-            var file = feed.Files?.FirstOrDefault(f => f.Platform == AppVersion.Platform && f.Kind == "zip");
+            // 本机平台的安装包（macOS dmg、Windows exe、Linux deb）；0.1.1 及以前只发过 zip，也认；都没有就退到下载页。
+            var file = PickInstaller(feed.Files);
             if (SemVer.Compare(feed.Version, AppVersion.Current) <= 0)
             {
                 MarkUpToDate();
@@ -125,6 +125,20 @@ public sealed class UpdateChecker : Observable
             Fail($"检查失败：{(e is OperationCanceledException ? "连接超时" : e.Message)}");
             return null;
         }
+    }
+
+    /// <summary>安装包的文件类型，按优先级。</summary>
+    private static readonly string[] InstallerKinds = OperatingSystem.IsMacOS() ? ["dmg", "zip"]
+        : OperatingSystem.IsWindows() ? ["exe", "zip"]
+        : ["deb", "appimage", "zip"];
+
+    private static LatestFile? PickInstaller(List<LatestFile>? files)
+    {
+        var mine = files?.Where(f => f.Platform == AppVersion.Platform).ToList();
+        if (mine is null) return null;
+        foreach (var kind in InstallerKinds)
+            if (mine.FirstOrDefault(f => f.Kind == kind) is { } found) return found;
+        return null;
     }
 
     private void MarkUpToDate()

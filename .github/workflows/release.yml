@@ -1,13 +1,18 @@
 name: release
 
-# 打 v* 标签（例如 v0.2.0、v0.3.0-preview.1）或手动触发：三个平台各编一份 Native AOT 的包，
-# 冒烟通过后打成压缩包，上传到 LocalGate 站点（/api/pet-releases/upload），站点的 /pet 页就会出现新版本，
+# 打 v* 标签（例如 v0.2.0、v0.3.0-preview.1）或手动触发：各平台编一份 Native AOT 的程序，冒烟通过后做成安装包，
+# 上传到 LocalGate 站点（/api/pet-releases/upload），站点的 /pet 页就会出现新版本，
 # 正在运行的宠物下次检测更新时会冒气泡提醒。
 #
+#   macOS    .dmg（Developer ID 签名；配了公证凭据就公证并钉票据），arm64 和 x64 各一个
+#   Windows  .exe 安装程序（Inno Setup），x64。没有代码签名证书，首次运行会被 SmartScreen 提示
+#   Linux    .deb（Debian / Ubuntu），x64
+#
 # 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 src/AstraPet.csproj 的 UpdateBaseUrl）。
-# 需要在 GitHub 仓库里配置一个 Secret：
-#   PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致
-# 没配时工作流只构建，不上传（会在日志里说明）。
+# 需要在 GitHub 仓库里配置：
+#   Secrets  PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致（没配时只构建，不上传）
+#   Secrets  MACOS_CERT_P12_BASE64、MACOS_CERT_PASSWORD   Developer ID Application 证书（没配时 mac 包只做 ad-hoc 签名）
+#   公证（可选）：APPLE_API_KEY_P8_BASE64 + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID，或 APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
 on:
   push:
     tags: ['v*']
@@ -70,6 +75,7 @@ jobs:
           - { rid: osx-arm64, platform: darwin-arm64, os: macos-15 }
           - { rid: osx-x64, platform: darwin-x64, os: macos-15-intel }
           - { rid: win-x64, platform: win32-x64, os: windows-latest }
+          - { rid: linux-x64, platform: linux-x64, os: ubuntu-24.04 }
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.meta.outputs.version }}
@@ -94,6 +100,15 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        # clang 和 zlib1g-dev 是 Native AOT 在 Linux 上的编译要求；nasm 和 pkg-config 用来编 ffmpeg；
+        # xvfb 给冒烟测试一个虚拟显示器；libfontconfig1 等是程序运行时要加载的库（也是 .deb 的 Depends）。
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev nasm pkg-config xvfb libfontconfig1 libx11-6 libice6 libsm6
+
       - name: Build (Native AOT)
         shell: bash
         # 先 build 再 publish --no-build：直接 publish 开着 AOT 时，Avalonia 的 XAML 编译会被跳过，
@@ -107,7 +122,11 @@ jobs:
         shell: bash
         # 起 Avalonia 和 AtomUI、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
         run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then ./publish/AstraPet.exe --smoke; else ./publish/AstraPet --smoke; fi
+          case "${{ runner.os }}" in
+            Windows) ./publish/AstraPet.exe --smoke ;;
+            Linux)   xvfb-run -a ./publish/AstraPet --smoke ;;
+            *)       ./publish/AstraPet --smoke ;;
+          esac
 
       # ── 自带 ffmpeg：宠物动画是带透明通道的 VP9，必须有带 libvpx-vp9 的 ffmpeg，不能指望用户自己装。
       #    用 tools/ffmpeg/build.sh 从官方源码构建 LGPL 精简版（几 MB，静态链接，不含 GPL 组件），按脚本内容缓存。
@@ -124,6 +143,11 @@ jobs:
         run: |
           brew install nasm pkg-config
           tools/ffmpeg/build.sh ffmpeg-out
+
+      - name: Build ffmpeg (Linux)
+        if: runner.os == 'Linux' && steps.ffcache.outputs.cache-hit != 'true'
+        shell: bash
+        run: tools/ffmpeg/build.sh ffmpeg-out
 
       - name: Set up MSYS2 (Windows)
         if: runner.os == 'Windows' && steps.ffcache.outputs.cache-hit != 'true'
@@ -171,18 +195,18 @@ jobs:
           echo "签名身份: $IDENTITY"
           echo "MACOS_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
-      - name: Package (macOS .app)
+      - name: Package (macOS .dmg)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           APP="stage/Astra Pet.app"
-          mkdir -p "$APP/Contents/MacOS"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp -R publish/. "$APP/Contents/MacOS/"
           cp ffmpeg-out/ffmpeg "$APP/Contents/MacOS/ffmpeg"
           rm -rf "$APP/Contents/MacOS/"*.dSYM
+          cp src/Assets/icons/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
           # 代码签名要求 Contents/MacOS 里只有可执行文件和动态库；素材和许可文本放 Contents/Resources，
           # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Program.ResolveVideosDir）。
-          mkdir -p "$APP/Contents/Resources"
           mv "$APP/Contents/MacOS/Assets" "$APP/Contents/Resources/Assets"
           mv "$APP/Contents/MacOS/licenses" "$APP/Contents/Resources/licenses"
           # 此时 MacOS 里应该只剩 Mach-O 文件，多了别的就在这里停下，别等到签名才报错
@@ -191,7 +215,6 @@ jobs:
             find "$APP/Contents/MacOS" -type f ! \( -name AstraPet -o -name ffmpeg -o -name "*.dylib" \)
             exit 1
           fi
-          codesign --force --sign - "$APP/Contents/MacOS/ffmpeg"
           cat > "$APP/Contents/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -200,6 +223,7 @@ jobs:
             <key>CFBundleDisplayName</key><string>Astra Pet</string>
             <key>CFBundleIdentifier</key><string>ai.astra.pet</string>
             <key>CFBundleExecutable</key><string>AstraPet</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleShortVersionString</key><string>$VERSION</string>
             <key>CFBundleVersion</key><string>$VERSION</string>
@@ -207,6 +231,8 @@ jobs:
             <key>NSHighResolutionCapable</key><true/>
           </dict></plist>
           PLIST
+
+          DMG="AstraPet-$VERSION-${{ matrix.platform }}.dmg"
           if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
             # Developer ID 签名。公证要求每个 Mach-O 都签、开 hardened runtime、带时间戳；由内到外：动态库和 ffmpeg，主程序，最后是 .app。
             SIGN=(codesign --force --options runtime --timestamp --sign "$MACOS_SIGN_IDENTITY")
@@ -214,57 +240,62 @@ jobs:
             "${SIGN[@]}" "$APP/Contents/MacOS/AstraPet"
             "${SIGN[@]}" "$APP"
             codesign --verify --strict --verbose=2 "$APP"
-
-            NOTARY_ARGS=()
-            if [ -n "$APPLE_API_KEY_P8_BASE64" ] && [ -n "$APPLE_API_KEY_ID" ] && [ -n "$APPLE_API_ISSUER_ID" ]; then
-              echo "$APPLE_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-              NOTARY_ARGS=(--key "$RUNNER_TEMP/AuthKey.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
-            elif [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ]; then
-              # 团队 ID 就写在签名身份的括号里：Developer ID Application: 名字 (TEAMID)
-              TEAM_ID=$(echo "$MACOS_SIGN_IDENTITY" | sed -E 's/.*\(([A-Z0-9]+)\)$/\1/')
-              NOTARY_ARGS=(--apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID")
-            fi
-
-            if [ ${#NOTARY_ARGS[@]} -gt 0 ]; then
-              ditto -c -k --keepParent "$APP" notarize.zip
-              RESULT=$(xcrun notarytool submit notarize.zip "${NOTARY_ARGS[@]}" --wait 2>&1) || true
-              echo "$RESULT"
-              if ! echo "$RESULT" | grep -q "status: Accepted"; then
-                ID=$(echo "$RESULT" | grep -m1 "id:" | awk '{print $2}')
-                [ -n "$ID" ] && xcrun notarytool log "$ID" "${NOTARY_ARGS[@]}" || true
-                echo "::error::公证没有通过，日志见上"
-                exit 1
-              fi
-              # stapler 要去 Apple 的 CloudKit 取公证票据，CI 上偶尔会 “The network connection was lost”（公证本身已经通过了），重试几次。
-              for ATTEMPT in 1 2 3 4 5 6; do
-                if xcrun stapler staple "$APP"; then break; fi
-                if [ "$ATTEMPT" = 6 ]; then echo "::error::stapler 重试 6 次仍失败"; exit 1; fi
-                echo "stapler 第 $ATTEMPT 次失败（多半是网络抖动），20 秒后重试"
-                sleep 20
-              done
-              spctl --assess --type execute --verbose=2 "$APP"
-              rm -f "$RUNNER_TEMP/AuthKey.p8"
-            else
-              echo "::notice::已用 Developer ID 签名，未公证（没配公证凭据）。用户首次打开需要在「系统设置 → 隐私与安全性」里点「仍要打开」。"
-            fi
+            # 先公证并钉好 .app 本身（装进「应用程序」后离线也能通过检查），再做 dmg，dmg 也签名、公证、钉票据。
+            tools/package/notarize.sh "$APP"
+            tools/package/make_dmg.sh "$APP" "$DMG"
+            "${SIGN[@]}" "$DMG"
+            tools/package/notarize.sh "$DMG"
           else
-            # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。下载后仍会被 Gatekeeper 拦，见下载页的说明。
+            # 没有开发者证书，做 ad-hoc 签名：Apple 芯片上未签名的程序根本跑不起来。用户首次打开会被 Gatekeeper 拦。
             codesign --force --deep --sign - "$APP"
+            tools/package/make_dmg.sh "$APP" "$DMG"
           fi
-          ditto -c -k --keepParent "$APP" "AstraPet-$VERSION-${{ matrix.platform }}.zip"
 
-      - name: Package (Windows)
+      - name: Package (Windows installer)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Remove-Item publish/*.pdb -ErrorAction SilentlyContinue
           Copy-Item ffmpeg-out/ffmpeg.exe publish/ffmpeg.exe
-          Compress-Archive -Path publish/* -DestinationPath "AstraPet-$env:VERSION-${{ matrix.platform }}.zip"
+
+          # Inno Setup：windows-latest 镜像里通常已经有，没有就用 choco 装
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            foreach ($p in 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe', 'C:\Program Files\Inno Setup 6\ISCC.exe') { if (Test-Path $p) { $iscc = $p; break } }
+          }
+          if (-not $iscc) {
+            choco install innosetup -y --no-progress
+            $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          }
+          Write-Host "ISCC: $iscc"
+
+          # 文件属性里的版本必须是 x.y.z.w 四段数字：去掉 -preview.N，补 .0
+          $numeric = ($env:VERSION -replace '-.*$', '') + '.0'
+          & $iscc "/DAppVersion=$env:VERSION" "/DNumericVersion=$numeric" "/DSourceDir=$PWD\publish" "/DOutputDir=$PWD" "/DOutputName=AstraPet-$env:VERSION-${{ matrix.platform }}" installer\windows\AstraPet.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC 失败 ($LASTEXITCODE)" }
+
+      - name: Package (Linux .deb)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          DEB="AstraPet-$VERSION-${{ matrix.platform }}.deb"
+          tools/package/make_deb.sh publish ffmpeg-out/ffmpeg "$VERSION" "$DEB"
+          dpkg-deb --contents "$DEB" | grep -E "opt/astra-pet/(AstraPet|ffmpeg)$|\.desktop$|astra-pet.png$"
+
+          # 真的装一遍再跑冒烟：依赖能解析、文件装到了该去的地方、程序在安装位置找得到素材和 ffmpeg。
+          sudo apt-get install -y "./$DEB"
+          test -x /usr/bin/astra-pet
+          test -f /usr/share/applications/astra-pet.desktop
+          xvfb-run -a /opt/astra-pet/AstraPet --smoke
+          /opt/astra-pet/ffmpeg -hide_banner -decoders 2>/dev/null | grep -q libvpx-vp9
 
       - uses: actions/upload-artifact@v4
         with:
           name: AstraPet-${{ matrix.platform }}
-          path: AstraPet-*.zip
+          path: |
+            AstraPet-*.dmg
+            AstraPet-*.exe
+            AstraPet-*.deb
           if-no-files-found: error
 
   upload:
@@ -300,17 +331,19 @@ jobs:
           NOTES=$(git log --no-merges --pretty='- %s' $RANGE | head -n 50)
           NOTES_B64=$(printf '%s' "$NOTES" | base64 | tr -d '\n')
 
-          for FILE in dist/AstraPet-*.zip; do
+          for FILE in dist/AstraPet-*; do
             NAME=$(basename "$FILE")
-            PLATFORM=${NAME#AstraPet-$VERSION-}
-            PLATFORM=${PLATFORM%.zip}
-            echo "上传 $NAME（$PLATFORM）"
+            # 文件名是 AstraPet-<版本>-<平台>.<扩展名>，扩展名就是站点上的 kind（dmg / exe / deb）
+            REST=${NAME#AstraPet-$VERSION-}
+            KIND=${REST##*.}
+            PLATFORM=${REST%.*}
+            echo "上传 $NAME（$PLATFORM，$KIND）"
             curl --fail-with-body -sS -X POST "$SITE/api/pet-releases/upload" \
               -H "Authorization: Bearer $TOKEN" \
               -H "x-astra-version: $VERSION" \
               -H "x-astra-channel: $CHANNEL" \
               -H "x-astra-platform: $PLATFORM" \
-              -H "x-astra-kind: zip" \
+              -H "x-astra-kind: $KIND" \
               -H "x-astra-notes-b64: $NOTES_B64" \
               -H "Content-Type: application/octet-stream" \
               --data-binary "@$FILE" -o response.json

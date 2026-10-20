@@ -16,14 +16,16 @@
 1. `src/Assets/videos/` ——内置宠物（小t 和她脚边的水豚）的全部动画和配置；
 2. `characters/小t/` 整个目录——角色设定图、立绘、首尾帧、原始生成视频、处理后的视频、预览图，以及 `character.json` 里的角色设定和提示词；
 3. `astra/` ——角色设定图；
-4. 官方发布包里随程序分发的上述内容，以及 RoutinAI 日后新增的官方宠物角色。
+4. `src/Assets/icons/` ——应用图标（用角色头像做的，由 `tools/icon/make_icons.py` 生成）；
+5. 官方发布包里随程序分发的上述内容，以及 RoutinAI 日后新增的官方宠物角色。
 
 The following, and anything derived from them (crops, rescaling, transcoding, conversion to other formats, frame sequences, previews, recolouring, etc.):
 
 1. `src/Assets/videos/` — all animations and configuration of the built-in pet (Xiao T and her capybara);
 2. the whole `characters/小t/` directory — character sheets, standing figure, first/last frames, raw generated videos, processed videos, previews, and the character settings and prompts in `character.json`;
 3. `astra/` — the character sheet;
-4. the above as shipped in official release packages, and any official pet characters RoutinAI adds later.
+4. `src/Assets/icons/` — the app icons (made from the character's portrait by `tools/icon/make_icons.py`);
+5. the above as shipped in official release packages, and any official pet characters RoutinAI adds later.
 
 ## 2. 不在本文件范围内的内容 / What this document does NOT cover
 
@@ -70,9 +72,9 @@ Without RoutinAI's prior written permission you may not:
 
 ## 5. 想基于本项目做自己的版本 / Making your own version
 
-代码是 MIT 的，你可以自由 fork、修改、发布你自己的版本。**发布时请把内置宠物换成你自己的角色**：把 `src/Assets/videos/` 换成你自己的素材，并删除 `characters/小t/` 和 `astra/`。程序不依赖这些素材运行，角色目录的格式见 `characters/小t/README.md`。
+代码是 MIT 的，你可以自由 fork、修改、发布你自己的版本。**发布时请把内置宠物换成你自己的角色**：把 `src/Assets/videos/` 和 `src/Assets/icons/` 里的图标换成你自己的，并删除 `characters/小t/` 和 `astra/`。程序不依赖这些素材运行，角色目录的格式见 `characters/小t/README.md`。
 
-The code is MIT: you are free to fork, modify and publish your own version. **When you publish, replace the built-in pet with your own character**: swap `src/Assets/videos/` for your own assets and remove `characters/小t/` and `astra/`. The program does not depend on these assets; see `characters/小t/README.md` for the character directory format.
+The code is MIT: you are free to fork, modify and publish your own version. **When you publish, replace the built-in pet with your own character**: swap `src/Assets/videos/` and the icons in `src/Assets/icons/` for your own assets and remove `characters/小t/` and `astra/`. The program does not depend on these assets; see `characters/小t/README.md` for the character directory format.
 
 ## 6. 免责和终止 / Disclaimer and termination
 

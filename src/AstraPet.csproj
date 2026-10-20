@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Windows 上 exe 文件和任务栏的图标。macOS 的在 .app 的 Info.plist 里、Linux 的在 .desktop 里，由发布工作流放进去。 -->
+    <ApplicationIcon>Assets\icons\app.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- 版本号：发布时由 GitHub 工作流用 -p:Version=x.y.z 覆盖，更新检测拿它和服务器上的最新版本比较。 -->
@@ -53,6 +55,8 @@
   <ItemGroup>
     <!-- 提供商图标，来自 LobeHub Icons，见 tools/fetch_provider_icons.sh -->
     <AvaloniaResource Include="Assets\providers\**\*.png" />
+    <!-- 窗口图标（控制台、对话框）：Windows 任务栏、Linux 窗口列表里显示 -->
+    <AvaloniaResource Include="Assets\icons\app.png" />
   </ItemGroup>
 
   <ItemGroup>
