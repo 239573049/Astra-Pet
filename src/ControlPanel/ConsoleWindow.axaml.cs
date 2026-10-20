@@ -196,6 +196,7 @@ public partial class ConsoleWindow : AtomUI.Desktop.Controls.Window
 
     private void OnToggleSidebar(object? sender, RoutedEventArgs e) => _vm.SidebarExpanded = !_vm.SidebarExpanded;
     private void OnNavigate(object? sender, RoutedEventArgs e) { if (TagOf<string>(sender) is { } key) _vm.Navigate(key); }
+    private void OnOpenGitHub(object? sender, RoutedEventArgs e) => _vm.OpenRepository();
     private void OnExit(object? sender, RoutedEventArgs e) => _vm.Exit();
 
     // 常规

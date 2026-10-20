@@ -172,6 +172,16 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         ? "全屏隐藏：宠物不进入其他应用的全屏空间。录屏：关闭后 OBS 的窗口捕获和屏幕捕获里都看不到宠物。"
         : "全屏隐藏目前只在 macOS 上生效。录屏开关需要 Windows 10 2004 及以上。";
 
+    /// <summary>源码仓库（侧栏左下角的 GitHub 按钮）。</summary>
+    public const string RepositoryUrl = "https://github.com/239573049/Astra-Pet";
+
+    /// <summary>用系统默认浏览器打开源码仓库。</summary>
+    public void OpenRepository()
+    {
+        try { Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true }); }
+        catch (Exception e) { PetLog.Write($"打开 GitHub 失败: {e.Message}"); }
+    }
+
     /// <summary>程序目录下的 licenses 文件夹：LICENSE、宠物素材许可、第三方声明和 LGPL 全文。</summary>
     public void OpenLicensesFolder()
     {
