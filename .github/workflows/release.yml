@@ -78,12 +78,13 @@ jobs:
       MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
       # 公证凭据，二选一（都没配就不公证）：
       #   A. App Store Connect API 密钥（推荐，不用 Apple ID 密码）：APPLE_API_KEY_P8_BASE64 + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID
-      #   B. Apple ID：vars.APPLE_ID + APPLE_APP_PASSWORD（App 专用密码）
+      #   B. Apple ID：APPLE_ID（Secret 或 Variable）+ APPLE_APP_SPECIFIC_PASSWORD（App 专用密码）
       APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
       APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
       APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
-      APPLE_ID: ${{ vars.APPLE_ID }}
-      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+      # Apple ID 可以放 Secret 也可以放 Variable；专用密码的名字两种都认（LocalGate 里用的是 APPLE_APP_SPECIFIC_PASSWORD）
+      APPLE_ID: ${{ secrets.APPLE_ID || vars.APPLE_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD || secrets.APPLE_APP_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
