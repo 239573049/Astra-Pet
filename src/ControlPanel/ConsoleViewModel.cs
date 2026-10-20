@@ -175,8 +175,13 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     /// <summary>程序目录下的 licenses 文件夹：LICENSE、宠物素材许可、第三方声明和 LGPL 全文。</summary>
     public void OpenLicensesFolder()
     {
-        var dir = Path.Combine(AppContext.BaseDirectory, "licenses");
-        if (!Directory.Exists(dir)) { PetLog.Write($"找不到许可文件夹: {dir}"); return; }
+        // macOS 的 .app 里非代码文件在 Contents/Resources，其他情况在程序旁边。
+        var dir = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "licenses"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "licenses")),
+        }.FirstOrDefault(Directory.Exists);
+        if (dir is null) { PetLog.Write("找不到许可文件夹"); return; }
         try { Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true }); }
         catch (Exception e) { PetLog.Write($"打开许可文件夹失败: {e.Message}"); }
     }

@@ -78,6 +78,8 @@ class Program
         {
             Environment.GetEnvironmentVariable("ASTRA_PET_VIDEOS"),
             Path.Combine(AppContext.BaseDirectory, "Assets", "videos"),
+            // macOS 的 .app：可执行文件在 Contents/MacOS，素材等非代码文件在 Contents/Resources（代码签名要求）。
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "Assets", "videos")),
             Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Assets", "videos")),
         };
         var found = candidates.FirstOrDefault(c => c is not null && Directory.Exists(c));

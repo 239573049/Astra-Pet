@@ -172,8 +172,19 @@ jobs:
           mkdir -p "$APP/Contents/MacOS"
           cp -R publish/. "$APP/Contents/MacOS/"
           cp ffmpeg-out/ffmpeg "$APP/Contents/MacOS/ffmpeg"
-          codesign --force --sign - "$APP/Contents/MacOS/ffmpeg"
           rm -rf "$APP/Contents/MacOS/"*.dSYM
+          # 代码签名要求 Contents/MacOS 里只有可执行文件和动态库；素材和许可文本放 Contents/Resources，
+          # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Program.ResolveVideosDir）。
+          mkdir -p "$APP/Contents/Resources"
+          mv "$APP/Contents/MacOS/Assets" "$APP/Contents/Resources/Assets"
+          mv "$APP/Contents/MacOS/licenses" "$APP/Contents/Resources/licenses"
+          # 此时 MacOS 里应该只剩 Mach-O 文件，多了别的就在这里停下，别等到签名才报错
+          if find "$APP/Contents/MacOS" -type f ! \( -name AstraPet -o -name ffmpeg -o -name "*.dylib" \) | grep -q .; then
+            echo "::error::Contents/MacOS 里有不是可执行文件或动态库的东西："
+            find "$APP/Contents/MacOS" -type f ! \( -name AstraPet -o -name ffmpeg -o -name "*.dylib" \)
+            exit 1
+          fi
+          codesign --force --sign - "$APP/Contents/MacOS/ffmpeg"
           cat > "$APP/Contents/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
