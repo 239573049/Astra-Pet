@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using AstraPet.Ai;
 using AstraPet.Core;
 using AstraPet.Pet;
@@ -36,6 +35,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private readonly PetWindow _pet;
     private readonly PetCompanion _companion;
     private readonly PetDirector _director;
+    private readonly IPlatform _platform;
     private readonly string _builtInDir;
     private readonly string _ffmpeg;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -45,7 +45,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private string _newMemory = "";
     private string _promptPreview = "";
     private string _speechSample = "你好呀，我是 Astra，今天也要开开心心的！";
-    private IReadOnlyList<VoiceOption> _voices = [new("", "")];
+    private IReadOnlyList<VoiceOption> _voices = [VoiceOption.SystemDefault];
     private VoiceOption? _selectedVoice;
     private string _pomodoroStatus = "";
     private IReadOnlyList<PetEntry> _pets = [];
@@ -56,16 +56,17 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private int _petSwitch;
 
     public ConsoleViewModel(PetWindow pet, PetCompanion companion, PetSettings settings, PetDirector director,
-        string builtInVideosDir, string ffmpeg)
+        IPlatform platform, string builtInVideosDir, string ffmpeg)
     {
         _pet = pet;
         _companion = companion;
         _director = director;
+        _platform = platform;
         _builtInDir = builtInVideosDir;
         _ffmpeg = ffmpeg;
         Settings = settings;
-        Hub = new ProvidersViewModel(settings);
-        Update = new UpdateViewModel(companion, settings, Exit);
+        Hub = new ProvidersViewModel(settings, platform.Shell);
+        Update = new UpdateViewModel(companion, settings, platform, Exit);
 
         Pages =
         [
@@ -94,7 +95,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         RefreshPets(settings.PetId);
 
         // 设置文件里的开关可能和系统实际状态不一致（比如用户手动删了 plist），以系统为准。
-        if (AutoStart.IsSupported) settings.AutoStart = AutoStart.IsEnabled();
+        if (AutoStartSupported) settings.AutoStart = platform.AutoStart.IsEnabled();
 
         settings.PropertyChanged += OnSettingChanged;
         _statusTimer.Tick += (_, _) => RefreshStatus();
@@ -104,6 +105,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     }
 
     public PetSettings Settings { get; }
+    public IPlatform Platform => _platform;
     public ProvidersViewModel Hub { get; }
     public UpdateViewModel Update { get; }
     public NavItem[] Pages { get; }
@@ -166,52 +168,45 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     // ───── 常规 ─────
 
-    public bool AutoStartSupported => AutoStart.IsSupported;
+    private PlatformCapabilities Caps => _platform.Capabilities;
+
+    public bool AutoStartSupported => Caps.AutoStart;
+    public bool CanHideInFullscreen => Caps.OverFullscreen;
+    public bool CanExcludeCapture => Caps.CaptureExclusion;
+    public bool CanClickThrough => Caps.ClickThrough;
     public string SettingsPath => SettingsStore.FilePath;
-    public string PlatformNote => OperatingSystem.IsMacOS()
-        ? "全屏隐藏：宠物不进入其他应用的全屏空间。录屏：关闭后 OBS 的窗口捕获和屏幕捕获里都看不到宠物。"
-        : "全屏隐藏目前只在 macOS 上生效。录屏开关需要 Windows 10 2004 及以上。";
+
+    /// <summary>窗口相关开关的说明（哪些不支持、为什么），由平台的能力描述拼出来。</summary>
+    public string PlatformNote => string.Join(" ", new[]
+        {
+            nameof(PlatformCapabilities.OverFullscreen),
+            nameof(PlatformCapabilities.CaptureExclusion),
+            nameof(PlatformCapabilities.ClickThrough),
+            nameof(PlatformCapabilities.AutoStart),
+        }
+        .Select(Caps.NoteFor).OfType<string>());
 
     /// <summary>源码仓库（侧栏左下角的 GitHub 按钮）。</summary>
     public const string RepositoryUrl = "https://github.com/239573049/Astra-Pet";
 
     /// <summary>用系统默认浏览器打开源码仓库。</summary>
-    public void OpenRepository()
-    {
-        try { Process.Start(new ProcessStartInfo(RepositoryUrl) { UseShellExecute = true }); }
-        catch (Exception e) { PetLog.Write($"打开 GitHub 失败: {e.Message}"); }
-    }
+    public void OpenRepository() => _platform.Shell.OpenUrl(RepositoryUrl);
 
     /// <summary>程序目录下的 licenses 文件夹：LICENSE、宠物素材许可、第三方声明和 LGPL 全文。</summary>
     public void OpenLicensesFolder()
     {
-        // macOS 的 .app 里非代码文件在 Contents/Resources，其他情况在程序旁边。
-        var dir = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "licenses"),
-            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "Resources", "licenses")),
-        }.FirstOrDefault(Directory.Exists);
-        if (dir is null) { PetLog.Write("找不到许可文件夹"); return; }
-        try { Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true }); }
-        catch (Exception e) { PetLog.Write($"打开许可文件夹失败: {e.Message}"); }
+        var dir = Path.Combine(_platform.Paths.ResourceDirectory, "licenses");
+        if (!Directory.Exists(dir)) { PetLog.Write($"找不到许可文件夹: {dir}"); return; }
+        _platform.Shell.OpenFolder(dir);
     }
 
-    public void OpenSettingsFolder() => OpenFolder(SettingsStore.Directory);
-
-    /// <summary>目录不存在就先建出来，再用系统的文件管理器打开。</summary>
-    private static void OpenFolder(string directory)
-    {
-        Directory.CreateDirectory(directory);
-        var opener = OperatingSystem.IsWindows() ? "explorer" : OperatingSystem.IsMacOS() ? "open" : "xdg-open";
-        try { Process.Start(opener, directory); }
-        catch (Exception e) { PetLog.Write($"打开目录失败: {e.Message}"); }
-    }
+    public void OpenSettingsFolder() => _platform.Shell.OpenFolder(SettingsStore.Directory);
 
     // ───── 桌宠 ─────
 
     public bool SingAvailable => _director.Library.Has(PetLibrary.Sing);
-    public string MusicNote => !SystemMonitor.CanDetectAudio
-        ? "当前系统暂不支持检测音乐播放。"
+    public string MusicNote => !Caps.AudioDetection
+        ? Caps.NoteFor(nameof(PlatformCapabilities.AudioDetection)) ?? "当前系统暂不支持检测音乐播放。"
         : SingAvailable
             ? "检测到有声音在播放时（音乐、视频都算）改播唱歌动画。"
             : "检测到在放音乐时唱歌。还没有唱歌素材（Assets/videos/sing），暂时用动作片段代替。";
@@ -266,7 +261,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     public string PetStatus { get => _petStatus; private set { if (Set(ref _petStatus, value)) Raise(nameof(HasPetStatus)); } }
     public bool HasPetStatus => _petStatus.Length > 0;
 
-    public void OpenPetsFolder() => OpenFolder(PetCatalog.Directory);
+    public void OpenPetsFolder() => _platform.Shell.OpenFolder(PetCatalog.Directory);
 
     /// <summary>重新扫描角色目录。用户往里拷了新角色后点「刷新」。</summary>
     public void RefreshPets() => RefreshPets(_currentPet.Id);
@@ -388,7 +383,9 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     // ───── 语音 ─────
 
-    public bool SpeechSupported => Speech.IsSupported;
+    public bool SpeechSupported => Caps.Speech;
+    public string SpeechNote => Caps.NoteFor(nameof(PlatformCapabilities.Speech)) ?? "";
+    public bool HasSpeechNote => SpeechNote.Length > 0;
 
     public IReadOnlyList<VoiceOption> Voices { get => _voices; private set => Set(ref _voices, value); }
 
@@ -406,11 +403,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     public void TestSpeech() => _companion.Speak(SpeechSample);
 
-    public void StopSpeech() => Speech.Stop();
+    public void StopSpeech() => _companion.StopSpeaking();
 
     private async Task LoadVoicesAsync()
     {
-        var voices = await Task.Run(Speech.ListVoices);
+        var voices = await _platform.Speech.ListVoicesAsync();
         Voices = voices;
         _selectedVoice = voices.FirstOrDefault(v => v.Name == Settings.Voice) ?? voices[0];
         Raise(nameof(SelectedVoice));
@@ -427,9 +424,10 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         switch (e.PropertyName)
         {
             case nameof(PetSettings.AutoStart):
-                if (AutoStart.IsSupported && AutoStart.IsEnabled() != Settings.AutoStart
-                    && !AutoStart.Apply(Settings.AutoStart, _builtInDir, _ffmpeg))
-                    Dispatcher.UIThread.Post(() => Settings.AutoStart = AutoStart.IsEnabled());
+                var autoStart = _platform.AutoStart;
+                if (AutoStartSupported && autoStart.IsEnabled() != Settings.AutoStart
+                    && !autoStart.Apply(Settings.AutoStart, AutoStartEnvironment()))
+                    Dispatcher.UIThread.Post(() => Settings.AutoStart = autoStart.IsEnabled());
                 break;
             case nameof(PetSettings.Visible):
             case nameof(PetSettings.Paused):
@@ -440,6 +438,13 @@ public sealed class ConsoleViewModel : Observable, IDisposable
                 break;
         }
     }
+
+    /// <summary>自启时带上这次用的素材目录和 ffmpeg，让自启的那次和这次一样。</summary>
+    private Dictionary<string, string> AutoStartEnvironment() => new()
+    {
+        ["ASTRA_PET_VIDEOS"] = _builtInDir,
+        ["FFMPEG"] = _ffmpeg,
+    };
 
     private void RefreshStatus()
     {

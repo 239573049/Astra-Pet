@@ -13,7 +13,6 @@
 | **逐像素点击穿透** | `PetWindow.UpdatePassthrough` + `MacWindow.IgnoresMouse` | ✅ | ❌ `_mac is null` 直接返回 | ❌ |
 | 全屏应用上方显示 / 隐藏 | `MacWindow.SetSpaces` | ✅ | ❌ | ❌ |
 | 录屏时隐藏 | `MacWindow.SetCapturable` / `WinWindow.SetCapturable` | ✅ | ✅ Win10 2004+ | ❌ |
-| 毛玻璃背景（控制台） | `MacWindow.InstallGlassBackdrop` | ✅ | — | — |
 | 开机自启 | `Platform/AutoStart` | ✅ LaunchAgent | ✅ HKCU\Run | ❌ |
 | 朗读 | `Platform/Speech` | ✅ `say` | ✅ PowerShell + System.Speech | ❌ |
 | 空闲时长 | `SystemMonitor.IdleSeconds` | ✅ CoreGraphics | ✅ GetLastInputInfo | ❌ 恒为 0 |
@@ -28,6 +27,11 @@
 ## 2. 接口
 
 所有接口定义在 `AstraPet.Core/Ports/Platform/`，实现在 `AstraPet.Platform/`。
+
+> **实现状态（第 1 步完成后）**：接口暂时放在 `src/Platform/Abstractions/`，第 4 步拆项目时再挪进 Core。
+> 和下面的目标形态相比，第 1 步有这些差别：`ISecretStore` 留到第 5 步；`IAppPaths` 的 `LogDirectory`、`CacheDirectory` 留到 2b；
+> `IAppPaths` 多了 `FindTool(name)`（找随包的或系统里的 ffmpeg）；`AttachWindow` 不分窗口角色；
+> 毛玻璃背景（`InstallGlassBackdrop`）换成 Arc 界面库后已经没人用，没有搬过来。
 
 ```csharp
 public interface IPlatform
@@ -63,7 +67,6 @@ public sealed record PlatformCapabilities
     public bool AudioDetection { get; init; }
     public bool SecureSecrets { get; init; }      // false 时 API Key 退回明文，界面要提示
     public bool InAppUpdate { get; init; }
-    public bool GlassBackdrop { get; init; }
 
     /// <summary>不支持某项时给用户看的原因，键是上面的属性名。</summary>
     public IReadOnlyDictionary<string, string> Notes { get; init; } = new Dictionary<string, string>();
@@ -91,12 +94,11 @@ public string? HideInFullscreenNote => _caps.Notes.GetValueOrDefault(nameof(Plat
 public interface INativeWindow
 {
     bool IgnoresMouse { get; set; }                // 点击穿透：true 时鼠标落到下面的窗口
-    PixelPoint? CursorInWindow();                  // 光标相对窗口左上角的位置（物理像素），拿不到返回 null
+    (double X, double Y)? CursorInWindow();        // 光标相对窗口内容区左上角的位置（DIP），拿不到返回 null
     void SetCapturable(bool capturable);
     void SetOverFullscreen(bool over);
     void MakeTransparent();                        // 不需要的平台是空操作
     void SetAlpha(double alpha);
-    bool TryInstallGlassBackdrop();
 }
 ```
 

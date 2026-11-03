@@ -1,7 +1,7 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using AstraPet.Core;
 using AstraPet.Pet;
+using AstraPet.Platform;
 
 namespace AstraPet.ControlPanel;
 
@@ -9,15 +9,17 @@ namespace AstraPet.ControlPanel;
 public sealed class UpdateViewModel : Observable
 {
     private readonly PetCompanion _companion;
+    private readonly IPlatform _platform;
     private readonly Action _exit;
     private bool _busy;
     private string _progressText = "";
     private UpdateChecker Checker => _companion.Updates;
 
-    public UpdateViewModel(PetCompanion companion, PetSettings settings, Action exit)
+    public UpdateViewModel(PetCompanion companion, PetSettings settings, IPlatform platform, Action exit)
     {
         _exit = exit;
         _companion = companion;
+        _platform = platform;
         Settings = settings;
         Checker.PropertyChanged += OnCheckerChanged;
         settings.PropertyChanged += (_, e) =>
@@ -29,7 +31,7 @@ public sealed class UpdateViewModel : Observable
 
     public PetSettings Settings { get; }
 
-    public string CurrentVersion => $"{AppVersion.Current} · {AppVersion.Platform}";
+    public string CurrentVersion => $"{AppVersion.Current} · {_platform.Identity}";
     public string Status => Checker.State == UpdateState.Unknown
         ? (HasServer ? "还没有检查过更新" : "还没有配置更新服务器，在下面填一个")
         : Checker.Message;
@@ -53,7 +55,11 @@ public sealed class UpdateViewModel : Observable
 
     public async Task CheckAsync() => await _companion.CheckForUpdateAsync(automatic: false);
 
-    private bool InApp => Checker.Available is { } a && UpdateInstaller.CanInstall(a);
+    private bool InApp => Checker.Available is { } a && CanInstallInApp(a);
+
+    /// <summary>有本机能装的安装包，而且当前这份程序能被原地替换（比如 macOS 上是从 .app 运行的）。</summary>
+    private bool CanInstallInApp(UpdateInfo info) =>
+        info.DownloadUrl.Length > 0 && _platform.Capabilities.InAppUpdate && _platform.Installer.CanInstall(info.Kind);
     public bool CanApply => !_busy;
     public string ApplyText => _busy ? (_progressText.Length > 0 ? _progressText : "更新中…") : InApp ? "更新并重启" : "下载更新";
     public string InstallHint => _progressText.Length > 0 && _busy ? "" : InApp
@@ -74,7 +80,7 @@ public sealed class UpdateViewModel : Observable
     public async Task ApplyAsync()
     {
         if (_busy || Checker.Available is not { } info) return;
-        if (!UpdateInstaller.CanInstall(info)) { OpenDownload(); return; }
+        if (!CanInstallInApp(info)) { OpenDownload(); return; }
 
         _busy = true;
         InstallError = "";
@@ -84,9 +90,9 @@ public sealed class UpdateViewModel : Observable
         {
             // 进度回调在下载线程上来，切回 UI 线程再通知界面
             var progress = new Progress<double>(p => SetProgress($"下载中 {(int)(p * 100)}%"));
-            var file = await Task.Run(() => UpdateInstaller.DownloadAsync(info, progress, CancellationToken.None));
+            var file = await Task.Run(() => UpdateDownloader.DownloadAsync(info, progress, CancellationToken.None));
             SetProgress("正在安装…");
-            var error = await UpdateInstaller.InstallAsync(info, file);
+            var error = await _platform.Installer.InstallAsync(file, info.Kind);
             if (error is null)
             {
                 SetProgress("即将重启…");
@@ -111,8 +117,7 @@ public sealed class UpdateViewModel : Observable
     {
         if (Checker.Available is not { } info) return;
         var url = info.DownloadUrl.Length > 0 ? info.DownloadUrl : info.PageUrl;
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception e) { PetLog.Write($"打开下载链接失败: {e.Message}"); }
+        _platform.Shell.OpenUrl(url);
     }
 
     private void OnCheckerChanged(object? sender, PropertyChangedEventArgs e)

@@ -1,6 +1,7 @@
 using AstraPet.ControlPanel;
 using AstraPet.Core;
 using AstraPet.Pet;
+using AstraPet.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -16,6 +17,7 @@ namespace AstraPet;
 public partial class App : Application
 {
     /// <summary>Program 在启动 Avalonia 之前定好内置角色的素材目录和 ffmpeg，放这里。</summary>
+    public static IPlatform Platform { get; set; } = null!;
     public static string BuiltInVideosDir { get; set; } = "";
     public static string Ffmpeg { get; set; } = "";
 
@@ -47,8 +49,8 @@ public partial class App : Application
                          $"移动 {library[PetLibrary.Move].Count} 个, 唱歌 {library[PetLibrary.Sing].Count} 个");
 
             var director = _director = new PetDirector(library, settings);
-            _pet = new PetWindow(director, settings);
-            _companion = new PetCompanion(_pet, director, settings);
+            _pet = new PetWindow(director, settings, Platform);
+            _companion = new PetCompanion(_pet, director, settings, Platform);
             _companion.ConsoleRequested += ShowConsole;
             _companion.ChatRequested += ShowChat;
 
@@ -67,7 +69,7 @@ public partial class App : Application
     }
 
     private ConsoleWindow EnsureConsole() =>
-        _console ??= new ConsoleWindow(new ConsoleViewModel(_pet!, _companion!, _settings!, _director!, BuiltInVideosDir, Ffmpeg));
+        _console ??= new ConsoleWindow(new ConsoleViewModel(_pet!, _companion!, _settings!, _director!, Platform, BuiltInVideosDir, Ffmpeg));
 
     private void ShowConsole() => EnsureConsole().Present();
 

@@ -33,14 +33,14 @@ public sealed class PetSettings : Observable
     private bool _allowCapture = true;
     private bool _clickThrough = true;
 
-    /// <summary>登录系统时自动启动。实际开关由 <see cref="Platform.AutoStart"/> 落到系统里。</summary>
+    /// <summary>登录系统时自动启动。实际开关由平台的 IAutoStart 落到系统里。</summary>
     public bool AutoStart { get => _autoStart; set => Set(ref _autoStart, value); }
     public bool Topmost { get => _topmost; set => Set(ref _topmost, value); }
-    /// <summary>其他应用全屏时不显示宠物（macOS：不加入全屏空间）。</summary>
+    /// <summary>其他应用全屏时不显示宠物。哪些平台支持见 PlatformCapabilities.OverFullscreen。</summary>
     public bool HideInFullscreen { get => _hideInFullscreen; set => Set(ref _hideInFullscreen, value); }
     /// <summary>允许 OBS 等录屏软件捕获宠物窗口。关掉后录屏里看不到宠物。</summary>
     public bool AllowCapture { get => _allowCapture; set => Set(ref _allowCapture, value); }
-    /// <summary>透明像素放行鼠标（目前只有 macOS 实现）。</summary>
+    /// <summary>透明像素放行鼠标。哪些平台支持见 PlatformCapabilities.ClickThrough。</summary>
     public bool ClickThrough { get => _clickThrough; set => Set(ref _clickThrough, value); }
 
     // ───── 桌宠 ─────
@@ -167,7 +167,7 @@ public sealed class PetSettings : Observable
     public bool SpeakReminders { get => _speakReminders; set => Set(ref _speakReminders, value); }
     /// <summary>系统语音名，空表示系统默认。</summary>
     public string Voice { get => _voice; set => Set(ref _voice, value ?? ""); }
-    /// <summary>语速，每分钟字数（macOS say 的 -r）。</summary>
+    /// <summary>语速，每分钟字数，各平台自己换算。</summary>
     public int SpeechRate { get => _speechRate; set => Set(ref _speechRate, Math.Clamp(value, 80, 400)); }
     public double SpeechVolume { get => _speechVolume; set => Set(ref _speechVolume, Math.Clamp(value, 0, 1)); }
 

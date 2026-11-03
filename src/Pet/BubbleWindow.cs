@@ -1,3 +1,4 @@
+using AstraPet.Adapters;
 using AstraPet.Core;
 using AstraPet.Platform;
 using Avalonia;
@@ -28,9 +29,9 @@ public sealed class BubbleWindow : Window
     };
     private readonly Border _surface;
     private readonly DispatcherTimer _hideTimer = new();
-    private MacWindow? _mac;
+    private INativeWindow _native = NullNativeWindow.Instance;
 
-    public BubbleWindow(PetWindow pet, PetSettings settings)
+    public BubbleWindow(PetWindow pet, PetSettings settings, IPlatform platform)
     {
         _pet = pet;
         _settings = settings;
@@ -66,9 +67,9 @@ public sealed class BubbleWindow : Window
         _hideTimer.Tick += (_, _) => Dismiss();
         Opened += (_, _) =>
         {
-            _mac = MacWindow.TryAttach(this);
-            _mac?.MakeTransparent();
-            if (_mac is not null) _mac.IgnoresMouse = true;
+            _native = this.AttachNative(platform);
+            _native.MakeTransparent();
+            _native.IgnoresMouse = true;
             ApplyCapture();
             Follow();
         };
@@ -107,8 +108,7 @@ public sealed class BubbleWindow : Window
 
     private void ApplyCapture()
     {
-        _mac?.SetCapturable(_settings.AllowCapture);
-        WinWindow.SetCapturable(this, _settings.AllowCapture);
+        _native.SetCapturable(_settings.AllowCapture);
     }
 
     /// <summary>水平居中在宠物上方，底边落在角色头顶；超出屏幕顶端时贴着屏幕上沿。</summary>

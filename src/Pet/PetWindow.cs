@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using AstraPet.Adapters;
 using AstraPet.Core;
 using AstraPet.Platform;
 using Avalonia;
@@ -25,6 +26,7 @@ public class PetWindow : Window
 
     private readonly PetDirector _director;
     private readonly PetSettings _settings;
+    private readonly IPlatform _platform;
     private readonly Image _image = new() { Stretch = Stretch.Fill };
     private readonly WriteableBitmap _bitmap;
     private readonly ScaleTransform _mirror = new(-1, 1);
@@ -43,7 +45,7 @@ public class PetWindow : Window
     private double _hoverDistance;
     private DateTime _lastHoverAt;
 
-    private MacWindow? _mac;
+    private INativeWindow _native = NullNativeWindow.Instance;
 
     /// <summary>一圈走路：起点、方向、这一圈走多少桌面像素。</summary>
     public sealed record Walk(int StartX, int Direction, double Distance, Gait Gait);
@@ -63,10 +65,11 @@ public class PetWindow : Window
     /// <summary>菜单项的显示文字，可以带状态（比如「继续动画」）。不设就用默认名字。</summary>
     public Func<string, string>? MenuLabel { get; set; }
 
-    public PetWindow(PetDirector director, PetSettings settings)
+    public PetWindow(PetDirector director, PetSettings settings, IPlatform platform)
     {
         _director = director;
         _settings = settings;
+        _platform = platform;
 
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -105,8 +108,8 @@ public class PetWindow : Window
         PointerCaptureLost += (_, _) => EndPress(clicked: false);
         Opened += (_, _) =>
         {
-            _mac = MacWindow.TryAttach(this);
-            _mac?.MakeTransparent();
+            _native = this.AttachNative(_platform);
+            _native.MakeTransparent();
             ApplyWindowBehavior();
             PetLog.Write($"窗口位置 {Position.X},{Position.Y} 大小 {Width:0}x{Height:0} 缩放 {DesktopScaling}");
             UpdateTimers();
@@ -159,9 +162,8 @@ public class PetWindow : Window
     /// <summary>录屏捕获、全屏空间：都是窗口打开后才能设的平台属性。</summary>
     private void ApplyWindowBehavior()
     {
-        _mac?.SetSpaces(overFullscreen: !_settings.HideInFullscreen);
-        _mac?.SetCapturable(_settings.AllowCapture);
-        WinWindow.SetCapturable(this, _settings.AllowCapture);
+        _native.SetOverFullscreen(!_settings.HideInFullscreen);
+        _native.SetCapturable(_settings.AllowCapture);
     }
 
     private void ApplySize()
@@ -200,7 +202,7 @@ public class PetWindow : Window
                 ApplyWindowBehavior();
                 break;
             case nameof(PetSettings.ClickThrough):
-                if (_mac is not null && !_settings.ClickThrough) _mac.IgnoresMouse = false;
+                if (!_settings.ClickThrough) _native.IgnoresMouse = false;
                 break;
         }
     }
@@ -210,7 +212,7 @@ public class PetWindow : Window
     {
         var running = _settings.Visible && !_settings.Paused;
         _frameTimer.IsEnabled = running;
-        _hitTimer.IsEnabled = _mac is not null && _settings.Visible;
+        _hitTimer.IsEnabled = _platform.Capabilities.ClickThrough && _settings.Visible;
     }
 
     private void OnClipStarted(ClipStream stream)
@@ -318,9 +320,13 @@ public class PetWindow : Window
     /// </summary>
     private void UpdatePassthrough()
     {
-        if (_mac is null) return;
-        _mac.IgnoresMouse = _settings.ClickThrough && !_pressed
-                            && !IsOpaqueAt(_mac.MouseLocation(ClientSize.Height));
+        if (!_settings.ClickThrough || _pressed)
+        {
+            _native.IgnoresMouse = false;
+            return;
+        }
+        // 读不到光标位置时宁可接住鼠标，也不要让宠物点不到。
+        _native.IgnoresMouse = _native.CursorInWindow() is var (x, y) && !IsOpaqueAt(new Point(x, y));
     }
 
     private PixelPoint ScreenPoint(PointerEventArgs e) => this.PointToScreen(e.GetPosition(this));

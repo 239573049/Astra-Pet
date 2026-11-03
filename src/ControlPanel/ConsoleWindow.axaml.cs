@@ -1,5 +1,5 @@
+using AstraPet.Adapters;
 using AstraPet.Core;
-using AstraPet.Platform;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
@@ -143,9 +143,10 @@ public partial class ConsoleWindow : Window
         ShowActivated = false;
         Opacity = 0;
         Show();
-        var mac = MacWindow.TryAttach(this);
-        mac?.SetAlpha(0);
-        if (mac is not null) mac.IgnoresMouse = true;
+        // Opacity 只管 Avalonia 自己画的内容，原生窗口层要单独藏（macOS 上会透出一块窗口背景）。
+        var native = this.AttachNative(_vm.Platform);
+        native.SetAlpha(0);
+        native.IgnoresMouse = true;
 
         var i = 0;
         void Step()
@@ -162,7 +163,8 @@ public partial class ConsoleWindow : Window
             Hide();
             Opacity = 1;
             ShowActivated = true;
-            if (mac is not null) { mac.IgnoresMouse = false; mac.SetAlpha(1); }
+            native.IgnoresMouse = false;
+            native.SetAlpha(1);
             _warming = false;
             PetLog.Write("控制台预热完成");
             if (_revealRequested) { _revealRequested = false; Present(); }

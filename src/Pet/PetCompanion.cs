@@ -18,6 +18,7 @@ public sealed class PetCompanion : IDisposable
     private readonly PetWindow _pet;
     private readonly PetDirector _director;
     private readonly PetSettings _settings;
+    private readonly IPlatform _platform;
     private readonly Random _random = new();
     private readonly DispatcherTimer _monitor = new() { Interval = TimeSpan.FromSeconds(5) };
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(15) };
@@ -28,14 +29,15 @@ public sealed class PetCompanion : IDisposable
     private DateTime _lastDrink = DateTime.Now;
     private DateTime _sittingSince = DateTime.Now;
 
-    public PetCompanion(PetWindow pet, PetDirector director, PetSettings settings)
+    public PetCompanion(PetWindow pet, PetDirector director, PetSettings settings, IPlatform platform)
     {
         _pet = pet;
         _director = director;
         _settings = settings;
+        _platform = platform;
         Agent = new PetAgent(settings);
-        Bubble = new BubbleWindow(pet, settings);
-        Updates = new UpdateChecker(settings);
+        Bubble = new BubbleWindow(pet, settings, platform);
+        Updates = new UpdateChecker(settings, platform.Identity.Key, platform.Installer.PreferredKinds);
 
         _pet.Clicked += OnClicked;
         _pet.DoubleClicked += () => { if (_settings.DoubleClickChat) ChatRequested?.Invoke(); };
@@ -129,7 +131,9 @@ public sealed class PetCompanion : IDisposable
     }
 
     public void Speak(string text) =>
-        Speech.Speak(text, _settings.Voice, _settings.SpeechRate, _settings.SpeechVolume);
+        _platform.Speech.Speak(text, new SpeechOptions(_settings.Voice, _settings.SpeechRate, _settings.SpeechVolume));
+
+    public void StopSpeaking() => _platform.Speech.Stop();
 
     /// <summary>发给智能体，回复显示在气泡里并按设置朗读。出错时气泡里说明原因，并把异常抛给调用方。</summary>
     public async Task<string> ChatAsync(string text)
@@ -209,21 +213,22 @@ public sealed class PetCompanion : IDisposable
     /// <summary>每 5 秒：省电模式、听歌检测。</summary>
     private void Monitor()
     {
-        var idle = SystemMonitor.IdleSeconds();
-        _settings.PowerSavingActive = _settings.PowerSaving && idle > _settings.PowerSavingMinutes * 60;
+        // 读不到空闲时长的平台不进省电模式，也不重置久坐计时。
+        var idle = _platform.Monitor.IdleTime() ?? TimeSpan.Zero;
+        _settings.PowerSavingActive = _settings.PowerSaving && idle > TimeSpan.FromMinutes(_settings.PowerSavingMinutes);
 
         // 离开电脑 5 分钟算起身活动过，久坐计时重来。
-        if (idle > 300) _sittingSince = DateTime.Now;
+        if (idle > TimeSpan.FromMinutes(5)) _sittingSince = DateTime.Now;
 
-        if (!_settings.MusicDetect || !SystemMonitor.CanDetectAudio)
+        if (!_settings.MusicDetect || !_platform.Capabilities.AudioDetection)
         {
             _settings.MusicPlaying = false;
             return;
         }
         if (_probingAudio) return;
         _probingAudio = true;
-        // pmset 要起子进程，放到线程池上跑。
-        Task.Run(SystemMonitor.IsAudioPlaying).ContinueWith(t => Dispatcher.UIThread.Post(() =>
+        // 可能要起子进程，平台实现自己放到线程池上跑，这里等结果回来再切回 UI 线程。
+        _platform.Monitor.IsAudioPlayingAsync().ContinueWith(t => Dispatcher.UIThread.Post(() =>
         {
             _probingAudio = false;
             var playing = t.IsCompletedSuccessfully && t.Result;
@@ -275,7 +280,7 @@ public sealed class PetCompanion : IDisposable
         _monitor.Stop();
         _clock.Stop();
         _updateTimer.Stop();
-        Speech.Stop();
+        _platform.Speech.Stop();
         Bubble.Close();
     }
 }

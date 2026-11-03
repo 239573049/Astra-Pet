@@ -8,6 +8,8 @@
     <!-- Windows 上 exe 文件和任务栏的图标。macOS 的在 .app 的 Info.plist 里、Linux 的在 .desktop 里，由发布工作流放进去。 -->
     <ApplicationIcon>Assets\icons\app.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- 平台层的 P/Invoke 用 [LibraryImport] 源生成，生成的代码需要 unsafe。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- 版本号：发布时由 GitHub 工作流用 -p:Version=x.y.z 覆盖，更新检测拿它和服务器上的最新版本比较。 -->
     <Version>0.1.3</Version>

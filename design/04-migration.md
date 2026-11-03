@@ -14,7 +14,14 @@
 顺手要清理的：`THIRD_PARTY_NOTICES.md`、`tools/third_party_head.md`、`tools/gen_third_party.py`
 里还提到 AtomUI，`licenses/LGPL-3.0-AtomUI.txt` 也已经不需要了。这个可以单独提一个小 PR。
 
-## 第 1 步：平台抽象落地（不拆项目）
+## 第 1 步：平台抽象落地（不拆项目）✅
+
+> 已完成，在 `refactor/platform-abstraction` 分支上。验收结果：Platform 目录之外没有 `OperatingSystem.Is`；
+> `DllImport` 全部换成 `LibraryImport`；macOS 上 Debug 和 NativeAOT 版本的 `--smoke` 都通过，实际运行时窗口透明、
+> 点击穿透、控制台预热都正常。Windows 和 Linux 只验证了能编译，还没有在真机上跑过。
+>
+> 和计划相比多做的：界面上全屏隐藏、录屏、点击穿透三个开关按平台能力置灰（之前在 Windows 上能打开但不起作用）；
+> Windows 空闲时长的 32 位回绕修正；Linux 上不是通过 deb 安装时，更新改为打开下载页。
 
 **目标**：界面层和 Core 里不再出现 `OperatingSystem.IsXxx()`，行为和现在保持一致。
 

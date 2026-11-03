@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics;
 using AstraPet.Ai;
 using AstraPet.Core;
 using AstraPet.Import;
+using AstraPet.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -89,6 +89,7 @@ public enum ProviderDialog { None, Picker, Form, Import }
 public sealed class ProvidersViewModel : Observable
 {
     private readonly PetSettings _settings;
+    private readonly IShell _shell;
     private readonly Dictionary<string, ProviderCard> _cardById = new();
     private readonly DispatcherTimer _noticeTimer = new() { Interval = TimeSpan.FromSeconds(8) };
 
@@ -114,9 +115,10 @@ public sealed class ProvidersViewModel : Observable
     private ImportSourceItem? _currentSource;
     private string _importError = "";
 
-    public ProvidersViewModel(PetSettings settings)
+    public ProvidersViewModel(PetSettings settings, IShell shell)
     {
         _settings = settings;
+        _shell = shell;
         Rebuild();
         settings.Providers.CollectionChanged += OnProvidersChanged;
         settings.PropertyChanged += OnSettingChanged;
@@ -470,8 +472,7 @@ public sealed class ProvidersViewModel : Observable
     public void OpenKeyUrl()
     {
         if (_draftPreset?.KeyUrl is not { Length: > 0 } url) return;
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch (Exception e) { PetLog.Write($"打开网页失败: {e.Message}"); }
+        _shell.OpenUrl(url);
     }
 
     /// <summary>表单里的地址：带了 /chat/completions 之类完整端点的，去掉，Astra 自己会拼。</summary>

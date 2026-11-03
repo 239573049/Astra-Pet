@@ -29,12 +29,22 @@ public sealed class UpdateChecker : Observable
     private static readonly HttpClient Http = CreateHttp();
 
     private readonly PetSettings _settings;
+    private readonly string _platform;
+    private readonly IReadOnlyList<string> _installerKinds;
     private UpdateState _state;
     private string _message = "";
     private UpdateInfo? _available;
     private DateTime? _checkedAt;
 
-    public UpdateChecker(PetSettings settings) => _settings = settings;
+    /// <param name="settings">渠道、服务器地址。</param>
+    /// <param name="platform">本机平台标识（darwin-arm64 等），和站点上文件的 platform 字段一致。</param>
+    /// <param name="installerKinds">本机能用的安装包类型，按优先级（dmg、exe、deb、zip…）。</param>
+    public UpdateChecker(PetSettings settings, string platform, IReadOnlyList<string> installerKinds)
+    {
+        _settings = settings;
+        _platform = platform;
+        _installerKinds = installerKinds;
+    }
 
     public UpdateState State { get => _state; private set => Set(ref _state, value); }
     /// <summary>给人看的一句话：「已是最新版本」「发现新版本 0.2.0」「检查失败：…」。</summary>
@@ -72,7 +82,7 @@ public sealed class UpdateChecker : Observable
         try
         {
             var channel = _settings.UpdateChannel == "preview" ? "preview" : "stable";
-            var url = new Uri(baseUri, $"/api/pet-releases/{channel}/latest.json?platform={Uri.EscapeDataString(AppVersion.Platform)}");
+            var url = new Uri(baseUri, $"/api/pet-releases/{channel}/latest.json?platform={Uri.EscapeDataString(_platform)}");
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(15));
 
@@ -128,16 +138,11 @@ public sealed class UpdateChecker : Observable
         }
     }
 
-    /// <summary>安装包的文件类型，按优先级。</summary>
-    private static readonly string[] InstallerKinds = OperatingSystem.IsMacOS() ? ["dmg", "zip"]
-        : OperatingSystem.IsWindows() ? ["exe", "zip"]
-        : ["deb", "appimage", "zip"];
-
-    private static LatestFile? PickInstaller(List<LatestFile>? files)
+    private LatestFile? PickInstaller(List<LatestFile>? files)
     {
-        var mine = files?.Where(f => f.Platform == AppVersion.Platform).ToList();
+        var mine = files?.Where(f => f.Platform == _platform).ToList();
         if (mine is null) return null;
-        foreach (var kind in InstallerKinds)
+        foreach (var kind in _installerKinds)
             if (mine.FirstOrDefault(f => f.Kind == kind) is { } found) return found;
         return null;
     }

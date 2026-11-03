@@ -5,8 +5,8 @@ using System.Text.Json.Serialization.Metadata;
 namespace AstraPet.Core;
 
 /// <summary>
-/// 设置存成一个 JSON 文件：macOS 在 ~/Library/Application Support/AstraPet/settings.json，
-/// Windows 在 %APPDATA%\AstraPet\settings.json。API Key 也明文存在这里。
+/// 设置存成数据目录下的一个 JSON 文件（目录见 IAppPaths.DataDirectory：macOS 在 ~/Library/Application Support/AstraPet，
+/// Windows 在 %APPDATA%\AstraPet，Linux 在 ~/.config/AstraPet）。API Key 也明文存在这里。
 /// 环境变量 ASTRA_PET_DATA 可以换成别的目录，测试时用它，免得动到正在用的那份设置。
 /// </summary>
 public static class SettingsStore
@@ -19,12 +19,16 @@ public static class SettingsStore
 
     private static JsonTypeInfo<PetSettings> TypeInfo => (JsonTypeInfo<PetSettings>)Options.GetTypeInfo(typeof(PetSettings));
 
-    public static string Directory { get; } =
-        Environment.GetEnvironmentVariable("ASTRA_PET_DATA") is { Length: > 0 } custom
-            ? custom
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AstraPet");
+    private static string? _directory;
 
-    public static string FilePath { get; } = Path.Combine(Directory, "settings.json");
+    /// <summary>数据目录，由启动代码从 IAppPaths.DataDirectory 设进来（<see cref="UseDirectory"/>）。</summary>
+    public static string Directory =>
+        _directory ?? throw new InvalidOperationException("还没有设置数据目录，先调 SettingsStore.UseDirectory");
+
+    public static string FilePath => Path.Combine(Directory, "settings.json");
+
+    /// <summary>启动时调一次，在读设置之前。</summary>
+    public static void UseDirectory(string directory) => _directory = directory;
 
     public static PetSettings Load()
     {

@@ -305,7 +305,7 @@
     <TextBlock Text="全屏隐藏" Classes="label" />
     <TextBlock Text="其他应用全屏时（看视频、玩游戏、演示）不显示宠物。" Classes="note" />
 </StackPanel>
-<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.HideInFullscreen, Mode=TwoWay}" AutomationProperties.Name="全屏隐藏" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.HideInFullscreen, Mode=TwoWay}" IsEnabled="{Binding CanHideInFullscreen}" AutomationProperties.Name="全屏隐藏" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -314,7 +314,7 @@
     <TextBlock Text="允许录屏捕获" Classes="label" />
     <TextBlock Text="让 OBS 等录屏、直播软件可以录到宠物。关闭后录屏里看不到它。" Classes="note" />
 </StackPanel>
-<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AllowCapture, Mode=TwoWay}" AutomationProperties.Name="允许录屏捕获" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AllowCapture, Mode=TwoWay}" IsEnabled="{Binding CanExcludeCapture}" AutomationProperties.Name="允许录屏捕获" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -323,7 +323,7 @@
     <TextBlock Text="透明处点击穿透" Classes="label" />
     <TextBlock Text="鼠标可以穿过角色周围的透明区域，点到下面的窗口。" Classes="note" />
 </StackPanel>
-<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.ClickThrough, Mode=TwoWay}" AutomationProperties.Name="透明处点击穿透" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.ClickThrough, Mode=TwoWay}" IsEnabled="{Binding CanClickThrough}" AutomationProperties.Name="透明处点击穿透" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -1035,6 +1035,7 @@
 <StackPanel Spacing="3" VerticalAlignment="Center">
     <TextBlock Text="朗读回复" Classes="label" />
     <TextBlock Text="智能体的回复同时用语音念出来。" Classes="note" />
+    <TextBlock Text="{Binding SpeechNote}" Classes="note" IsVisible="{Binding HasSpeechNote}" />
 </StackPanel>
 <arc:Switch Grid.Column="1" IsChecked="{Binding Settings.SpeakReplies, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读回复" />
 </Grid>

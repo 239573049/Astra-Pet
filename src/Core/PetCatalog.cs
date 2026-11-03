@@ -23,7 +23,7 @@ public static class PetCatalog
 {
     public const string BuiltInName = "默认角色";
 
-    public static string Directory { get; } = Path.Combine(SettingsStore.Directory, "characters");
+    public static string Directory => Path.Combine(SettingsStore.Directory, "characters");
 
     /// <summary>内置角色排第一，后面是角色目录下的文件夹，按名字排。目录不存在就只有内置的。</summary>
     public static List<PetEntry> Scan(string builtInVideosDir)
