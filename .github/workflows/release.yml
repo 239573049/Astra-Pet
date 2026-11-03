@@ -120,7 +120,7 @@ jobs:
 
       - name: Smoke test
         shell: bash
-        # 起 Avalonia 和 AtomUI、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
+        # 起 Avalonia 和 Arc、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
         run: |
           case "${{ runner.os }}" in
             Windows) ./publish/AstraPet.exe --smoke ;;

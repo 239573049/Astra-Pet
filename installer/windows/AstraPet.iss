@@ -74,6 +74,8 @@ Name: "{autodesktop}\Astra Pet"; Filename: "{app}\AstraPet.exe"; IconFilename: "
 
 [Run]
 Filename: "{app}\AstraPet.exe"; Description: "{cm:LaunchProgram,Astra Pet}"; Flags: nowait postinstall skipifsilent
+; 应用内更新：程序用 /SILENT /relaunch=1 启动安装包，装完自动重新打开
+Filename: "{app}\AstraPet.exe"; Flags: nowait; Check: ShouldRelaunch
 
 [Code]
 // 更新或卸载时宠物可能正在运行，文件被占用。先把它关掉（它没有任务栏窗口，Windows 的「重启管理器」关不掉）。
@@ -83,6 +85,11 @@ var
   ResultCode: Integer;
 begin
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM AstraPet.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function ShouldRelaunch(): Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

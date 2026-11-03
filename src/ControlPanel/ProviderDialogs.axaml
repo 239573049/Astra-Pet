@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:atom="https://atomui.net"
+             xmlns:arc="clr-namespace:TKCode.Arc;assembly=TKCode.Arc"
              xmlns:local="using:AstraPet.ControlPanel"
              xmlns:imp="using:AstraPet.Import"
              x:Class="AstraPet.ControlPanel.ProviderDialogs"
@@ -51,24 +51,6 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="#8D9190" />
             <Setter Property="Margin" Value="2 14 0 8" />
-        </Style>
-        <Style Selector="Button.iconbtn">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Width" Value="28" />
-            <Setter Property="Height" Value="28" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="6">
-                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Button.iconbtn:pointerover /template/ Border#Surface">
-            <Setter Property="Background" Value="#1FFFFFFF" />
         </Style>
         <!-- 整行可点的按钮：预设磁贴、导入来源行 -->
         <Style Selector="Button.tile">
@@ -149,14 +131,14 @@
                             <TextBlock Text="添加提供商" FontSize="15" FontWeight="SemiBold" />
                             <TextBlock Text="选一个常用服务商，地址和模型已经帮你填好；列表里没有的用「自定义」。" Classes="note" />
                         </StackPanel>
-                        <Button Grid.Column="1" Classes="iconbtn" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
+                        <arc:Button Size="Small" Padding="6" Grid.Column="1" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
                             <Path Data="M 6,6 L 18,18 M 18,6 L 6,18" Stroke="#C5CBC8" StrokeThickness="1.6" Width="12" Height="12" Stretch="Uniform" />
-                        </Button>
+                        </arc:Button>
                     </Grid>
                 </Border>
                 <Border Grid.Row="1" Padding="20 12 20 0">
                     <StackPanel Spacing="6">
-                        <atom:LineEdit Text="{Binding Search, Mode=TwoWay}" PlaceholderText="搜索，例如 deepseek、千问、openai" AutomationProperties.Name="搜索提供商" />
+                        <arc:Input Text="{Binding Search, Mode=TwoWay}" PlaceholderText="搜索，例如 deepseek、千问、openai" AutomationProperties.Name="搜索提供商" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <TextBlock Classes="note" FontSize="10" Text="{Binding CatalogLine}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                                        VerticalAlignment="Center" ToolTip.Tip="地址、模型列表和模型参数（上下文、最大输出、价格）来自 models.dev" />
@@ -228,29 +210,29 @@
                             <TextBlock Text="{Binding FormTitle}" FontSize="15" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding FormSubtitle}" Classes="note" />
                         </StackPanel>
-                        <Button Grid.Column="2" Classes="iconbtn" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
+                        <arc:Button Size="Small" Padding="6" Grid.Column="2" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
                             <Path Data="M 6,6 L 18,18 M 18,6 L 6,18" Stroke="#C5CBC8" StrokeThickness="1.6" Width="12" Height="12" Stretch="Uniform" />
-                        </Button>
+                        </arc:Button>
                     </Grid>
                 </Border>
                 <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" MaxHeight="470">
                     <Grid ColumnDefinitions="76,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="12" Margin="20 16">
                         <TextBlock Text="名称" VerticalAlignment="Center" />
-                        <atom:LineEdit Grid.Column="1" Text="{Binding Draft.Name, Mode=TwoWay}" PlaceholderText="给这个配置起个名字" />
+                        <arc:Input Grid.Column="1" Text="{Binding Draft.Name, Mode=TwoWay}" PlaceholderText="给这个配置起个名字" />
 
                         <TextBlock Grid.Row="1" Text="协议" VerticalAlignment="Center" />
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
-                            <atom:ComboBox ItemsSource="{Binding ProtocolList}" SelectedItem="{Binding DraftProtocol, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                            <arc:Select ItemsSource="{Binding ProtocolList}" SelectedItem="{Binding DraftProtocol, Mode=TwoWay}" HorizontalAlignment="Stretch" />
                             <TextBlock Text="{Binding ProtocolHint}" Classes="note" />
                         </StackPanel>
 
                         <TextBlock Grid.Row="2" Text="接口地址" VerticalAlignment="Center" />
-                        <atom:LineEdit Grid.Row="2" Grid.Column="1" Text="{Binding Draft.BaseUrl, Mode=TwoWay}" PlaceholderText="https://api.example.com/v1" />
+                        <arc:Input Grid.Row="2" Grid.Column="1" Text="{Binding Draft.BaseUrl, Mode=TwoWay}" PlaceholderText="https://api.example.com/v1" />
 
                         <TextBlock Grid.Row="3" Text="API Key" VerticalAlignment="Top" Margin="0 6 0 0" />
                         <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                            <atom:LineEdit Text="{Binding Draft.ApiKey, Mode=TwoWay}" PasswordChar="•" IsEnableRevealButton="True"
-                                           PlaceholderText="sk-…（本地模型可留空）" />
+                            <arc:PasswordField Text="{Binding Draft.ApiKey, Mode=TwoWay}" IsLabelVisible="False" Label="API Key"
+                                           Placeholder="sk-…（本地模型可留空）" />
                             <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasKeyUrl}">
                                 <TextBlock Text="Key 只保存在本机的设置文件里。" Classes="note" VerticalAlignment="Center" />
                                 <Button Grid.Column="1" Classes="link" Click="OnOpenKeyUrl">
@@ -262,8 +244,8 @@
                         <TextBlock Grid.Row="4" Text="模型" VerticalAlignment="Top" Margin="0 6 0 0" />
                         <StackPanel Grid.Row="4" Grid.Column="1" Spacing="6">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <atom:LineEdit Text="{Binding Draft.Model, Mode=TwoWay}" PlaceholderText="模型名，例如 gpt-4o-mini" />
-                                <atom:Button Grid.Column="1" Content="获取模型" Click="OnFetchModels" IsEnabled="{Binding !Fetching}"
+                                <arc:Input Text="{Binding Draft.Model, Mode=TwoWay}" PlaceholderText="模型名，例如 gpt-4o-mini" />
+                                <arc:Button Grid.Column="1" Content="获取模型" Click="OnFetchModels" IsEnabled="{Binding !Fetching}"
                                              ToolTip.Tip="向接口请求可用的模型列表" />
                             </Grid>
                             <ItemsControl ItemsSource="{Binding ModelSuggestions}" IsVisible="{Binding HasModelSuggestions}">
@@ -289,17 +271,17 @@
                         <Grid Grid.Row="6" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <SelectableTextBlock Text="{Binding FormTestText}" TextWrapping="Wrap" FontSize="11" VerticalAlignment="Center"
                                                  Foreground="{Binding FormTestOk, Converter={x:Static local:ConsoleConverters.OkBrush}}" />
-                            <atom:Button Grid.Column="1" Content="测试连接" Click="OnTestDraft" IsEnabled="{Binding !FormTesting}"
+                            <arc:Button Grid.Column="1" Content="测试连接" Click="OnTestDraft" IsEnabled="{Binding !FormTesting}"
                                          ToolTip.Tip="发送一条 “Say 1” 请求" />
                         </Grid>
                     </Grid>
                 </ScrollViewer>
                 <Border Grid.Row="2" Classes="dialog-foot">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-                        <atom:Button Content="{Binding DeleteText}" IsDanger="True" Click="OnDeleteProvider" IsVisible="{Binding IsEditing}" />
-                        <atom:Button Grid.Column="1" Content="← 重新选择" Click="OnBackToPicker" HorizontalAlignment="Left" IsVisible="{Binding !IsEditing}" />
-                        <atom:Button Grid.Column="2" Content="取消" Click="OnClose" />
-                        <atom:Button Grid.Column="3" ButtonType="Primary" Content="{Binding SaveText}" Click="OnSave" IsEnabled="{Binding CanSave}" />
+                        <arc:Button Content="{Binding DeleteText}" Variant="Danger" Click="OnDeleteProvider" IsVisible="{Binding IsEditing}" />
+                        <arc:Button Grid.Column="1" Content="← 重新选择" Click="OnBackToPicker" HorizontalAlignment="Left" IsVisible="{Binding !IsEditing}" />
+                        <arc:Button Grid.Column="2" Content="取消" Click="OnClose" />
+                        <arc:Button Grid.Column="3" Variant="Primary" Content="{Binding SaveText}" Click="OnSave" IsEnabled="{Binding CanSave}" />
                     </Grid>
                 </Border>
             </Grid>
@@ -310,9 +292,9 @@
             <Grid RowDefinitions="Auto,*,Auto">
                 <Border Classes="dialog-head">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                        <Button Classes="iconbtn" Click="OnBackToSources" IsVisible="{Binding IsImportDetail}" ToolTip.Tip="返回" AutomationProperties.Name="返回" VerticalAlignment="Top">
+                        <arc:Button Size="Small" Padding="6" Click="OnBackToSources" IsVisible="{Binding IsImportDetail}" ToolTip.Tip="返回" AutomationProperties.Name="返回" VerticalAlignment="Top">
                             <Path Data="M 15,5 L 8,12 L 15,19" Stroke="#C5CBC8" StrokeThickness="1.6" Width="11" Height="13" Stretch="Uniform" />
-                        </Button>
+                        </arc:Button>
                         <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                             <TextBlock FontSize="15" FontWeight="SemiBold" Text="从其他应用导入" IsVisible="{Binding IsImportList}" />
                             <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding CurrentSourceName, StringFormat=从 {0} 导入}" IsVisible="{Binding IsImportDetail}" />
@@ -321,9 +303,9 @@
                             <TextBlock Classes="note" IsVisible="{Binding IsImportDetail}"
                                        Text="勾选要导入的提供商。Key 会复制到 Astra 的设置文件里；已经有的配置默认不勾选。" />
                         </StackPanel>
-                        <Button Grid.Column="2" Classes="iconbtn" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
+                        <arc:Button Size="Small" Padding="6" Grid.Column="2" Click="OnClose" ToolTip.Tip="关闭" AutomationProperties.Name="关闭" VerticalAlignment="Top">
                             <Path Data="M 6,6 L 18,18 M 18,6 L 6,18" Stroke="#C5CBC8" StrokeThickness="1.6" Width="12" Height="12" Stretch="Uniform" />
-                        </Button>
+                        </arc:Button>
                     </Grid>
                 </Border>
 
@@ -379,7 +361,7 @@
                                 <DataTemplate x:DataType="imp:ImportCandidate">
                                     <Border Background="#0FFFFFFF" BorderBrush="#1FFFFFFF" BorderThickness="1" CornerRadius="10" Padding="12 10">
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                            <atom:CheckBox IsChecked="{Binding Selected, Mode=TwoWay}" IsEnabled="{Binding CanSelect}"
+                                            <arc:Checkbox IsChecked="{Binding Selected, Mode=TwoWay}" IsEnabled="{Binding CanSelect}"
                                                            VerticalAlignment="Center" AutomationProperties.Name="{Binding Name}" />
                                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
@@ -406,17 +388,17 @@
                 <Border Grid.Row="2" Classes="dialog-foot">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsImportList}">
-                            <atom:Button Content="选择配置文件…" Click="OnPickFile"
+                            <arc:Button Content="选择配置文件…" Click="OnPickFile"
                                          ToolTip.Tip="默认位置找不到时，手动选 cc-switch.db、config.toml、auth.json、settings.json 或 .credentials.yaml" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsImportDetail}">
-                            <atom:Button Content="全选" Click="OnSelectAll" />
-                            <atom:Button Content="全不选" Click="OnSelectNone" />
+                            <arc:Button Content="全选" Click="OnSelectAll" />
+                            <arc:Button Content="全不选" Click="OnSelectNone" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <atom:Button Content="关闭" Click="OnClose" IsVisible="{Binding IsImportList}" />
-                            <atom:Button Content="返回" Click="OnBackToSources" IsVisible="{Binding IsImportDetail}" />
-                            <atom:Button ButtonType="Primary" Content="{Binding ImportButtonText}" Click="OnImportSelected"
+                            <arc:Button Content="关闭" Click="OnClose" IsVisible="{Binding IsImportList}" />
+                            <arc:Button Content="返回" Click="OnBackToSources" IsVisible="{Binding IsImportDetail}" />
+                            <arc:Button Variant="Primary" Content="{Binding ImportButtonText}" Click="OnImportSelected"
                                          IsVisible="{Binding IsImportDetail}" IsEnabled="{Binding CanImport}" />
                         </StackPanel>
                     </Grid>

@@ -9,8 +9,6 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using AtomContextMenu = AtomUI.Desktop.Controls.ContextMenu;
-using AtomMenuItem = AtomUI.Desktop.Controls.MenuItem;
 
 namespace AstraPet.Pet;
 
@@ -86,10 +84,9 @@ public class PetWindow : Window
         _image.RenderTransformOrigin = RelativePoint.Center;
         Content = _image;
 
-        // AtomUI 主题默认让菜单画在窗口内的 overlay 层上，宠物窗口是裸 Window 没有这一层，右键会抛
-        // “no overlay layer is found”。窗口也太小装不下菜单，所以强制走原生弹窗。
+        // 宠物窗口是裸 Window 没有 overlay 层，窗口也太小装不下菜单，所以用 Avalonia 自带的 ContextMenu（走独立弹窗）。
         // 菜单项每次打开时按设置重建，控制台「菜单」页改了立即生效。
-        var menu = new AtomContextMenu { ShouldUseOverlayPopup = false };
+        var menu = new ContextMenu();
         menu.Opening += (_, _) => BuildMenu(menu);
         BuildMenu(menu);
         ContextMenu = menu;
@@ -143,13 +140,13 @@ public class PetWindow : Window
 
     public void Play(string category) => _director.Play(category, fromUser: true);
 
-    private void BuildMenu(AtomContextMenu menu)
+    private void BuildMenu(ContextMenu menu)
     {
         menu.Items.Clear();
         foreach (var entry in _settings.MenuItems.Where(m => m.Visible))
         {
             var id = entry.Id;
-            var item = new AtomMenuItem { Header = MenuLabel?.Invoke(id) ?? entry.Label };
+            var item = new MenuItem { Header = MenuLabel?.Invoke(id) ?? entry.Label };
             item.Click += (_, _) =>
             {
                 if (id == MenuEntry.Exit) Close();

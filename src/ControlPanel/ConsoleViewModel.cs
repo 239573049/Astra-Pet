@@ -65,7 +65,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         _ffmpeg = ffmpeg;
         Settings = settings;
         Hub = new ProvidersViewModel(settings);
-        Update = new UpdateViewModel(companion, settings);
+        Update = new UpdateViewModel(companion, settings, Exit);
 
         Pages =
         [

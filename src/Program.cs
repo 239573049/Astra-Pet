@@ -1,11 +1,8 @@
 using AstraPet.Core;
-using AtomUI;
-using AtomUI.Desktop.Controls;
-using AtomUI.Theme;
-using AtomUI.Theme.Algorithms;
-using AtomUI.Theme.Configuration;
-using AtomUI.Theme.DesignTokens;
+using TKCode.Arc;
+using TKCode.Arc.Fonts;
 using Avalonia;
+using Avalonia.Media;
 
 namespace AstraPet;
 
@@ -33,7 +30,7 @@ class Program
     }
 
     /// <summary>
-    /// NativeAOT 冒烟自测（CI 里发布后跑一次）：起 Avalonia 和 AtomUI 主题，把控制台的 XAML 完整加载一遍但不显示。
+    /// NativeAOT 冒烟自测（CI 里发布后跑一次）：起 Avalonia 和 Arc 主题，把控制台的 XAML 完整加载一遍但不显示。
     /// 直接 publish 时 Avalonia 的 XAML 编译被跳过、或者有东西被裁掉，都会在这里抛异常，而不是用户双击后才发现。
     /// </summary>
     private static int Smoke()
@@ -42,6 +39,7 @@ class Program
         {
             BuildAvaloniaApp().SetupWithoutStarting();
             _ = new ControlPanel.ConsoleWindow();
+            _ = new ControlPanel.ChatWindow();
             Console.WriteLine("smoke ok");
             return 0;
         }
@@ -54,21 +52,13 @@ class Program
 
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
-            .UseAtomUIPlatformDetect()
-            .WithAtomUIDefaultOptions()
-            .UseAtomUI(builder =>
-            {
-                // AtomUI derives control resources from its own theme configuration.
-                // RequestedThemeVariant alone leaves controls using the default light palette.
-                builder.WithInitialTheme(IThemeManager.DEFAULT_THEME_ID,
-                    new ThemeConfigBuilder()
-                        .WithAlgorithms(ThemeAlgorithm.Dark, ThemeAlgorithm.Compact)
-                        .WithToken(nameof(DesignToken.ColorPrimary), "#32AA7D")
-                        .WithToken(nameof(DesignToken.FontSize), "12")
-                        .WithToken(nameof(DesignToken.ControlHeightSM), "26")
-                        .Build());
-                builder.UseDesktopControls();
-            })
+            .UsePlatformDetect()
+            .WithInterFont()
+            .WithArcFonts()
+            .UseArc(arc => arc
+                .UseArcControls()
+                // 固定深色，主色沿用宠物的绿。
+                .WithTheme(t => t.Appearance(ArcAppearance.Dark).Accent(Color.Parse("#32AA7D"))))
             .LogToTrace();
 
     /// <summary>内置角色的素材目录：优先用环境变量，其次找输出目录里的素材，最后找源码树里的素材。</summary>

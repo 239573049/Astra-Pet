@@ -19,7 +19,7 @@ public static class ConsoleConverters
         ok ? Brush.Parse("#8AC8AA") : Brush.Parse("#D9A7A7"));
 }
 
-public partial class ConsoleWindow : AtomUI.Desktop.Controls.Window
+public partial class ConsoleWindow : Window
 {
     private readonly ConsoleViewModel _vm;
 
@@ -38,28 +38,6 @@ public partial class ConsoleWindow : AtomUI.Desktop.Controls.Window
         _vm = vm;
         DataContext = vm;
         AvaloniaXamlLoader.Load(this);
-
-        // macOS：窗口背景透明，毛玻璃由系统视图垫在下面；标题栏变透明、不占版面，红绿灯浮在侧栏上。
-        // 别的平台保持 XAML 里的不透明深色。
-        if (OperatingSystem.IsMacOS())
-        {
-            Classes.Add("glass");
-            Background = Brushes.Transparent;
-            TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
-            TransparencyBackgroundFallback = Brushes.Transparent;
-            TitleBarFrameBackground = Brushes.Transparent;
-        }
-        Opened += (_, _) =>
-        {
-            if (MacWindow.TryAttach(this) is not { } mac) return;
-            mac.MakeTransparent();
-            mac.InstallGlassBackdrop();
-
-            // 系统按钮由 AtomUI 按标题栏高度垂直居中；撑到 52，按钮中心落在 y=26，
-            // 和侧栏圆角、顶部留白对得上（XAML 里 TitleBarPanel 的负边距要和这个数一致）。
-            if (this.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.WindowTitleBar>().FirstOrDefault() is { } bar)
-                bar.Height = 52;
-        };
 
         InitMotion();
 
@@ -202,7 +180,7 @@ public partial class ConsoleWindow : AtomUI.Desktop.Controls.Window
     // 常规
     private void OnOpenSettingsFolder(object? sender, RoutedEventArgs e) => _vm.OpenSettingsFolder();
     private async void OnCheckUpdate(object? sender, RoutedEventArgs e) => await _vm.Update.CheckAsync();
-    private void OnDownloadUpdate(object? sender, RoutedEventArgs e) => _vm.Update.OpenDownload();
+    private async void OnDownloadUpdate(object? sender, RoutedEventArgs e) => await _vm.Update.ApplyAsync();
     private void OnOpenLicenses(object? sender, RoutedEventArgs e) => _vm.OpenLicensesFolder();
 
     // 桌宠

@@ -3,12 +3,10 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using StreamMark.Avalonia.Extensions;
-using StreamMark.Highlighting.TextMate;
 
 namespace AstraPet.ControlPanel;
 
-public partial class ChatWindow : AtomUI.Desktop.Controls.Window
+public partial class ChatWindow : Window
 {
     private readonly ChatViewModel _vm;
 
@@ -20,8 +18,6 @@ public partial class ChatWindow : AtomUI.Desktop.Controls.Window
         DataContext = vm;
         AvaloniaXamlLoader.Load(this);
 
-        // 回复里的代码块做语法高亮。服务挂在窗口上，窗口里所有 Markdown 视图共用。
-        MarkdownServices.SetServices(this, new MarkdownServices { Plugins = [new TextMatePlugin()] });
 
         // 关窗只是收起，对话上下文保留。
         Closing += (_, e) =>

@@ -1,39 +1,25 @@
-<atom:Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:atom="https://atomui.net"
+             xmlns:arc="clr-namespace:TKCode.Arc;assembly=TKCode.Arc"
              xmlns:local="using:AstraPet.ControlPanel"
              xmlns:core="using:AstraPet.Core"
              x:Class="AstraPet.ControlPanel.ConsoleWindow"
              Icon="avares://AstraPet/Assets/icons/app.png"
              x:DataType="local:ConsoleViewModel"
-             Title="Astra Pet 控制台" atom:MacStandardWindowButtons.OffsetX="22"
+             Title="Astra Pet 控制台"
              Width="980" Height="760" MinWidth="760" MinHeight="560"
-             FontSize="12" RequestedThemeVariant="Dark"
-             Background="#F0171919" TransparencyLevelHint="AcrylicBlur,Blur"
-             TransparencyBackgroundFallback="#191B1B"
-             TitleBarFrameBackground="#D91B1D1D" IsTitleVisible="False"
+             FontSize="12" RequestedThemeVariant="Dark" Foreground="#E8E9E9"
+             Background="#1C1C1E"
              WindowStartupLocation="CenterScreen">
-    <atom:Window.Resources>
+    <Window.Resources>
         <SolidColorBrush x:Key="ConsoleText">#E8E9E9</SolidColorBrush>
         <SolidColorBrush x:Key="ConsoleMuted">#8D9190</SolidColorBrush>
         <SolidColorBrush x:Key="ConsoleLine">#26FFFFFF</SolidColorBrush>
         <SolidColorBrush x:Key="ConsoleAccent">#32AA7D</SolidColorBrush>
-        <!-- Liquid Glass 的边缘光：左上亮、右下次亮、中间几乎透明 -->
-        <LinearGradientBrush x:Key="GlassRim" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Color="#44FFFFFF" Offset="0" />
-            <GradientStop Color="#10FFFFFF" Offset="0.4" />
-            <GradientStop Color="#0CFFFFFF" Offset="0.7" />
-            <GradientStop Color="#26FFFFFF" Offset="1" />
-        </LinearGradientBrush>
-    </atom:Window.Resources>
-    <atom:Window.Styles>
-        <Style Selector="atom|Window.glass /template/ Panel#TitleBarPanel">
-            <Setter Property="Margin" Value="0 0 0 -52" />
-            <Setter Property="ZIndex" Value="1" />
-        </Style>
-        <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource ConsoleText}" />
-        </Style>
+        <!-- 细描边：Apple 风格的 1px 发丝线 -->
+        <SolidColorBrush x:Key="GlassRim">#1FFFFFFF</SolidColorBrush>
+    </Window.Resources>
+    <Window.Styles>
         <Style Selector="TextBlock.note">
             <Setter Property="Foreground" Value="{DynamicResource ConsoleMuted}" />
             <Setter Property="FontSize" Value="11" />
@@ -48,20 +34,25 @@
         <Style Selector="TextBlock.label">
             <Setter Property="FontWeight" Value="Medium" />
         </Style>
-        <Style Selector="atom|Button">
-            <Setter Property="SizeType" Value="Small" />
+        <Style Selector="arc|Button">
+            <Setter Property="Variant" Value="Secondary" />
+            <Setter Property="Size" Value="Small" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="MinHeight" Value="26" />
             <Setter Property="Padding" Value="10 3" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
-        <Style Selector="atom|ComboBox">
-            <Setter Property="SizeType" Value="Small" />
+        <Style Selector="arc|Select">
+            <Setter Property="Size" Value="Small" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
-        <Style Selector="atom|ToggleSwitch">
-            <Setter Property="SizeType" Value="Small" />
+        <!-- Arc 的滑块给顶部的数值气泡留了很高的空间，设置行里不需要，收到轨道本身的高度；气泡拖动时照样浮在上面。 -->
+        <Style Selector="arc|Slider">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="arc|Switch">
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.nav">
@@ -112,7 +103,7 @@
         <Style Selector="Button.nav.active">
             <Setter Property="FontWeight" Value="Medium" />
         </Style>
-        <!-- 选中高亮：一块浮在导航项下面的玻璃胶囊，换页时滑过去 -->
+        <!-- 选中高亮：一块浮在导航项下面的胶囊，换页时滑过去 -->
         <Style Selector="Border.nav-pill">
             <Setter Property="Height" Value="34" />
             <Setter Property="VerticalAlignment" Value="Top" />
@@ -142,20 +133,13 @@
         <Style Selector="Border.sidebar">
             <Setter Property="Background" Value="#14FFFFFF" />
             <Setter Property="BorderBrush" Value="{DynamicResource GlassRim}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="20" />
-            <Setter Property="BoxShadow" Value="0 6 24 0 #33000000" />
-            <Setter Property="Margin" Value="10 10 0 10" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="BorderThickness" Value="0 0 1 0" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="8 16 8 12" />
-        </Style>
-        <Style Selector="atom|Window.glass Border.sidebar">
-            <Setter Property="Padding" Value="8 50 8 12" />
         </Style>
         <Style Selector="Grid.page">
             <Setter Property="Margin" Value="32 20 20 16" />
-        </Style>
-        <Style Selector="atom|Window.glass Grid.page">
-            <Setter Property="Margin" Value="32 14 20 16" />
         </Style>
         <Style Selector="Border.setting-row">
             <Setter Property="Background" Value="Transparent" />
@@ -180,12 +164,12 @@
             <Setter Property="CornerRadius" Value="5" />
             <Setter Property="Padding" Value="7 3" />
         </Style>
-            <Style Selector="atom|LineEdit">
-            <Setter Property="SizeType" Value="Small" />
+            <Style Selector="arc|Input">
+            <Setter Property="Size" Value="Small" />
             <Setter Property="FontSize" Value="12" />
         </Style>
-        <Style Selector="atom|TextArea">
-            <Setter Property="SizeType" Value="Small" />
+        <Style Selector="arc|Textarea">
+            <Setter Property="Size" Value="Small" />
             <Setter Property="FontSize" Value="12" />
         </Style>
         <Style Selector="TextBlock.value">
@@ -199,7 +183,7 @@
         <Style Selector="TextBlock.err">
             <Setter Property="Foreground" Value="#E0A0A0" />
         </Style>
-    </atom:Window.Styles>
+    </Window.Styles>
     <Grid>
         <!-- 压一层薄薄的暗色：玻璃会随背后的内容变亮，没有它的话背后是浅色窗口时灰字对比度不够 -->
         <Border IsHitTestVisible="False" Background="#3A000000" />
@@ -296,7 +280,7 @@
     <TextBlock Text="开机自启" Classes="label" />
     <TextBlock Text="登录系统后自动启动 Astra Pet。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoStart, Mode=TwoWay}" IsEnabled="{Binding AutoStartSupported}" AutomationProperties.Name="开机自启" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AutoStart, Mode=TwoWay}" IsEnabled="{Binding AutoStartSupported}" AutomationProperties.Name="开机自启" />
 </Grid>
 </Border>
 </StackPanel>
@@ -312,7 +296,7 @@
     <TextBlock Text="窗口置顶" Classes="label" />
     <TextBlock Text="宠物始终显示在其他窗口上方。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Topmost, Mode=TwoWay}" AutomationProperties.Name="窗口置顶" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.Topmost, Mode=TwoWay}" AutomationProperties.Name="窗口置顶" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -321,7 +305,7 @@
     <TextBlock Text="全屏隐藏" Classes="label" />
     <TextBlock Text="其他应用全屏时（看视频、玩游戏、演示）不显示宠物。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.HideInFullscreen, Mode=TwoWay}" AutomationProperties.Name="全屏隐藏" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.HideInFullscreen, Mode=TwoWay}" AutomationProperties.Name="全屏隐藏" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -330,7 +314,7 @@
     <TextBlock Text="允许录屏捕获" Classes="label" />
     <TextBlock Text="让 OBS 等录屏、直播软件可以录到宠物。关闭后录屏里看不到它。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AllowCapture, Mode=TwoWay}" AutomationProperties.Name="允许录屏捕获" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AllowCapture, Mode=TwoWay}" AutomationProperties.Name="允许录屏捕获" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -339,7 +323,7 @@
     <TextBlock Text="透明处点击穿透" Classes="label" />
     <TextBlock Text="鼠标可以穿过角色周围的透明区域，点到下面的窗口。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickThrough, Mode=TwoWay}" AutomationProperties.Name="透明处点击穿透" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.ClickThrough, Mode=TwoWay}" AutomationProperties.Name="透明处点击穿透" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -360,7 +344,7 @@
     <TextBlock Text="{Binding Update.Status}" Classes="note" />
     <TextBlock Text="{Binding Update.CheckedAt}" Classes="note" IsVisible="{Binding Update.HasChecked}" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="检查更新" VerticalAlignment="Center" Click="OnCheckUpdate" IsEnabled="{Binding Update.CanCheck}" />
+<arc:Button Grid.Column="1" Content="检查更新" VerticalAlignment="Center" Click="OnCheckUpdate" IsEnabled="{Binding Update.CanCheck}" />
 </Grid>
 </Border>
 <Border Classes="setting-row" IsVisible="{Binding Update.HasUpdate}">
@@ -368,9 +352,10 @@
 <StackPanel Spacing="3" VerticalAlignment="Center">
     <TextBlock Text="{Binding Update.NewVersion}" Classes="label" />
     <TextBlock Text="{Binding Update.NewNotes}" Classes="note" IsVisible="{Binding Update.HasNotes}" MaxLines="6" TextTrimming="CharacterEllipsis" />
-    <TextBlock Text="下载后打开安装包安装即可，设置和记忆会保留。" Classes="note" />
+    <TextBlock Text="{Binding Update.InstallHint}" Classes="note" />
+    <TextBlock Text="{Binding Update.InstallError}" Classes="note" Foreground="#F87171" IsVisible="{Binding Update.HasInstallError}" TextWrapping="Wrap" />
 </StackPanel>
-<atom:Button Grid.Column="1" ButtonType="Primary" Content="下载更新" VerticalAlignment="Center" Click="OnDownloadUpdate" />
+<arc:Button Grid.Column="1" Variant="Primary" Content="{Binding Update.ApplyText}" VerticalAlignment="Center" Click="OnDownloadUpdate" IsEnabled="{Binding Update.CanApply}" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -379,7 +364,7 @@
     <TextBlock Text="自动检查更新" Classes="label" />
     <TextBlock Text="启动后和每隔几小时检查一次，有新版本时宠物会冒气泡提醒（同一个版本只提醒一次）。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoCheckUpdate, Mode=TwoWay}" AutomationProperties.Name="自动检查更新" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AutoCheckUpdate, Mode=TwoWay}" AutomationProperties.Name="自动检查更新" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -388,7 +373,7 @@
     <TextBlock Text="接收预览版" Classes="label" />
     <TextBlock Text="同时检查预览版。预览版带有还没正式发布的新功能，可能不稳定。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Update.UsePreview, Mode=TwoWay}" AutomationProperties.Name="接收预览版" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Update.UsePreview, Mode=TwoWay}" AutomationProperties.Name="接收预览版" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -397,7 +382,7 @@
     <TextBlock Text="更新服务器" Classes="label" />
     <TextBlock Text="LocalGate 站点的地址，例如 https://astra-gate.si。留空就用程序内置的地址。" Classes="note" />
 </StackPanel>
-<atom:LineEdit Text="{Binding Settings.UpdateServer, Mode=TwoWay}" PlaceholderText="https://…" />
+<arc:Input Text="{Binding Settings.UpdateServer, Mode=TwoWay}" PlaceholderText="https://…" />
 </StackPanel>
 </Border>
 </StackPanel>
@@ -413,9 +398,9 @@
     <TextBlock Text="版权与许可" Classes="label" />
     <TextBlock Text="程序源码以 MIT 协议开源：github.com/239573049/Astra-Pet" Classes="note" />
     <TextBlock Text="宠物形象和动画的版权归 RoutinAI (routin.ai) 所有，保留所有权利，不在 MIT 授权范围内。" Classes="note" />
-    <TextBlock Text="第三方组件各有各的许可，其中控件库 AtomUI 是 LGPL-3.0。许可全文在程序目录的 licenses 文件夹里。" Classes="note" />
+    <TextBlock Text="第三方组件各有各的许可，其中控件库 TKCode.Arc 是 MIT。许可全文在程序目录的 licenses 文件夹里。" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="打开许可文件夹" VerticalAlignment="Center" Click="OnOpenLicenses" />
+<arc:Button Grid.Column="1" Content="打开许可文件夹" VerticalAlignment="Center" Click="OnOpenLicenses" />
 </Grid>
 </Border>
 </StackPanel>
@@ -432,7 +417,7 @@
 <TextBlock Text="{Binding SettingsPath}" Classes="note" />
 <TextBlock Text="所有设置（包括 API Key 和记忆）都明文保存在这里，改动会自动保存。" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="打开目录" VerticalAlignment="Center" Click="OnOpenSettingsFolder" />
+<arc:Button Grid.Column="1" Content="打开目录" VerticalAlignment="Center" Click="OnOpenSettingsFolder" />
 </Grid>
 </Border>
 </StackPanel>
@@ -452,7 +437,7 @@
 <TextBlock Text="当前角色" Classes="label" />
 <TextBlock Text="{Binding PetInfo}" Classes="note" />
 </StackPanel>
-<atom:ComboBox ItemsSource="{Binding Pets}" SelectedItem="{Binding SelectedPet, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="当前角色" />
+<arc:Select ItemsSource="{Binding Pets}" SelectedItem="{Binding SelectedPet, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="当前角色" />
 <TextBlock Text="{Binding PetStatus}" Classes="note" IsVisible="{Binding HasPetStatus}" />
 </StackPanel>
 </Border>
@@ -468,8 +453,8 @@
 </StackPanel>
 </StackPanel>
 <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-<atom:Button Content="打开目录" HorizontalAlignment="Stretch" Click="OnOpenPetsFolder" />
-<atom:Button Content="刷新" HorizontalAlignment="Stretch" Click="OnRefreshPets" />
+<arc:Button Content="打开目录" HorizontalAlignment="Stretch" Click="OnOpenPetsFolder" />
+<arc:Button Content="刷新" HorizontalAlignment="Stretch" Click="OnRefreshPets" />
 </StackPanel>
 </Grid>
 </Border>
@@ -486,7 +471,7 @@
 <TextBlock Text="当前状态" Classes="label" />
 <TextBlock Text="{Binding StatusText}" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="回到屏幕中央" VerticalAlignment="Center" Click="OnResetPosition" />
+<arc:Button Grid.Column="1" Content="回到屏幕中央" VerticalAlignment="Center" Click="OnResetPosition" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -495,7 +480,7 @@
     <TextBlock Text="显示宠物" Classes="label" />
     <TextBlock Text="隐藏后可以在这里重新打开。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Visible, Mode=TwoWay}" AutomationProperties.Name="显示宠物" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.Visible, Mode=TwoWay}" AutomationProperties.Name="显示宠物" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -504,7 +489,7 @@
     <TextBlock Text="暂停动画" Classes="label" />
     <TextBlock Text="定格在当前帧，不占 CPU。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Paused, Mode=TwoWay}" AutomationProperties.Name="暂停动画" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.Paused, Mode=TwoWay}" AutomationProperties.Name="暂停动画" />
 </Grid>
 </Border>
 </StackPanel>
@@ -523,7 +508,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Scale, StringFormat={}{0:P0}}" />
 </Grid>
-<atom:Slider Minimum="0.25" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0.25" Maximum="1" SmallChange="0.05" IsValueVisible="False"
              Value="{Binding Settings.Scale, Mode=TwoWay}" AutomationProperties.Name="宠物大小" />
 </StackPanel>
 </Border>
@@ -536,7 +521,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.BubbleFontSize, StringFormat={}{0:0} px}" />
 </Grid>
-<atom:Slider Minimum="10" Maximum="24" TickFrequency="1" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="10" Maximum="24" SmallChange="1" IsValueVisible="False"
              Value="{Binding Settings.BubbleFontSize, Mode=TwoWay}" AutomationProperties.Name="气泡文字大小" />
 </StackPanel>
 </Border>
@@ -549,7 +534,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Opacity, StringFormat={}{0:P0}}" />
 </Grid>
-<atom:Slider Minimum="0.2" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0.2" Maximum="1" SmallChange="0.05" IsValueVisible="False"
              Value="{Binding Settings.Opacity, Mode=TwoWay}" AutomationProperties.Name="透明度" />
 </StackPanel>
 </Border>
@@ -569,7 +554,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Speed, StringFormat={}{0:0.0}×}" />
 </Grid>
-<atom:Slider Minimum="0.5" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0.5" Maximum="2" SmallChange="0.1" IsValueVisible="False"
              Value="{Binding Settings.Speed, Mode=TwoWay}" AutomationProperties.Name="动画播放速度" />
 </StackPanel>
 </Border>
@@ -582,7 +567,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.ActionInterval, StringFormat={}{0} 秒}" />
 </Grid>
-<atom:Slider Minimum="0" Maximum="300" TickFrequency="5" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0" Maximum="300" SmallChange="5" IsValueVisible="False"
              Value="{Binding Settings.ActionInterval, Mode=TwoWay}" AutomationProperties.Name="动作间隔时间" />
 </StackPanel>
 </Border>
@@ -592,7 +577,7 @@
     <TextBlock Text="不移动" Classes="label" />
     <TextBlock Text="不再自动走来走去，只在原地做动作。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.StayStill, Mode=TwoWay}" AutomationProperties.Name="不移动" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.StayStill, Mode=TwoWay}" AutomationProperties.Name="不移动" />
 </Grid>
 </Border>
 </StackPanel>
@@ -608,7 +593,7 @@
     <TextBlock Text="省电模式" Classes="label" />
     <TextBlock Text="一段时间没有操作键盘鼠标时，只播待机动画并降低帧率。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.PowerSaving, Mode=TwoWay}" AutomationProperties.Name="省电模式" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.PowerSaving, Mode=TwoWay}" AutomationProperties.Name="省电模式" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -620,7 +605,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PowerSavingMinutes, StringFormat={}{0} 分钟}" />
 </Grid>
-<atom:Slider Minimum="1" Maximum="60" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.PowerSaving}"
+<arc:Slider Minimum="1" Maximum="60" SmallChange="1" IsValueVisible="False" IsEnabled="{Binding Settings.PowerSaving}"
              Value="{Binding Settings.PowerSavingMinutes, Mode=TwoWay}" AutomationProperties.Name="多久算离开" />
 </StackPanel>
 </Border>
@@ -630,7 +615,7 @@
 <TextBlock Text="音乐检测" Classes="label" />
 <TextBlock Text="{Binding MusicNote}" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.MusicDetect, Mode=TwoWay}" AutomationProperties.Name="音乐检测" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.MusicDetect, Mode=TwoWay}" AutomationProperties.Name="音乐检测" />
 </Grid>
 </Border>
 </StackPanel>
@@ -650,7 +635,7 @@
     <TextBlock Text="单击回应" Classes="label" />
     <TextBlock Text="单击角色时播放一段回应动作。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickReact, Mode=TwoWay}" AutomationProperties.Name="单击回应" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.ClickReact, Mode=TwoWay}" AutomationProperties.Name="单击回应" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -659,7 +644,7 @@
     <TextBlock Text="单击说话" Classes="label" />
     <TextBlock Text="单击时从下面的台词里随机说一句。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.ClickBubble, Mode=TwoWay}" AutomationProperties.Name="单击说话" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.ClickBubble, Mode=TwoWay}" AutomationProperties.Name="单击说话" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -668,7 +653,7 @@
     <TextBlock Text="双击聊天" Classes="label" />
     <TextBlock Text="双击角色打开对话框，和智能体聊天。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DoubleClickChat, Mode=TwoWay}" AutomationProperties.Name="双击聊天" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.DoubleClickChat, Mode=TwoWay}" AutomationProperties.Name="双击聊天" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -677,7 +662,7 @@
     <TextBlock Text="拖拽移动" Classes="label" />
     <TextBlock Text="按住角色拖动，它会悬空挣扎。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DragEnabled, Mode=TwoWay}" AutomationProperties.Name="拖拽移动" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.DragEnabled, Mode=TwoWay}" AutomationProperties.Name="拖拽移动" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -686,7 +671,7 @@
     <TextBlock Text="摸摸头" Classes="label" />
     <TextBlock Text="鼠标在角色身上来回划动，它会害羞地回应。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.Petting, Mode=TwoWay}" AutomationProperties.Name="摸摸头" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.Petting, Mode=TwoWay}" AutomationProperties.Name="摸摸头" />
 </Grid>
 </Border>
 </StackPanel>
@@ -699,9 +684,9 @@
 <Border Classes="setting-row last">
 <StackPanel Spacing="9">
 <TextBlock Text="一行一句，单击时随机挑一句。" Classes="note" />
-<atom:TextArea Text="{Binding Settings.ClickLines, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
+<arc:Textarea Text="{Binding Settings.ClickLines, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
                Height="130" VerticalContentAlignment="Top" AutomationProperties.Name="点击台词" />
-<atom:Button HorizontalAlignment="Right" Content="说一句试试" Click="OnSayLine" />
+<arc:Button HorizontalAlignment="Right" Content="说一句试试" Click="OnSayLine" />
 </StackPanel>
 </Border>
 </StackPanel>
@@ -718,7 +703,7 @@
 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="6" LineSpacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
 <ItemsControl.ItemTemplate>
 <DataTemplate x:DataType="local:ActionOption">
-<atom:Button Content="{Binding Label}" Tag="{Binding Category}" MinWidth="64" Click="OnPlayAction" />
+<arc:Button Content="{Binding Label}" Tag="{Binding Category}" MinWidth="64" Click="OnPlayAction" />
 </DataTemplate>
 </ItemsControl.ItemTemplate>
 </ItemsControl>
@@ -748,9 +733,9 @@
 <TextBlock Text="{Binding Label}" Classes="label" />
 <TextBlock Text="{Binding Description}" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="↑" Tag="{Binding}" Click="OnMenuUp" ToolTip.Tip="上移" />
-<atom:Button Grid.Column="2" Content="↓" Tag="{Binding}" Click="OnMenuDown" ToolTip.Tip="下移" />
-<atom:ToggleSwitch Grid.Column="3" Margin="10 0 0 0" IsChecked="{Binding Visible, Mode=TwoWay}" IsEnabled="{Binding CanHide}" />
+<arc:Button Grid.Column="1" Content="↑" Tag="{Binding}" Click="OnMenuUp" ToolTip.Tip="上移" />
+<arc:Button Grid.Column="2" Content="↓" Tag="{Binding}" Click="OnMenuDown" ToolTip.Tip="下移" />
+<arc:Switch Grid.Column="3" Margin="10 0 0 0" IsChecked="{Binding Visible, Mode=TwoWay}" IsEnabled="{Binding CanHide}" />
 </Grid>
 </Border>
 </DataTemplate>
@@ -758,7 +743,7 @@
 </ItemsControl>
 </Border>
 <Border Classes="setting-row last">
-<atom:Button HorizontalAlignment="Right" Content="恢复默认" Click="OnResetMenu" />
+<arc:Button HorizontalAlignment="Right" Content="恢复默认" Click="OnResetMenu" />
 </Border>
 </StackPanel>
 </Border>
@@ -777,7 +762,7 @@
     <TextBlock Text="每日问候" Classes="label" />
     <TextBlock Text="启动时按早中晚打个招呼。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DailyGreeting, Mode=TwoWay}" AutomationProperties.Name="每日问候" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.DailyGreeting, Mode=TwoWay}" AutomationProperties.Name="每日问候" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -786,7 +771,7 @@
     <TextBlock Text="整点报时" Classes="label" />
     <TextBlock Text="每到整点在头顶报一次时间。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.HourlyChime, Mode=TwoWay}" AutomationProperties.Name="整点报时" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.HourlyChime, Mode=TwoWay}" AutomationProperties.Name="整点报时" />
 </Grid>
 </Border>
 </StackPanel>
@@ -802,7 +787,7 @@
     <TextBlock Text="喝水提醒" Classes="label" />
     <TextBlock Text="定时提醒你喝水。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.DrinkReminder, Mode=TwoWay}" AutomationProperties.Name="喝水提醒" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.DrinkReminder, Mode=TwoWay}" AutomationProperties.Name="喝水提醒" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -813,7 +798,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.DrinkMinutes, StringFormat={}{0} 分钟}" />
 </Grid>
-<atom:Slider Minimum="10" Maximum="240" TickFrequency="5" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.DrinkReminder}"
+<arc:Slider Minimum="10" Maximum="240" SmallChange="5" IsValueVisible="False" IsEnabled="{Binding Settings.DrinkReminder}"
              Value="{Binding Settings.DrinkMinutes, Mode=TwoWay}" AutomationProperties.Name="喝水间隔" />
 </StackPanel>
 </Border>
@@ -823,7 +808,7 @@
     <TextBlock Text="久坐提醒" Classes="label" />
     <TextBlock Text="连续使用电脑太久时提醒起身活动，离开 5 分钟以上会重新计时。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SitReminder, Mode=TwoWay}" AutomationProperties.Name="久坐提醒" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.SitReminder, Mode=TwoWay}" AutomationProperties.Name="久坐提醒" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -834,7 +819,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SitMinutes, StringFormat={}{0} 分钟}" />
 </Grid>
-<atom:Slider Minimum="10" Maximum="240" TickFrequency="5" IsSnapToTickEnabled="True" IsEnabled="{Binding Settings.SitReminder}"
+<arc:Slider Minimum="10" Maximum="240" SmallChange="5" IsValueVisible="False" IsEnabled="{Binding Settings.SitReminder}"
              Value="{Binding Settings.SitMinutes, Mode=TwoWay}" AutomationProperties.Name="久坐时长" />
 </StackPanel>
 </Border>
@@ -844,7 +829,7 @@
     <TextBlock Text="试一下" Classes="label" />
     <TextBlock Text="在宠物头顶冒一条测试提醒。" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="测试气泡" VerticalAlignment="Center" Click="OnTestBubble" />
+<arc:Button Grid.Column="1" Content="测试气泡" VerticalAlignment="Center" Click="OnTestBubble" />
 </Grid>
 </Border>
 </StackPanel>
@@ -862,7 +847,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PomodoroWork, StringFormat={}{0} 分钟}" />
 </Grid>
-<atom:Slider Minimum="5" Maximum="90" TickFrequency="5" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="5" Maximum="90" SmallChange="5" IsValueVisible="False"
              Value="{Binding Settings.PomodoroWork, Mode=TwoWay}" AutomationProperties.Name="专注时长" />
 </StackPanel>
 </Border>
@@ -874,7 +859,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.PomodoroRest, StringFormat={}{0} 分钟}" />
 </Grid>
-<atom:Slider Minimum="1" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="1" Maximum="30" SmallChange="1" IsValueVisible="False"
              Value="{Binding Settings.PomodoroRest, Mode=TwoWay}" AutomationProperties.Name="休息时长" />
 </StackPanel>
 </Border>
@@ -884,7 +869,7 @@
 <TextBlock Text="当前状态" Classes="label" />
 <TextBlock Text="{Binding PomodoroStatus}" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" ButtonType="Primary" Content="{Binding PomodoroButtonText}" VerticalAlignment="Center" Click="OnTogglePomodoro" />
+<arc:Button Grid.Column="1" Variant="Primary" Content="{Binding PomodoroButtonText}" VerticalAlignment="Center" Click="OnTogglePomodoro" />
 </Grid>
 </Border>
 </StackPanel>
@@ -908,7 +893,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.Temperature, StringFormat={}{0:0.0}}" />
 </Grid>
-<atom:Slider Minimum="0" Maximum="2" TickFrequency="0.1" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0" Maximum="2" SmallChange="0.1" IsValueVisible="False"
              Value="{Binding Settings.Temperature, Mode=TwoWay}" AutomationProperties.Name="温度" />
 </StackPanel>
 </Border>
@@ -921,7 +906,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.MaxTokens, StringFormat={}{0} tokens}" />
 </Grid>
-<atom:Slider Minimum="64" Maximum="4096" TickFrequency="64" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="64" Maximum="4096" SmallChange="64" IsValueVisible="False"
              Value="{Binding Settings.MaxTokens, Mode=TwoWay}" AutomationProperties.Name="最大回复长度" />
 </StackPanel>
 </Border>
@@ -934,7 +919,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.ContextTurns, StringFormat={}{0} 轮}" />
 </Grid>
-<atom:Slider Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0" Maximum="30" SmallChange="1" IsValueVisible="False"
              Value="{Binding Settings.ContextTurns, Mode=TwoWay}" AutomationProperties.Name="上下文轮数" />
 </StackPanel>
 </Border>
@@ -946,7 +931,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.TimeoutSeconds, StringFormat={}{0} 秒}" />
 </Grid>
-<atom:Slider Minimum="10" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="10" Maximum="180" SmallChange="5" IsValueVisible="False"
              Value="{Binding Settings.TimeoutSeconds, Mode=TwoWay}" AutomationProperties.Name="超时时间" />
 </StackPanel>
 </Border>
@@ -956,7 +941,7 @@
     <TextBlock Text="打开对话" Classes="label" />
     <TextBlock Text="也可以双击宠物，或在右键菜单里选「和我聊天」。" Classes="note" />
 </StackPanel>
-<atom:Button Grid.Column="1" ButtonType="Primary" Content="和它聊天" VerticalAlignment="Center" Click="OnOpenChat" />
+<arc:Button Grid.Column="1" Variant="Primary" Content="和它聊天" VerticalAlignment="Center" Click="OnOpenChat" />
 </Grid>
 </Border>
 </StackPanel>
@@ -969,11 +954,11 @@
 <Border Classes="setting-row last">
 <StackPanel Spacing="9">
 <TextBlock Text="设定它的性格和说话方式。发送时会自动在后面附上记忆和当前时间。" Classes="note" />
-<atom:TextArea Text="{Binding Settings.SystemPrompt, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
+<arc:Textarea Text="{Binding Settings.SystemPrompt, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
                Height="140" VerticalContentAlignment="Top" AutomationProperties.Name="系统提示词" />
 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-<atom:Button Content="恢复默认" Click="OnResetPrompt" />
-<atom:Button Content="预览完整提示词" Click="OnPreviewPrompt" />
+<arc:Button Content="恢复默认" Click="OnResetPrompt" />
+<arc:Button Content="预览完整提示词" Click="OnPreviewPrompt" />
 </StackPanel>
 <SelectableTextBlock Text="{Binding PromptPreview}" TextWrapping="Wrap" FontSize="11" Foreground="#B8BFBB"
                      IsVisible="{Binding PromptPreview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -992,7 +977,7 @@
     <TextBlock Text="启用记忆" Classes="label" />
     <TextBlock Text="把记住的用户信息写进系统提示词，聊天时它会记得你。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.MemoryEnabled, Mode=TwoWay}" AutomationProperties.Name="启用记忆" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.MemoryEnabled, Mode=TwoWay}" AutomationProperties.Name="启用记忆" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
@@ -1001,13 +986,13 @@
     <TextBlock Text="自动记忆" Classes="label" />
     <TextBlock Text="每轮对话后让模型提取兴趣爱好、习惯等值得记住的信息（会多一次请求）。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.AutoMemory, Mode=TwoWay}" IsEnabled="{Binding Settings.MemoryEnabled}" AutomationProperties.Name="自动记忆" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.AutoMemory, Mode=TwoWay}" IsEnabled="{Binding Settings.MemoryEnabled}" AutomationProperties.Name="自动记忆" />
 </Grid>
 </Border>
 <Border Classes="setting-row">
 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-<atom:LineEdit Text="{Binding NewMemory, Mode=TwoWay}" PlaceholderText="手动添加，例如：用户喜欢猫，养了一只橘猫叫团子" KeyDown="OnMemoryKeyDown" />
-<atom:Button Grid.Column="1" Content="添加" Click="OnAddMemory" />
+<arc:Input Text="{Binding NewMemory, Mode=TwoWay}" PlaceholderText="手动添加，例如：用户喜欢猫，养了一只橘猫叫团子" KeyDown="OnMemoryKeyDown" />
+<arc:Button Grid.Column="1" Content="添加" Click="OnAddMemory" />
 </Grid>
 </Border>
 <Border Classes="setting-row last" Padding="0" MinHeight="0">
@@ -1021,7 +1006,7 @@
 <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
 <TextBlock Text="{Binding Meta}" Classes="note" FontSize="10" />
 </StackPanel>
-<atom:Button Grid.Column="1" Content="删除" Tag="{Binding}" Click="OnRemoveMemory" VerticalAlignment="Center" />
+<arc:Button Grid.Column="1" Content="删除" Tag="{Binding}" Click="OnRemoveMemory" VerticalAlignment="Center" />
 </Grid>
 </Border>
 </DataTemplate>
@@ -1030,7 +1015,7 @@
 <TextBlock Text="还没有记忆。和它聊聊你的爱好吧。" Classes="note" Margin="16 12" IsVisible="{Binding !Settings.Memories.Count}" />
 <Grid ColumnDefinitions="*,Auto" Margin="16 10">
 <TextBlock Text="{Binding Settings.Memories.Count, StringFormat=共 {0} 条（最多 100 条，超出时丢弃最早的）}" Classes="note" VerticalAlignment="Center" />
-<atom:Button Grid.Column="1" Content="清空记忆" IsDanger="True" Click="OnClearMemories" />
+<arc:Button Grid.Column="1" Content="清空记忆" Variant="Danger" Click="OnClearMemories" />
 </Grid>
 </StackPanel>
 </Border>
@@ -1051,7 +1036,7 @@
     <TextBlock Text="朗读回复" Classes="label" />
     <TextBlock Text="智能体的回复同时用语音念出来。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SpeakReplies, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读回复" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.SpeakReplies, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读回复" />
 </Grid>
 </Border>
 <Border Classes="setting-row last">
@@ -1060,7 +1045,7 @@
     <TextBlock Text="朗读提醒" Classes="label" />
     <TextBlock Text="问候、报时、喝水等提醒和点击台词也念出来。" Classes="note" />
 </StackPanel>
-<atom:ToggleSwitch Grid.Column="1" IsChecked="{Binding Settings.SpeakReminders, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读提醒" />
+<arc:Switch Grid.Column="1" IsChecked="{Binding Settings.SpeakReminders, Mode=TwoWay}" IsEnabled="{Binding SpeechSupported}" AutomationProperties.Name="朗读提醒" />
 </Grid>
 </Border>
 </StackPanel>
@@ -1076,7 +1061,7 @@
 <TextBlock Text="语音" Classes="label" />
 <TextBlock Text="使用系统自带的语音，中文语音排在前面。macOS 可在「系统设置 → 辅助功能 → 朗读内容」下载更多语音。" Classes="note" />
 </StackPanel>
-<atom:ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+<arc:Select ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice, Mode=TwoWay}" HorizontalAlignment="Stretch" />
 </StackPanel>
 </Border>
 <Border Classes="setting-row">
@@ -1088,7 +1073,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SpeechRate, StringFormat={}{0}}" />
 </Grid>
-<atom:Slider Minimum="80" Maximum="400" TickFrequency="10" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="80" Maximum="400" SmallChange="10" IsValueVisible="False"
              Value="{Binding Settings.SpeechRate, Mode=TwoWay}" AutomationProperties.Name="语速" />
 </StackPanel>
 </Border>
@@ -1100,7 +1085,7 @@
 </StackPanel>
 <TextBlock Grid.Column="1" Classes="value" Text="{Binding Settings.SpeechVolume, StringFormat={}{0:P0}}" />
 </Grid>
-<atom:Slider Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+<arc:Slider Minimum="0" Maximum="1" SmallChange="0.05" IsValueVisible="False"
              Value="{Binding Settings.SpeechVolume, Mode=TwoWay}" AutomationProperties.Name="音量" />
 </StackPanel>
 </Border>
@@ -1108,9 +1093,9 @@
 <StackPanel Spacing="9">
 <TextBlock Text="试听" Classes="label" />
 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-<atom:LineEdit Text="{Binding SpeechSample, Mode=TwoWay}" />
-<atom:Button Grid.Column="1" ButtonType="Primary" Content="试听" Click="OnTestSpeech" />
-<atom:Button Grid.Column="2" Content="停止" Click="OnStopSpeech" />
+<arc:Input Text="{Binding SpeechSample, Mode=TwoWay}" />
+<arc:Button Grid.Column="1" Variant="Primary" Content="试听" Click="OnTestSpeech" />
+<arc:Button Grid.Column="2" Content="停止" Click="OnStopSpeech" />
 </Grid>
 </StackPanel>
 </Border>
@@ -1124,4 +1109,4 @@
         </Grid>
         <local:ProviderDialogs DataContext="{Binding Hub}" />
     </Grid>
-</atom:Window>
+</Window>

@@ -71,7 +71,7 @@ public sealed class PetCompanion : IDisposable
         if (info is not null && automatic && _settings.NotifiedUpdate != info.Version)
         {
             _settings.NotifiedUpdate = info.Version;
-            Say($"有新版本 {info.Version} 啦～去控制台「常规」里下载吧", speak: false);
+            Say($"有新版本 {info.Version} 啦～去控制台「常规」里一键更新吧", speak: false);
         }
         return info;
     }

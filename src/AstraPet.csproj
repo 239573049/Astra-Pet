@@ -40,12 +40,10 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
-    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.2.6" />
-    <PackageReference Include="AtomUI.Generator" Version="6.2.6" PrivateAssets="all" />
-    <!-- 流式 Markdown 渲染（对话框里的回复用）。包名在 nuget.org 上是 TKCode.StreamMark.*，程序集和命名空间仍是 StreamMark.*。 -->
-    <PackageReference Include="TKCode.StreamMark.Avalonia" Version="0.1.0-alpha.22" />
-    <PackageReference Include="TKCode.StreamMark.Highlighting.TextMate" Version="0.1.0-alpha.22" />
-    <PackageReference Include="TKCode.StreamMark.Theme.AtomUI" Version="0.1.0-alpha.22" />
+    <!-- 控件库：Arc。它自带流式 Markdown（StreamMark）和代码高亮。 -->
+    <PackageReference Include="TKCode.Arc" Version="0.4.0-preview.1" />
+    <PackageReference Include="TKCode.Arc.Fonts" Version="0.4.0-preview.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <!-- 从其他应用导入提供商：CC Switch 是 SQLite，Codex 是 TOML，DeepSeek Harness 是 YAML。 -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />

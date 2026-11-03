@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace AstraPet.Core;
 
 /// <summary>服务器上比当前版本新的一个版本，以及属于本机平台的下载文件。</summary>
-public sealed record UpdateInfo(string Version, string Channel, string Notes, string DownloadUrl, string PageUrl, long Size);
+public sealed record UpdateInfo(string Version, string Channel, string Notes, string DownloadUrl, string PageUrl, long Size, string Kind = "");
 
 /// <summary>一次检查的结果，给控制台显示。</summary>
 public enum UpdateState
@@ -21,7 +21,7 @@ public enum UpdateState
 
 /// <summary>
 /// 更新检测：向 LocalGate 站点问「这个渠道、这个平台的最新版本」，比当前版本新就记下来。
-/// 只检测和提醒，不自动替换程序：下载链接给用户，由浏览器下载。
+/// 只负责检测；下载和安装见 UpdateInstaller。
 /// 站点接口：GET {服务器}/api/pet-releases/{stable|preview}/latest.json?platform={darwin-arm64|…}。
 /// </summary>
 public sealed class UpdateChecker : Observable
@@ -106,7 +106,8 @@ public sealed class UpdateChecker : Observable
                 feed.Notes ?? "",
                 file?.Url is { Length: > 0 } rel ? new Uri(baseUri, rel).ToString() : "",
                 new Uri(baseUri, string.IsNullOrEmpty(feed.Page) ? "/pet" : feed.Page).ToString(),
-                file?.Size ?? 0);
+                file?.Size ?? 0,
+                file?.Kind ?? "");
             Available = info;
             CheckedAt = DateTime.Now;
             State = UpdateState.Available;
