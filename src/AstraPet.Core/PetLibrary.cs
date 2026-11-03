@@ -6,7 +6,7 @@ namespace AstraPet.Core;
 /// 角色素材库。目录结构与原版一致：videos/{idle,click,drag,move,turn}/*.webm，
 /// 另有 move_strides.json（移动动画每圈步幅和逐帧位移曲线）和
 /// text_clips.json（带文字、朝右时不能镜像的片段）。
-/// 这里只存元数据，帧在播放时由 <see cref="ClipStream"/> 解码。
+/// 这里只存元数据，帧在播放时由 <see cref="IClipDecoder"/> 打开的帧源解码。
 /// </summary>
 public sealed class PetLibrary
 {
@@ -27,9 +27,9 @@ public sealed class PetLibrary
     private readonly Dictionary<string, List<PetClip>> _byCategory = new();
     private readonly Dictionary<string, Gait> _gaits = new();
     private readonly HashSet<string> _noMirror = new();
-    private readonly string _ffmpeg;
+    private readonly IClipDecoder _decoder;
 
-    private PetLibrary(string ffmpeg) => _ffmpeg = ffmpeg;
+    private PetLibrary(IClipDecoder decoder) => _decoder = decoder;
 
     public int ClipCount => _byCategory.Values.Sum(l => l.Count);
 
@@ -50,11 +50,11 @@ public sealed class PetLibrary
     /// <summary>带文字的片段镜像后字是反的，朝右时也按原样画。</summary>
     public bool CanMirror(PetClip clip) => !_noMirror.Contains(clip.Name);
 
-    public ClipStream Open(PetClip clip) => new(clip, _ffmpeg);
+    public IFrameSource Open(PetClip clip) => _decoder.Open(clip);
 
-    public static PetLibrary Load(string videosDir, string ffmpeg, Action<string>? log = null)
+    public static PetLibrary Load(string videosDir, IClipDecoder decoder, Action<string>? log = null)
     {
-        var lib = new PetLibrary(ffmpeg);
+        var lib = new PetLibrary(decoder);
         foreach (var category in Categories)
         {
             var clips = new List<PetClip>();
@@ -63,7 +63,7 @@ public sealed class PetLibrary
             {
                 foreach (var file in Directory.EnumerateFiles(dir, "*.webm").OrderBy(f => f))
                 {
-                    var clip = PetClip.Probe(file, category, ffmpeg);
+                    var clip = decoder.Probe(file, category);
                     log?.Invoke($"{category}/{clip.Name}: {clip.Fps:0.##} fps, 约 {clip.EstimatedFrames} 帧");
                     clips.Add(clip);
                 }

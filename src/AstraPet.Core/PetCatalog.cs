@@ -45,7 +45,7 @@ public static class PetCatalog
     /// 启动时加载设置里选的角色。它被删了、素材坏了就退回内置角色，并把设置改回内置，
     /// 免得每次启动都失败一遍；内置角色加载失败直接抛异常。
     /// </summary>
-    public static PetLibrary LoadSelected(PetSettings settings, string builtInVideosDir, string ffmpeg)
+    public static PetLibrary LoadSelected(PetSettings settings, string builtInVideosDir, IClipDecoder decoder)
     {
         if (settings.PetId.Length > 0)
         {
@@ -55,7 +55,7 @@ public static class PetCatalog
                             ?? throw new DirectoryNotFoundException($"{Directory} 下没有这个文件夹");
                 if (entry.Problem is { } problem) throw new InvalidOperationException(problem);
                 PetLog.Write($"角色: {entry.Name} ({entry.VideosDir})");
-                return PetLibrary.Load(entry.VideosDir, ffmpeg, PetLog.Write);
+                return PetLibrary.Load(entry.VideosDir, decoder, PetLog.Write);
             }
             catch (Exception e)
             {
@@ -64,7 +64,7 @@ public static class PetCatalog
             }
         }
         PetLog.Write($"角色: {BuiltInName} ({builtInVideosDir})");
-        return PetLibrary.Load(builtInVideosDir, ffmpeg, PetLog.Write);
+        return PetLibrary.Load(builtInVideosDir, decoder, PetLog.Write);
     }
 
     /// <summary>必需的分类里有没有 webm。全有返回 null，否则返回缺哪些。</summary>

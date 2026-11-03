@@ -215,7 +215,7 @@ public class PetWindow : Window
         _hitTimer.IsEnabled = _platform.Capabilities.ClickThrough && _settings.Visible;
     }
 
-    private void OnClipStarted(ClipStream stream)
+    private void OnClipStarted(IFrameSource stream)
     {
         _walk = stream.Clip.Category == PetLibrary.Move ? PlanWalk(stream.Clip) : null;
         UpdateFrameInterval();
@@ -294,7 +294,7 @@ public class PetWindow : Window
         }
 
         if (_shown is not null)
-            ClipStream.Recycle(_shown);
+            FramePool.Return(_shown);
         _shown = frame;
 
         // 朝右时整窗镜像，带文字的片段除外（text_clips.json）。

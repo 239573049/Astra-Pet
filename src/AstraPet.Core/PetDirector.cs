@@ -12,21 +12,23 @@ public sealed class PetDirector : IDisposable
 {
     private PetLibrary _library;
     private readonly PetSettings _settings;
-    private readonly Random _random = new();
+    private readonly Random _random;
 
-    private ClipStream? _queued;               // 预先开好的下一段，切换时首帧已经在队列里
+    private IFrameSource? _queued;               // 预先开好的下一段，切换时首帧已经在队列里
     private DateTime _restUntil;               // 动作间隔：这之前随机链只抽待机
 
-    public PetDirector(PetLibrary library, PetSettings settings)
+    /// <param name="random">抽片段用的随机数；测试时传固定种子。</param>
+    public PetDirector(PetLibrary library, PetSettings settings, Random? random = null)
     {
         _library = library;
         _settings = settings;
+        _random = random ?? new Random();
     }
 
     public PetLibrary Library => _library;
 
     /// <summary>正在播的片段。调过 <see cref="Start"/> 之后才有。</summary>
-    public ClipStream Current { get; private set; } = null!;
+    public IFrameSource Current { get; private set; } = null!;
 
     /// <summary>最近一次取到的帧在当前片段里的帧号，换片段时为 -1。</summary>
     public int Frame { get; private set; }
@@ -41,7 +43,7 @@ public sealed class PetDirector : IDisposable
     public bool Dragging { get; set; }
 
     /// <summary>新片段开始播（还没取首帧）。</summary>
-    public event Action<ClipStream>? ClipStarted;
+    public event Action<IFrameSource>? ClipStarted;
 
     public bool Mirrored => Direction > 0 && _library.CanMirror(Current.Clip);
 
@@ -98,7 +100,7 @@ public sealed class PetDirector : IDisposable
     }
 
     [MemberNotNull(nameof(Current))]
-    private void Begin(ClipStream stream, bool fromUser)
+    private void Begin(IFrameSource stream, bool fromUser)
     {
         Current = stream;
         FromUser = fromUser;

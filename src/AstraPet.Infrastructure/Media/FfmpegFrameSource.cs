@@ -1,21 +1,18 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+using AstraPet.Core;
 
-namespace AstraPet.Core;
+namespace AstraPet.Infrastructure.Media;
 
 /// <summary>
 /// 一次播放：起一个 ffmpeg 进程边解边播。后台线程把 RGBA 帧读进有界队列，UI 线程每个 tick 取一帧。
 /// 队列满了，ffmpeg 就被管道背压挡住，所以每条流只占几帧内存，和片段长短、片段个数都无关。
 /// libvpx-vp9 解 640x360 出首帧只要二十毫秒左右，比一帧的间隔还短，现开现播不会卡。
 /// </summary>
-public sealed class ClipStream : IDisposable
+internal sealed class FfmpegFrameSource : IFrameSource
 {
     private const int QueueFrames = 6;
-    private const int PoolLimit = 24;
-
-    // 所有片段同一尺寸，帧缓冲跨流复用，免得每帧在大对象堆上新分配 900KB。
-    private static readonly ConcurrentBag<byte[]> Pool = new();
 
     private readonly Process _process;
     private readonly BlockingCollection<byte[]> _ready = new(QueueFrames);
@@ -30,7 +27,7 @@ public sealed class ClipStream : IDisposable
     /// <summary>整段已经解完，并且队列里的帧都被取走了。</summary>
     public bool Completed => _ready.IsCompleted;
 
-    public ClipStream(PetClip clip, string ffmpeg)
+    public FfmpegFrameSource(PetClip clip, string ffmpeg)
     {
         Clip = clip;
         var info = new ProcessStartInfo
@@ -59,13 +56,6 @@ public sealed class ClipStream : IDisposable
     /// <summary>取下一帧。返回 null 表示还没解出来，或者已经播完（用 <see cref="Completed"/> 区分）。</summary>
     public byte[]? TryTake() => _ready.TryTake(out var frame) ? frame : null;
 
-    /// <summary>用完的帧还回缓冲池。</summary>
-    public static void Recycle(byte[] frame)
-    {
-        if (Pool.Count < PoolLimit)
-            Pool.Add(frame);
-    }
-
     // 正常的停止路径（Dispose、播完）一律不抛异常：调试器下每个首次异常都会挂起整个运行时，
     // 点击、拖拽时频繁切流，曾在 vsdbg 下撞上运行时挂起期间的原生崩溃（SIGSEGV，pc=0）。
     private void ReadFrames()
@@ -75,11 +65,11 @@ public sealed class ClipStream : IDisposable
         {
             while (!_cancel.IsCancellationRequested)
             {
-                var frame = Pool.TryTake(out var pooled) ? pooled : new byte[PetClip.FrameBytes];
+                var frame = FramePool.Rent();
                 // Dispose 杀掉 ffmpeg 后管道关闭，这里读到不足一帧就退出，不会抛异常。
                 if (stdout.ReadAtLeast(frame, frame.Length, throwOnEndOfStream: false) < frame.Length)
                 {
-                    Recycle(frame);
+                    FramePool.Return(frame);
                     break;
                 }
                 // 队列满了就等，带超时轮询取消标记，代替会抛 OperationCanceledException 的 Add(token)。
@@ -87,7 +77,7 @@ public sealed class ClipStream : IDisposable
                 {
                     if (_cancel.IsCancellationRequested)
                     {
-                        Recycle(frame);
+                        FramePool.Return(frame);
                         return;
                     }
                 }
@@ -118,6 +108,6 @@ public sealed class ClipStream : IDisposable
             if (!_processDisposed && !_process.HasExited)
                 _process.Kill();
         while (_ready.TryTake(out var frame))
-            Recycle(frame);
+            FramePool.Return(frame);
     }
 }

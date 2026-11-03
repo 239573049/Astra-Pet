@@ -1,5 +1,6 @@
 using AstraPet.ControlPanel;
 using AstraPet.Core;
+using AstraPet.Infrastructure.Media;
 using AstraPet.Pet;
 using AstraPet.Platform;
 using Avalonia;
@@ -20,6 +21,10 @@ public partial class App : Application
     public static IPlatform Platform { get; set; } = null!;
     public static string BuiltInVideosDir { get; set; } = "";
     public static string Ffmpeg { get; set; } = "";
+
+    /// <summary>动画解码器：ffmpeg 子进程。</summary>
+    private static IClipDecoder Decoder => _decoder ??= new FfmpegClipDecoder(Ffmpeg);
+    private static IClipDecoder? _decoder;
 
     private PetSettings? _settings;
     private PetDirector? _director;
@@ -44,7 +49,7 @@ public partial class App : Application
             _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SettingsStore.Save(settings); };
             settings.Changed += () => { _saveTimer.Stop(); _saveTimer.Start(); };
 
-            var library = PetCatalog.LoadSelected(settings, BuiltInVideosDir, Ffmpeg);
+            var library = PetCatalog.LoadSelected(settings, BuiltInVideosDir, Decoder);
             PetLog.Write($"加载完成: {library.ClipCount} 段, 动作 {library[PetLibrary.Click].Count} 个, " +
                          $"移动 {library[PetLibrary.Move].Count} 个, 唱歌 {library[PetLibrary.Sing].Count} 个");
 
@@ -69,7 +74,7 @@ public partial class App : Application
     }
 
     private ConsoleWindow EnsureConsole() =>
-        _console ??= new ConsoleWindow(new ConsoleViewModel(_pet!, _companion!, _settings!, _director!, Platform, BuiltInVideosDir, Ffmpeg));
+        _console ??= new ConsoleWindow(new ConsoleViewModel(_pet!, _companion!, _settings!, _director!, Platform, Decoder, BuiltInVideosDir, Ffmpeg));
 
     private void ShowConsole() => EnsureConsole().Present();
 

@@ -16,7 +16,7 @@ class Program
         if (args.Contains("--platform-report")) return PlatformReport();
 
 #if DEBUG
-        // 正常运行路径不应该抛异常（见 ClipStream.ReadFrames 的说明），出现了就打日志方便排查。
+        // 正常运行路径不应该抛异常（见 FfmpegFrameSource.ReadFrames 的说明），出现了就打日志方便排查。
         AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
             Console.Error.WriteLine($"[首次异常] {e.Exception.GetType().Name}: {e.Exception.Message}");
 #endif

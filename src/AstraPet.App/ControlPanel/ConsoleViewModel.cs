@@ -36,6 +36,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private readonly PetCompanion _companion;
     private readonly PetDirector _director;
     private readonly IPlatform _platform;
+    private readonly IClipDecoder _decoder;
     private readonly string _builtInDir;
     private readonly string _ffmpeg;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -56,12 +57,13 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private int _petSwitch;
 
     public ConsoleViewModel(PetWindow pet, PetCompanion companion, PetSettings settings, PetDirector director,
-        IPlatform platform, string builtInVideosDir, string ffmpeg)
+        IPlatform platform, IClipDecoder decoder, string builtInVideosDir, string ffmpeg)
     {
         _pet = pet;
         _companion = companion;
         _director = director;
         _platform = platform;
+        _decoder = decoder;
         _builtInDir = builtInVideosDir;
         _ffmpeg = ffmpeg;
         Settings = settings;
@@ -293,7 +295,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         try
         {
             // 每段都要起一次 ffmpeg 探测，放到线程池上，期间宠物照常动。
-            var library = await Task.Run(() => PetLibrary.Load(pet.VideosDir, _ffmpeg, PetLog.Write));
+            var library = await Task.Run(() => PetLibrary.Load(pet.VideosDir, _decoder, PetLog.Write));
             if (ticket != _petSwitch) return;   // 加载期间又选了别的，以最后一次为准
             _director.UseLibrary(library);
             _currentPet = pet;
