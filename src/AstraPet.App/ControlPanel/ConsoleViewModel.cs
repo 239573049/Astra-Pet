@@ -359,11 +359,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     // ───── 桌面组件 ─────
 
     public string PomodoroStatus { get => _pomodoroStatus; private set => Set(ref _pomodoroStatus, value); }
-    public string PomodoroButtonText => _companion.PomodoroRunning ? "停止" : "开始专注";
+    public string PomodoroButtonText => _companion.Pomodoro.Running ? "停止" : "开始专注";
 
     public void TogglePomodoro()
     {
-        if (_companion.PomodoroRunning) _companion.StopPomodoro(); else _companion.StartPomodoro();
+        if (_companion.Pomodoro.Running) _companion.Pomodoro.Stop(); else _companion.Pomodoro.Start();
         RefreshStatus();
     }
 
@@ -455,7 +455,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     private void RefreshStatus()
     {
-        PomodoroStatus = _companion.PomodoroStatus;
+        PomodoroStatus = _companion.Pomodoro.Status;
         Raise(nameof(PomodoroButtonText));
     }
 

@@ -1,7 +1,7 @@
 namespace AstraPet.Platform;
 
 /// <summary>
-/// 与操作系统有关的一切都从这里拿。启动时由 <see cref="PlatformFactory.Create"/> 按当前系统选好实现，
+/// 与操作系统有关的一切都从这里拿。启动时由平台层的 PlatformFactory.Create 按当前系统选好实现，
 /// 之后各层只依赖这个接口：界面按 <see cref="Capabilities"/> 决定显示什么，不再自己判断是哪个系统。
 /// 每个服务在不支持的平台上都有「什么都不做」的实现，调用方不用判空。
 /// </summary>
