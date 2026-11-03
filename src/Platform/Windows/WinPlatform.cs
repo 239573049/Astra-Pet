@@ -21,7 +21,7 @@ internal sealed class WinPlatform : PlatformBase
         var captureExclusion = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041);
         Capabilities = new PlatformCapabilities
         {
-            ClickThrough = false,
+            ClickThrough = true,
             OverFullscreen = false,
             CaptureExclusion = captureExclusion,
             AutoStart = true,
@@ -35,7 +35,6 @@ internal sealed class WinPlatform : PlatformBase
                 [nameof(PlatformCapabilities.CaptureExclusion)] = captureExclusion
                     ? "录屏：关闭后录屏软件里看不到宠物。"
                     : "录屏开关需要 Windows 10 2004 及以上。",
-                [nameof(PlatformCapabilities.ClickThrough)] = "透明处点击穿透暂不支持 Windows。",
                 [nameof(PlatformCapabilities.AudioDetection)] = "Windows 上暂不支持检测音乐播放。",
             },
         };
@@ -54,15 +53,60 @@ internal sealed class WinAppPaths : AppPaths
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "logs");
 }
 
-/// <summary>Windows 上的窗口补丁：目前只有录屏捕获开关。</summary>
+/// <summary>
+/// Windows 上的窗口补丁：录屏捕获开关、逐像素点击穿透。
+/// 点击穿透和 Electron 的 setIgnoreMouseEvents 是同一个做法：顶层窗口要同时带 WS_EX_LAYERED 和 WS_EX_TRANSPARENT，
+/// 点击才会落到别的程序的窗口上（WM_NCHITTEST 返回 HTTRANSPARENT 只能传给同一线程的窗口，传不出去）。
+/// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed partial class WinNativeWindow(nint hwnd) : INativeWindow
 {
     private const uint WdaNone = 0;
     private const uint WdaExcludeFromCapture = 0x11;   // Windows 10 2004 起支持
 
-    public bool IgnoresMouse { get; set; }
-    public (double X, double Y)? CursorInWindow() => null;
+    private const int GwlExStyle = -20;
+    private const nint WsExTransparent = 0x20;
+    private const nint WsExLayered = 0x80000;
+    private const uint LwaAlpha = 0x2;
+
+    private bool _ignoresMouse;
+    private bool _madeLayered;
+
+    /// <summary>
+    /// 第一次打开时如果窗口原本不是分层窗口，就加上 WS_EX_LAYERED，并设成完全不透明
+    /// （分层窗口不设属性时根本不显示）。之后只来回切 WS_EX_TRANSPARENT，不再动 LAYERED，免得每次切换都重绘闪一下。
+    /// </summary>
+    public bool IgnoresMouse
+    {
+        get => _ignoresMouse;
+        set
+        {
+            if (value == _ignoresMouse) return;
+            _ignoresMouse = value;
+            var style = GetWindowLongPtrW(hwnd, GwlExStyle);
+            if (value && !_madeLayered && (style & WsExLayered) == 0)
+            {
+                style |= WsExLayered;
+                SetWindowLongPtrW(hwnd, GwlExStyle, style);
+                SetLayeredWindowAttributes(hwnd, 0, 255, LwaAlpha);
+                _madeLayered = true;
+            }
+            SetWindowLongPtrW(hwnd, GwlExStyle, value ? style | WsExTransparent : style & ~WsExTransparent);
+        }
+    }
+
+    /// <summary>
+    /// 光标的屏幕坐标换成窗口客户区坐标（物理像素），再按窗口所在显示器的 DPI 换成 DIP。
+    /// Avalonia 会把进程设成 Per-Monitor V2，所以这里拿到的都是物理像素。
+    /// </summary>
+    public (double X, double Y)? CursorInWindow()
+    {
+        if (!GetCursorPos(out var p) || !ScreenToClient(hwnd, ref p)) return null;
+        var dpi = GetDpiForWindow(hwnd);
+        var scale = dpi > 0 ? dpi / 96.0 : 1.0;
+        return (p.X / scale, p.Y / scale);
+    }
+
     public void MakeTransparent() { }
     public void SetOverFullscreen(bool over) { }
     public void SetAlpha(double alpha) { }
@@ -70,9 +114,38 @@ internal sealed partial class WinNativeWindow(nint hwnd) : INativeWindow
     public void SetCapturable(bool capturable) =>
         SetWindowDisplayAffinity(hwnd, capturable ? WdaNone : WdaExcludeFromCapture);
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool SetWindowDisplayAffinity(nint hwnd, uint affinity);
+
+    // 只有 64 位的 user32 导出 *LongPtr*；发布的是 win-x64（以后 win-arm64 也是 64 位）。
+    [LibraryImport("user32.dll")]
+    private static partial nint GetWindowLongPtrW(nint hwnd, int index);
+
+    [LibraryImport("user32.dll")]
+    private static partial nint SetWindowLongPtrW(nint hwnd, int index, nint value);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetLayeredWindowAttributes(nint hwnd, uint colorKey, byte alpha, uint flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetCursorPos(out Point point);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool ScreenToClient(nint hwnd, ref Point point);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetDpiForWindow(nint hwnd);
 }
 
 /// <summary>开机自启：写 HKCU\Software\Microsoft\Windows\CurrentVersion\Run。</summary>

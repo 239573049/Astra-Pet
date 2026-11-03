@@ -49,16 +49,24 @@
 
 按价值排序，可以拆成几个 PR：
 
-| PR | 内容 | 平台 |
-|---|---|---|
-| 2a | 逐像素点击穿透（`WS_EX_TRANSPARENT`） | Windows |
-| 2b | 文件日志（`LogDirectory`，按天滚动） | 全部 |
+| PR | 内容 | 平台 | 状态 |
+|---|---|---|---|
+| 2a | 逐像素点击穿透（`WS_EX_TRANSPARENT`） | Windows | ✅ 已实现，**待 Windows 真机验证**（见下） |
+| 2b | 文件日志（`LogDirectory`，按天滚动） | 全部 | ✅ macOS 已验证 |
 | 2c | 全屏检测后隐藏（`SHQueryUserNotificationState` / `_NET_WM_STATE_FULLSCREEN`） | Windows、Linux |
 | 2d | 声音检测：WASAPI 峰值、`pactl`；macOS 改用 CoreAudio | 全部 |
 | 2e | Linux：XDG 自启、`spd-say` / `espeak-ng`、空闲检测、XShape 点击穿透 | Linux |
 | 2f | 去掉 `BuiltInComInteropSupport`，COM 改为 `GeneratedComInterface` | Windows |
 
 **验收**：每个平台跑一遍手动测试清单（见下文），界面上灰掉的选项都给出原因。
+
+**2a 在 Windows 上要重点看的：**
+
+1. 宠物、气泡、控制台三个窗口加了 `WS_EX_LAYERED` 之后还能正常显示（不黑、不消失、透明区域仍然透明）。
+   如果显示不正常，说明 Avalonia 的合成方式和分层窗口冲突，要改成只切 `WS_EX_TRANSPARENT`，或者走 `WM_NCHITTEST`。
+2. 透明区域能点到下面的窗口，角色身上能点、能拖，拖的过程中不会断。
+3. 两台不同 DPI 的显示器之间拖动后，命中位置仍然准确（`GetDpiForWindow` 换算）。
+4. 控制台预热期间（启动后约 2 秒）不挡鼠标，预热完打开控制台能正常操作。
 
 ## 第 3 步：Core 去掉对 Avalonia 的依赖
 
