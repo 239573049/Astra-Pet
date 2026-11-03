@@ -11,8 +11,7 @@
 - [x] 提交未提交的改动（Arc 界面库、应用内更新），提交号 `8f692da`
 - [x] 写出本设计文档
 
-顺手要清理的：`THIRD_PARTY_NOTICES.md`、`tools/third_party_head.md`、`tools/gen_third_party.py`
-里还提到 AtomUI，`licenses/LGPL-3.0-AtomUI.txt` 也已经不需要了。这个可以单独提一个小 PR。
+- [x] 清理 AtomUI 的残留：第三方声明里的 LGPL-3.0 说明、`licenses/LGPL-3.0-AtomUI.txt` 和只为它附带的 `licenses/GPL-3.0.txt`。
 
 ## 第 1 步：平台抽象落地（不拆项目）✅
 

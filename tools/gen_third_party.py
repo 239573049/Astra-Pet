@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 生成 THIRD_PARTY_NOTICES.md：读 src/AstraPet.App/obj/project.assets.json 里的全部 NuGet 包，从本机 NuGet 缓存的 .nuspec 取许可证，
-再拼上手写的说明（AtomUI 的 LGPL、ffmpeg、数据来源）。依赖变了就重新跑一遍：
+再拼上手写的说明（ffmpeg 的 LGPL、图形库、数据来源）。依赖变了就重新跑一遍：
 
-  dotnet restore src && python3 tools/gen_third_party.py
+  dotnet restore src/AstraPet.App && python3 tools/gen_third_party.py
 """
 import glob
 import html
@@ -18,7 +18,6 @@ cache = os.path.expanduser("~/.nuget/packages")
 
 # 这些包的 nuspec 只写了 “LICENSE 文件”，实际许可证已核对过
 FILE_LICENSES = {
-    "AtomUI.": "LGPL-3.0-only",
     "Avalonia.Angle.Windows.Natives": "BSD-3-Clause",
 }
 
