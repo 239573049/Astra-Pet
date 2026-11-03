@@ -6,6 +6,12 @@ public interface IAppPaths
     /// <summary>设置、角色目录、模型库缓存。环境变量 ASTRA_PET_DATA 可以换成别的目录（测试时用）。</summary>
     string DataDirectory { get; }
 
+    /// <summary>
+    /// 日志文件目录：macOS 在 ~/Library/Logs/AstraPet，Windows 在 %LOCALAPPDATA%\AstraPet\logs，
+    /// Linux 在 $XDG_STATE_HOME/AstraPet。设了 ASTRA_PET_DATA 时放在数据目录下的 logs 里。
+    /// </summary>
+    string LogDirectory { get; }
+
     /// <summary>程序所在目录。macOS 的 .app 里是 Contents/MacOS。</summary>
     string AppDirectory { get; }
 

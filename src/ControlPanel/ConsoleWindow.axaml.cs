@@ -181,6 +181,7 @@ public partial class ConsoleWindow : Window
 
     // 常规
     private void OnOpenSettingsFolder(object? sender, RoutedEventArgs e) => _vm.OpenSettingsFolder();
+    private void OnOpenLogFolder(object? sender, RoutedEventArgs e) => _vm.OpenLogFolder();
     private async void OnCheckUpdate(object? sender, RoutedEventArgs e) => await _vm.Update.CheckAsync();
     private async void OnDownloadUpdate(object? sender, RoutedEventArgs e) => await _vm.Update.ApplyAsync();
     private void OnOpenLicenses(object? sender, RoutedEventArgs e) => _vm.OpenLicensesFolder();

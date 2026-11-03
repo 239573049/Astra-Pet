@@ -45,6 +45,9 @@ internal sealed class MacAppPaths : AppPaths
             ? res
             : AppContext.BaseDirectory;
 
+    protected override string PlatformLogDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", "AstraPet");
+
     /// <summary>从 Finder 或 LaunchAgent 启动时 PATH 里没有 Homebrew。</summary>
     protected override IEnumerable<string> SystemToolDirectories => ["/opt/homebrew/bin", "/usr/local/bin"];
 }

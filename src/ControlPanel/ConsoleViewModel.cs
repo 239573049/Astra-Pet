@@ -202,6 +202,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     public void OpenSettingsFolder() => _platform.Shell.OpenFolder(SettingsStore.Directory);
 
+    public string LogDirectory => _platform.Paths.LogDirectory;
+    public string LogNote => $"按天一个文件，保留 {PetLog.KeepDays} 天。遇到问题时把当天的日志发给开发者。";
+
+    public void OpenLogFolder() => _platform.Shell.OpenFolder(LogDirectory);
+
     // ───── 桌宠 ─────
 
     public bool SingAvailable => _director.Library.Has(PetLibrary.Sing);

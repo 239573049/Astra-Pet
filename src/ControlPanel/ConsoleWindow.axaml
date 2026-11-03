@@ -410,7 +410,7 @@
 <TextBlock Classes="section" Text="数据" />
 <Border Classes="card">
 <StackPanel>
-<Border Classes="setting-row last">
+<Border Classes="setting-row">
 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
 <StackPanel Spacing="3" VerticalAlignment="Center">
 <TextBlock Text="设置文件" Classes="label" />
@@ -418,6 +418,16 @@
 <TextBlock Text="所有设置（包括 API Key 和记忆）都明文保存在这里，改动会自动保存。" Classes="note" />
 </StackPanel>
 <arc:Button Grid.Column="1" Content="打开目录" VerticalAlignment="Center" Click="OnOpenSettingsFolder" />
+</Grid>
+</Border>
+<Border Classes="setting-row last">
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+<StackPanel Spacing="3" VerticalAlignment="Center">
+<TextBlock Text="日志" Classes="label" />
+<TextBlock Text="{Binding LogDirectory}" Classes="note" />
+<TextBlock Text="{Binding LogNote}" Classes="note" />
+</StackPanel>
+<arc:Button Grid.Column="1" Content="打开目录" VerticalAlignment="Center" Click="OnOpenLogFolder" />
 </Grid>
 </Border>
 </StackPanel>

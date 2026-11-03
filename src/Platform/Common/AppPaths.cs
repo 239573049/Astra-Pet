@@ -6,10 +6,19 @@ namespace AstraPet.Platform;
 /// <summary>默认的路径规则。数据目录在各平台都是「应用数据目录/AstraPet」，和以前的版本保持一致。</summary>
 internal class AppPaths : IAppPaths
 {
+    private static readonly string? CustomData =
+        Environment.GetEnvironmentVariable("ASTRA_PET_DATA") is { Length: > 0 } custom ? custom : null;
+
     public string DataDirectory { get; } =
-        Environment.GetEnvironmentVariable("ASTRA_PET_DATA") is { Length: > 0 } custom
-            ? custom
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AstraPet");
+        CustomData ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AstraPet");
+
+    public string LogDirectory => CustomData is not null ? Path.Combine(CustomData, "logs") : PlatformLogDirectory;
+
+    /// <summary>默认按 XDG 规范：$XDG_STATE_HOME（默认 ~/.local/state）/AstraPet。macOS、Windows 各自覆盖。</summary>
+    protected virtual string PlatformLogDirectory =>
+        Path.Combine(Environment.GetEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } state
+            ? state
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state"), "AstraPet");
 
     public string AppDirectory { get; } = AppContext.BaseDirectory;
 

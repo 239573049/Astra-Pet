@@ -49,6 +49,9 @@ internal sealed class WinPlatform : PlatformBase
 internal sealed class WinAppPaths : AppPaths
 {
     protected override string ExecutableSuffix => ".exe";
+
+    protected override string PlatformLogDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "logs");
 }
 
 /// <summary>Windows 上的窗口补丁：目前只有录屏捕获开关。</summary>

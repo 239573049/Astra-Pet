@@ -20,10 +20,14 @@ class Program
             Console.Error.WriteLine($"[首次异常] {e.Exception.GetType().Name}: {e.Exception.Message}");
 #endif
         var platform = PlatformFactory.Create();
+        PetLog.UseDirectory(platform.Paths.LogDirectory);
+        // 崩溃前把原因写进日志文件：Windows 发布版没有控制台，这是唯一能看到的地方。
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => PetLog.Write($"未处理的异常: {e.ExceptionObject}");
+        TaskScheduler.UnobservedTaskException += (_, e) => PetLog.Write($"未观察到的任务异常: {e.Exception}");
         SettingsStore.UseDirectory(platform.Paths.DataDirectory);
         var videosDir = ResolveVideosDir(platform.Paths);
         var ffmpeg = ResolveFfmpeg(platform.Paths);
-        PetLog.Write($"平台: {platform.Identity}");
+        PetLog.Write($"Astra Pet {AppVersion.Current} · {platform.Identity}");
         PetLog.Write($"内置素材目录: {videosDir}");
         PetLog.Write($"ffmpeg: {ffmpeg}");
 
