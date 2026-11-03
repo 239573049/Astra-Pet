@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using AstraPet.Ai;
 using AstraPet.Core;
 
 namespace AstraPet.Import;

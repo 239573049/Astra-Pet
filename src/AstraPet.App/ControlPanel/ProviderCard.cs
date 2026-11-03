@@ -1,4 +1,5 @@
 using System.Globalization;
+using AstraPet.Ai;
 using AstraPet.Core;
 using Avalonia;
 using Avalonia.Media;

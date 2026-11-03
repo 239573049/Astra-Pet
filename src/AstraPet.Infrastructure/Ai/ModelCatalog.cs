@@ -1,8 +1,9 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using AstraPet.Core;
 
-namespace AstraPet.Core;
+namespace AstraPet.Ai;
 
 /// <summary>
 /// 一个模型的参数，来自 models.dev：上下文窗口、最大输出、能力开关、输入模态、价格（美元 / 百万 token）。

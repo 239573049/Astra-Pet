@@ -5,7 +5,7 @@ namespace AstraPet.Core;
 /// <see cref="Icon"/> 是 LobeHub Icons 的图标名，对应 Assets/providers/{Icon}.png（见 tools/fetch_provider_icons.sh）；
 /// 没有图标的（自定义）留空，界面上改画 <see cref="Glyph"/>。
 /// <see cref="CatalogId"/> 是它在 models.dev 里的提供商 id：有的话，地址、协议、模型候选以内置的模型库为准
-/// （见 <see cref="ModelCatalog.Apply"/>），这里手写的 <see cref="BaseUrl"/> / <see cref="Models"/> 只是兜底
+/// （见 Infrastructure 的 ModelCatalog.Apply），这里手写的 <see cref="BaseUrl"/> / <see cref="Models"/> 只是兜底
 /// 和首选模型；models.dev 没收录的厂商（文心、混元、星火、百川、零一）就只用手写的。
 /// 模型名各家常换代，所以表单里还有「获取模型」按钮直接问接口要最新列表。
 /// </summary>

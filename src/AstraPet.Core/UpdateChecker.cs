@@ -1,7 +1,3 @@
-using System.Net.Http.Headers;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace AstraPet.Core;
 
 /// <summary>服务器上比当前版本新的一个版本，以及属于本机平台的下载文件。</summary>
@@ -21,14 +17,14 @@ public enum UpdateState
 
 /// <summary>
 /// 更新检测：向 LocalGate 站点问「这个渠道、这个平台的最新版本」，比当前版本新就记下来。
-/// 只负责检测；下载和安装见 UpdateInstaller。
+/// 只负责判断；HTTP 请求由 <see cref="IUpdateFeed"/> 做，下载见 UpdateDownloader，安装见 IUpdateInstaller。
 /// 站点接口：GET {服务器}/api/pet-releases/{stable|preview}/latest.json?platform={darwin-arm64|…}。
 /// </summary>
 public sealed class UpdateChecker : Observable
 {
-    private static readonly HttpClient Http = CreateHttp();
-
     private readonly PetSettings _settings;
+    private readonly IUpdateFeed _feed;
+    private readonly string _current;
     private readonly string _platform;
     private readonly IReadOnlyList<string> _installerKinds;
     private UpdateState _state;
@@ -39,9 +35,13 @@ public sealed class UpdateChecker : Observable
     /// <param name="settings">渠道、服务器地址。</param>
     /// <param name="platform">本机平台标识（darwin-arm64 等），和站点上文件的 platform 字段一致。</param>
     /// <param name="installerKinds">本机能用的安装包类型，按优先级（dmg、exe、deb、zip…）。</param>
-    public UpdateChecker(PetSettings settings, string platform, IReadOnlyList<string> installerKinds)
+    /// <param name="currentVersion">当前版本，默认是构建时写进去的；测试时传固定值。</param>
+    public UpdateChecker(PetSettings settings, IUpdateFeed feed, string platform, IReadOnlyList<string> installerKinds,
+        string? currentVersion = null)
     {
         _settings = settings;
+        _feed = feed;
+        _current = currentVersion ?? AppVersion.Current;
         _platform = platform;
         _installerKinds = installerKinds;
     }
@@ -86,25 +86,21 @@ public sealed class UpdateChecker : Observable
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(15));
 
-            using var response = await Http.GetAsync(url, timeout.Token);
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            var feed = await _feed.GetLatestAsync(url, timeout.Token);
+            if (feed is null)
             {
                 // 服务器上这个渠道还没有发布过版本：不算错误。
                 MarkUpToDate();
                 return null;
             }
-            response.EnsureSuccessStatusCode();
-            var feed = await JsonSerializer.DeserializeAsync(
-                await response.Content.ReadAsStreamAsync(timeout.Token), UpdateJsonContext.Default.LatestFeed, timeout.Token);
-
-            if (feed is null || !SemVer.TryParse(feed.Version, out _))
+            if (!SemVer.TryParse(feed.Version, out _))
             {
                 Fail("服务器返回的版本信息无法识别");
                 return null;
             }
             // 本机平台的安装包（macOS dmg、Windows exe、Linux deb）；0.1.1 及以前只发过 zip，也认；都没有就退到下载页。
             var file = PickInstaller(feed.Files);
-            if (SemVer.Compare(feed.Version, AppVersion.Current) <= 0)
+            if (SemVer.Compare(feed.Version, _current) <= 0)
             {
                 MarkUpToDate();
                 return null;
@@ -121,7 +117,7 @@ public sealed class UpdateChecker : Observable
             Available = info;
             CheckedAt = DateTime.Now;
             State = UpdateState.Available;
-            Message = $"发现新版本 {info.Version}（当前 {AppVersion.Current}）";
+            Message = $"发现新版本 {info.Version}（当前 {_current}）";
             PetLog.Write(Message);
             return info;
         }
@@ -138,10 +134,9 @@ public sealed class UpdateChecker : Observable
         }
     }
 
-    private LatestFile? PickInstaller(List<LatestFile>? files)
+    private ReleaseFile? PickInstaller(IReadOnlyList<ReleaseFile> files)
     {
-        var mine = files?.Where(f => f.Platform == _platform).ToList();
-        if (mine is null) return null;
+        var mine = files.Where(f => f.Platform == _platform).ToList();
         foreach (var kind in _installerKinds)
             if (mine.FirstOrDefault(f => f.Kind == kind) is { } found) return found;
         return null;
@@ -152,7 +147,7 @@ public sealed class UpdateChecker : Observable
         Available = null;
         CheckedAt = DateTime.Now;
         State = UpdateState.UpToDate;
-        Message = $"已是最新版本（{AppVersion.Current}）";
+        Message = $"已是最新版本（{_current}）";
     }
 
     private void Fail(string message)
@@ -162,34 +157,4 @@ public sealed class UpdateChecker : Observable
         CheckedAt = DateTime.Now;
         PetLog.Write("更新检测：" + message);
     }
-
-    private static HttpClient CreateHttp()
-    {
-        var http = new HttpClient();
-        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("AstraPet", AppVersion.Current));
-        return http;
-    }
 }
-
-/// <summary>/api/pet-releases/{channel}/latest.json 的返回。只取用得到的字段。</summary>
-internal sealed class LatestFeed
-{
-    public string? Version { get; set; }
-    public string? Channel { get; set; }
-    public string? Notes { get; set; }
-    public string? Page { get; set; }
-    public List<LatestFile>? Files { get; set; }
-}
-
-internal sealed class LatestFile
-{
-    public string? Platform { get; set; }
-    public string? Kind { get; set; }
-    public string? Url { get; set; }
-    public long Size { get; set; }
-}
-
-/// <summary>源生成的 JSON 元数据，NativeAOT 下不能用反射式序列化。</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true)]
-[JsonSerializable(typeof(LatestFeed))]
-internal sealed partial class UpdateJsonContext : JsonSerializerContext;

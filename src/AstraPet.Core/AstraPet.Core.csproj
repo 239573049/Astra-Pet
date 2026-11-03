@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     核心层：领域模型、设置、动画状态机、更新检测。只依赖 BCL，不引用 Avalonia、不引用平台层。
-    注意：ClipStream / PetClip（起 ffmpeg）、UpdateChecker / ModelCatalog（发 HTTP）按设计属于基础设施，
-    要等重构第 3 步引入 IFrameSource 等接口后才能挪出去，见 design/04-migration.md。
+    起进程、发 HTTP 的实现都在 Infrastructure，这里只定义它们的接口（Ports/）。
   -->
   <PropertyGroup>
     <RootNamespace>AstraPet.Core</RootNamespace>
@@ -26,8 +25,4 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup>
-    <!-- 内置的模型参数库，来自 models.dev，见 tools/fetch_models_dev.py。ModelCatalog 在这个程序集里读它。 -->
-    <EmbeddedResource Include="$(AstraAssets)models.dev.json" LogicalName="models.dev.json" Link="Assets\models.dev.json" />
-  </ItemGroup>
 </Project>

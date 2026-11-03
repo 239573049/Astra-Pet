@@ -61,7 +61,7 @@ internal sealed class HostRig : IDisposable
             Commands = Commands,
             Monitor = Monitor,
             Capabilities = caps ?? new PlatformCapabilities { AudioDetection = true, IdleDetection = true },
-            Updates = new UpdateChecker(Settings, "test-x64", ["zip"]),
+            Updates = new UpdateChecker(Settings, new FakeFeed(null), "test-x64", ["zip"]),
             Time = Time,
             Ui = new InlineUi(),
             Random = new Random(1),

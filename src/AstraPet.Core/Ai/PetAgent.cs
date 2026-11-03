@@ -11,7 +11,7 @@ namespace AstraPet.Ai;
 /// 每轮对话后再发一次请求，让模型从这轮里挑出值得长期记住的用户信息。
 /// 在 UI 线程上调用，await 之后回到 UI 线程，所以可以直接改设置里的集合。
 /// </summary>
-public sealed class PetAgent(PetSettings settings)
+public sealed class PetAgent(PetSettings settings, ILlmClient llm)
 {
     public const int MaxMemories = 100;
 
@@ -41,7 +41,7 @@ public sealed class PetAgent(PetSettings settings)
         string reply;
         try
         {
-            reply = await LlmClient.CompleteAsync(provider,
+            reply = await llm.CompleteAsync(provider,
                 new ChatRequest(BuildSystemPrompt(), context, settings.Temperature, settings.MaxTokens),
                 TimeSpan.FromSeconds(settings.TimeoutSeconds), ct);
         }
@@ -98,7 +98,7 @@ public sealed class PetAgent(PetSettings settings)
             $"用户：{userText}\n宠物：{reply}";
         try
         {
-            var raw = await LlmClient.CompleteAsync(provider,
+            var raw = await llm.CompleteAsync(provider,
                 new ChatRequest(null, [new ChatMessage("user", prompt)], 0, 256),
                 TimeSpan.FromSeconds(settings.TimeoutSeconds));
             var added = ParseList(raw).Where(t => AddMemory(t, auto: true)).ToList();

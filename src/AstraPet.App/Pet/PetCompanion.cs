@@ -2,6 +2,7 @@ using AstraPet.Adapters;
 using AstraPet.Ai;
 using AstraPet.Core;
 using AstraPet.Core.Behaviors;
+using AstraPet.Infrastructure.Update;
 using AstraPet.Platform;
 
 namespace AstraPet.Pet;
@@ -9,7 +10,7 @@ namespace AstraPet.Pet;
 /// <summary>
 /// 宠物行为层和界面之间的适配：把宠物窗口的输入转发给 Core 的 <see cref="PetHost"/>（点击、摸头、菜单、提醒、
 /// 省电、听歌、更新提醒都在那里），并替它说话（气泡 + 朗读）、开窗口。
-/// 对话还留在这里，因为智能体在 Infrastructure（见 design/04-migration.md 第 3 步）。
+/// 对话也在这里：智能体（Core 的 PetAgent）回复后要冒气泡、朗读、播动作。
 /// </summary>
 public sealed class PetCompanion : IPetVoice, IPetCommands, IDisposable
 {
@@ -25,9 +26,9 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IDisposable
         _director = director;
         _settings = settings;
         _platform = platform;
-        Agent = new PetAgent(settings);
+        Agent = new PetAgent(settings, LlmClient.Instance);
         Bubble = new BubbleWindow(pet, settings, platform);
-        Updates = new UpdateChecker(settings, platform.Identity.Key, platform.Installer.PreferredKinds);
+        Updates = new UpdateChecker(settings, new HttpUpdateFeed(), platform.Identity.Key, platform.Installer.PreferredKinds);
 
         var input = new PetInput();
         _host = new PetHost(new PetContext

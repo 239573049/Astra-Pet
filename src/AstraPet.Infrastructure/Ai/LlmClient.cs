@@ -7,25 +7,21 @@ using AstraPet.Core;
 
 namespace AstraPet.Ai;
 
-/// <summary>一条对话消息。Role 只有 user 和 assistant，系统提示词单独传。</summary>
-public sealed record ChatMessage(string Role, string Content);
-
-/// <summary>一次请求的参数。</summary>
-public sealed record ChatRequest(
-    string? System,
-    IReadOnlyList<ChatMessage> Messages,
-    double Temperature,
-    int MaxTokens);
-
-public sealed class LlmException(string message) : Exception(message);
-
 /// <summary>
 /// 三种协议的非流式调用：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages。
 /// 只拼 JSON 发 HTTP，不依赖任何 SDK，这样兼容接口（DeepSeek、通义、Ollama 等）填个地址就能用。
 /// </summary>
-public static class LlmClient
+public sealed class LlmClient : ILlmClient
 {
+    /// <summary>对话智能体用的实例（实现 <see cref="ILlmClient"/>）；设置页的测试、拉模型列表直接用静态方法。</summary>
+    public static readonly LlmClient Instance = new();
+
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
+
+    private LlmClient() { }
+
+    Task<string> ILlmClient.CompleteAsync(LlmProvider provider, ChatRequest request, TimeSpan timeout, CancellationToken ct) =>
+        CompleteAsync(provider, request, timeout, ct);
 
     public static async Task<string> CompleteAsync(LlmProvider provider, ChatRequest request, TimeSpan timeout,
         CancellationToken ct = default)
