@@ -85,20 +85,51 @@ internal sealed partial class MacSpeech : ProcessSpeech
     private static partial Regex VoiceLine();
 }
 
-/// <summary>空闲时长读 CoreGraphics；是否在放声音读电源断言。</summary>
+/// <summary>空闲时长读 CoreGraphics；是否在放声音问 CoreAudio。</summary>
 [SupportedOSPlatform("macos")]
 internal sealed partial class MacMonitor : ISystemMonitor
 {
+    private const string CoreAudio = "/System/Library/Frameworks/CoreAudio.framework/CoreAudio";
+
+    // CoreAudio 的四字符常量
+    private const uint SystemObject = 1;                       // kAudioObjectSystemObject
+    private const uint DefaultOutputDevice = 0x644F7574;       // 'dOut'
+    private const uint IsRunningSomewhere = 0x676F6E65;        // 'gone'
+    private const uint ScopeGlobal = 0x676C6F62;               // 'glob'
+    private const uint ElementMain = 0;
+
     public TimeSpan? IdleTime() =>
         // kCGEventSourceStateCombinedSessionState = 0，kCGAnyInputEventType = ~0
         TimeSpan.FromSeconds(CGEventSourceSecondsSinceLastEventType(0, uint.MaxValue));
 
     /// <summary>
-    /// 有声音在输出时 coreaudiod 会挂一个阻止空闲睡眠的电源断言，
-    /// 名字形如 com.apple.audio.context…preventuseridlesleep，用 pmset 读出来判断。
-    /// 视频、通话也会触发，所以只能算「在放声音」。耗时约 20ms，放在线程池上跑。
+    /// 默认输出设备上有没有哪个进程在跑音频 IO（kAudioDevicePropertyDeviceIsRunningSomewhere）。
+    /// 直接查属性，微秒级，不用起子进程。视频、通话也算，所以只能算「在放声音」。
+    /// CoreAudio 查询失败时退回读电源断言（pmset），两者实测结果一致。
     /// </summary>
-    public Task<bool> IsAudioPlayingAsync() => Task.Run(() =>
+    public Task<bool> IsAudioPlayingAsync() =>
+        DefaultOutputRunning() is { } running ? Task.FromResult(running) : Task.Run(PowerAssertionSaysPlaying);
+
+    private static unsafe bool? DefaultOutputRunning()
+    {
+        var address = new PropertyAddress(DefaultOutputDevice, ScopeGlobal, ElementMain);
+        uint device = 0, size = sizeof(uint);
+        if (AudioObjectGetPropertyData(SystemObject, &address, 0, null, &size, &device) != 0 || device == 0)
+            return null;
+
+        address = new PropertyAddress(IsRunningSomewhere, ScopeGlobal, ElementMain);
+        uint running = 0;
+        size = sizeof(uint);
+        if (AudioObjectGetPropertyData(device, &address, 0, null, &size, &running) != 0)
+            return null;
+        return running != 0;
+    }
+
+    /// <summary>
+    /// 有声音在输出时 coreaudiod 会挂一个阻止空闲睡眠的电源断言，
+    /// 名字形如 com.apple.audio.context…preventuseridlesleep，用 pmset 读出来判断。耗时约 20ms。
+    /// </summary>
+    private static bool PowerAssertionSaysPlaying()
     {
         try
         {
@@ -111,7 +142,19 @@ internal sealed partial class MacMonitor : ISystemMonitor
         {
             return false;
         }
-    });
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct PropertyAddress(uint selector, uint scope, uint element)
+    {
+        public readonly uint Selector = selector;
+        public readonly uint Scope = scope;
+        public readonly uint Element = element;
+    }
+
+    [LibraryImport(CoreAudio)]
+    private static unsafe partial int AudioObjectGetPropertyData(uint objectId, PropertyAddress* address,
+        uint qualifierSize, void* qualifier, uint* dataSize, void* data);
 
     [LibraryImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
     private static partial double CGEventSourceSecondsSinceLastEventType(int stateId, uint eventType);

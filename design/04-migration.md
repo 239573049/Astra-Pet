@@ -54,7 +54,7 @@
 | 2a | 逐像素点击穿透（`WS_EX_TRANSPARENT`） | Windows | ✅ 已实现，**待 Windows 真机验证**（见下） |
 | 2b | 文件日志（`LogDirectory`，按天滚动） | 全部 | ✅ macOS 已验证 |
 | 2c | 全屏检测后隐藏（`SHQueryUserNotificationState` / `_NET_WM_STATE_FULLSCREEN`） | Windows、Linux |
-| 2d | 声音检测：WASAPI 峰值、`pactl`；macOS 改用 CoreAudio | 全部 |
+| 2d | 声音检测：WASAPI 峰值、`pactl`；macOS 改用 CoreAudio | 全部 | macOS ✅ 已验证；Windows、Linux 待做 |
 | 2e | Linux：XDG 自启、`spd-say` / `espeak-ng`、空闲检测、XShape 点击穿透 | Linux |
 | 2f | 去掉 `BuiltInComInteropSupport`，COM 改为 `GeneratedComInterface` | Windows |
 
