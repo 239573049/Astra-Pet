@@ -50,7 +50,7 @@ internal sealed class WinAppPaths : AppPaths
     protected override string ExecutableSuffix => ".exe";
 
     protected override string PlatformLogDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "logs");
+        Folder(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "logs");
 }
 
 /// <summary>

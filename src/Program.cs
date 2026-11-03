@@ -13,6 +13,7 @@ class Program
     public static int Main(string[] args)
     {
         if (args.Contains("--smoke")) return Smoke();
+        if (args.Contains("--platform-report")) return PlatformReport();
 
 #if DEBUG
         // 正常运行路径不应该抛异常（见 ClipStream.ReadFrames 的说明），出现了就打日志方便排查。
@@ -47,7 +48,7 @@ class Program
         try
         {
             var platform = PlatformFactory.Create();
-            Console.WriteLine($"platform: {platform.Identity} {platform.Capabilities with { Notes = new Dictionary<string, string>() }}");
+            Console.WriteLine($"platform: {platform.Identity}（详细结果用 --platform-report）");
             BuildAvaloniaApp().SetupWithoutStarting();
             _ = new ControlPanel.ConsoleWindow();
             _ = new ControlPanel.ChatWindow();
@@ -59,6 +60,35 @@ class Program
             Console.Error.WriteLine($"smoke failed: {e}");
             return 1;
         }
+    }
+
+    /// <summary>
+    /// 打印平台探测结果，不起界面：能力、说明、路径，以及实际读一次空闲时长、声音状态、语音列表。
+    /// CI 里三个平台各跑一次，排查用户问题时也可以让对方跑。
+    /// </summary>
+    private static int PlatformReport()
+    {
+        var p = PlatformFactory.Create();
+        var caps = p.Capabilities;
+        Console.WriteLine($"platform     {p.Identity}");
+        Console.WriteLine($"data         {p.Paths.DataDirectory}");
+        Console.WriteLine($"logs         {p.Paths.LogDirectory}");
+        Console.WriteLine($"resources    {p.Paths.ResourceDirectory}");
+        Console.WriteLine($"ffmpeg       {p.Paths.FindTool("ffmpeg")}");
+        foreach (var (name, supported) in new (string, bool)[]
+                 {
+                     (nameof(caps.ClickThrough), caps.ClickThrough), (nameof(caps.OverFullscreen), caps.OverFullscreen),
+                     (nameof(caps.CaptureExclusion), caps.CaptureExclusion), (nameof(caps.AutoStart), caps.AutoStart),
+                     (nameof(caps.Speech), caps.Speech), (nameof(caps.IdleDetection), caps.IdleDetection),
+                     (nameof(caps.AudioDetection), caps.AudioDetection), (nameof(caps.InAppUpdate), caps.InAppUpdate),
+                 })
+            Console.WriteLine($"{(supported ? "[x]" : "[ ]")} {name,-17} {caps.NoteFor(name)}");
+        Console.WriteLine($"idle         {p.Monitor.IdleTime()?.ToString() ?? "n/a"}");
+        Console.WriteLine($"audio        {p.Monitor.IsAudioPlayingAsync().GetAwaiter().GetResult()}");
+        var voices = p.Speech.ListVoicesAsync().GetAwaiter().GetResult();
+        Console.WriteLine($"voices       {voices.Count - 1}（前几个：{string.Join("、", voices.Skip(1).Take(3))}）");
+        Console.WriteLine($"autostart    {p.AutoStart.IsEnabled()}");
+        return 0;
     }
 
     public static AppBuilder BuildAvaloniaApp()

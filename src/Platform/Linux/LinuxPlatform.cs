@@ -1,9 +1,12 @@
 using System.Runtime.Versioning;
+using AstraPet.Core;
 
 namespace AstraPet.Platform.Linux;
 
 /// <summary>
-/// Linux（实验性）：目前只有应用内更新（deb）。点击穿透、自启、朗读、空闲和声音检测见 design/02-platform.md 第 2 步。
+/// Linux（实验性）：自启（XDG Autostart）、朗读（spd-say / espeak-ng）、空闲检测（XScreenSaver / D-Bus）、
+/// 声音检测（pactl）、应用内更新（deb）。依赖的系统工具在启动时探测，没有的那项在能力描述里关掉并说明原因。
+/// 点击穿透、全屏隐藏见 design/02-platform.md。
 /// </summary>
 [SupportedOSPlatform("linux")]
 internal sealed class LinuxPlatform : PlatformBase
@@ -14,21 +17,37 @@ internal sealed class LinuxPlatform : PlatformBase
     public LinuxPlatform() : base("linux")
     {
         Installer = new DebInstaller();
+        AutoStart = new XdgAutoStart();
+        var speech = LinuxSpeech.Create();
+        if (speech is not null) Speech = speech;
+        var monitor = new LinuxMonitor();
+        Monitor = monitor;
+
         var fromDeb = AppContext.BaseDirectory.StartsWith(DebInstallDir, StringComparison.Ordinal);
+        var notes = new Dictionary<string, string>
+        {
+            [nameof(PlatformCapabilities.OverFullscreen)] = "全屏隐藏暂不支持 Linux。",
+            [nameof(PlatformCapabilities.CaptureExclusion)] = "录屏开关暂不支持 Linux。",
+            [nameof(PlatformCapabilities.ClickThrough)] = "透明处点击穿透暂不支持 Linux。",
+        };
+        if (speech is null) notes[nameof(PlatformCapabilities.Speech)] = "朗读需要安装 speech-dispatcher 或 espeak-ng。";
+        if (!monitor.CanDetectAudio) notes[nameof(PlatformCapabilities.AudioDetection)] = "检测音乐播放需要 pactl（pulseaudio-utils）。";
+        if (!monitor.CanReadIdle) notes[nameof(PlatformCapabilities.IdleDetection)] = LinuxEnv.IsWayland
+            ? "当前桌面环境读不到空闲时长，省电模式不会自动开启。"
+            : "读不到空闲时长（需要 libXss），省电模式不会自动开启。";
+        if (!fromDeb) notes[nameof(PlatformCapabilities.InAppUpdate)] = "不是通过 deb 包安装的，请到下载页手动更新。";
+
         Capabilities = new PlatformCapabilities
         {
+            AutoStart = true,
+            Speech = speech is not null,
+            IdleDetection = monitor.CanReadIdle,
+            AudioDetection = monitor.CanDetectAudio,
             InAppUpdate = fromDeb,
-            Notes = new Dictionary<string, string>
-            {
-                [nameof(PlatformCapabilities.OverFullscreen)] = "全屏隐藏暂不支持 Linux。",
-                [nameof(PlatformCapabilities.CaptureExclusion)] = "录屏开关暂不支持 Linux。",
-                [nameof(PlatformCapabilities.ClickThrough)] = "透明处点击穿透暂不支持 Linux。",
-                [nameof(PlatformCapabilities.AutoStart)] = "开机自启暂不支持 Linux。",
-                [nameof(PlatformCapabilities.Speech)] = "朗读暂不支持 Linux。",
-                [nameof(PlatformCapabilities.AudioDetection)] = "Linux 上暂不支持检测音乐播放。",
-                [nameof(PlatformCapabilities.InAppUpdate)] = "不是通过 deb 包安装的，请到下载页手动更新。",
-            },
+            Notes = notes,
         };
+        PetLog.Write($"Linux {(LinuxEnv.IsWayland ? "Wayland" : "X11")} 会话；朗读 {speech?.Engine ?? "无"}；" +
+                     $"空闲检测 {(monitor.CanReadIdle ? "有" : "无")}；声音检测 {(monitor.CanDetectAudio ? "有" : "无")}");
     }
 }
 

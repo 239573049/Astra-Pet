@@ -38,14 +38,26 @@ internal abstract class ProcessSpeech : ISpeech
 
     public void Stop()
     {
+        var wasSpeaking = false;
         try
         {
-            if (_current is { HasExited: false }) _current.Kill();
+            if (_current is { HasExited: false })
+            {
+                wasSpeaking = true;
+                _current.Kill();
+            }
         }
         catch { /* 进程刚好自己结束了 */ }
         _current?.Dispose();
         _current = null;
+        if (wasSpeaking) OnStop();
     }
+
+    /// <summary>
+    /// 打断了一句正在念的话之后调用，在下一句开始之前同步完成。
+    /// 朗读由守护进程完成的引擎（speech-dispatcher）要在这里另外发取消，光杀客户端进程停不下来。
+    /// </summary>
+    protected virtual void OnStop() { }
 }
 
 /// <summary>应用内安装的公共部分：类型不对直接拒绝，异常一律转成给人看的原因。</summary>

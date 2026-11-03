@@ -77,13 +77,16 @@ COPYRIGHT
 chmod 644 "$STAGE/usr/share/doc/astra-pet/copyright"
 
 SIZE_KB="$(du -sk "$STAGE" | cut -f1)"
+# Depends：.NET 运行时没有 libicu 会直接退出（精简系统上没有），各发行版的包名带版本号，列成「或」。
+# Recommends：空闲检测（libxss1）、听歌检测（pactl）、朗读（speech-dispatcher 或 espeak-ng），没有也能跑，只是对应功能关掉。
 cat > "$STAGE/DEBIAN/control" <<CONTROL
 Package: astra-pet
 Version: $DEB_VERSION
 Architecture: $ARCH
 Maintainer: RoutinAI
 Installed-Size: $SIZE_KB
-Depends: libc6 (>= 2.31), libfontconfig1, libx11-6, libice6, libsm6
+Depends: libc6 (>= 2.31), libfontconfig1, libx11-6, libice6, libsm6, libicu76 | libicu74 | libicu72 | libicu71 | libicu70 | libicu67 | libicu66
+Recommends: libxss1, pulseaudio-utils, speech-dispatcher | espeak-ng
 Section: utils
 Priority: optional
 Homepage: https://astra-gate.si/pet

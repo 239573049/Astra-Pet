@@ -55,7 +55,7 @@
 | 2b | 文件日志（`LogDirectory`，按天滚动） | 全部 | ✅ macOS 已验证 |
 | 2c | 全屏检测后隐藏（`SHQueryUserNotificationState` / `_NET_WM_STATE_FULLSCREEN`） | Windows、Linux |
 | 2d | 声音检测：WASAPI 峰值、`pactl`；macOS 改用 CoreAudio | 全部 | macOS ✅ 已验证；Windows、Linux 待做 |
-| 2e | Linux：XDG 自启、`spd-say` / `espeak-ng`、空闲检测、XShape 点击穿透 | Linux |
+| 2e | Linux：XDG 自启、`spd-say` / `espeak-ng`、空闲检测、XShape 点击穿透 | Linux | 除点击穿透外 ✅，Ubuntu 24.04 容器（Xvfb）里用 `--platform-report` 验证；自启只验证了探测，没实际登录测 |
 | 2f | 去掉 `BuiltInComInteropSupport`，COM 改为 `GeneratedComInterface` | Windows |
 
 **验收**：每个平台跑一遍手动测试清单（见下文），界面上灰掉的选项都给出原因。

@@ -9,8 +9,13 @@ internal class AppPaths : IAppPaths
     private static readonly string? CustomData =
         Environment.GetEnvironmentVariable("ASTRA_PET_DATA") is { Length: > 0 } custom ? custom : null;
 
+    // DoNotVerify：默认选项下目录不存在时返回空串（新装的 Linux 用户可能还没有 ~/.config），
+    // 拼出来就成了相对路径，设置会写到当前工作目录里。目录由用到的地方自己创建。
     public string DataDirectory { get; } =
-        CustomData ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AstraPet");
+        CustomData ?? Path.Combine(Folder(Environment.SpecialFolder.ApplicationData), "AstraPet");
+
+    protected static string Folder(Environment.SpecialFolder folder) =>
+        Environment.GetFolderPath(folder, Environment.SpecialFolderOption.DoNotVerify);
 
     public string LogDirectory => CustomData is not null ? Path.Combine(CustomData, "logs") : PlatformLogDirectory;
 
@@ -18,7 +23,7 @@ internal class AppPaths : IAppPaths
     protected virtual string PlatformLogDirectory =>
         Path.Combine(Environment.GetEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } state
             ? state
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state"), "AstraPet");
+            : Path.Combine(Folder(Environment.SpecialFolder.UserProfile), ".local", "state"), "AstraPet");
 
     public string AppDirectory { get; } = AppContext.BaseDirectory;
 

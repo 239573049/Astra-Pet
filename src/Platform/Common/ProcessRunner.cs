@@ -26,12 +26,18 @@ internal static class ProcessRunner
         }
     }
 
-    /// <summary>运行并读完 stdout（最多等 <paramref name="timeoutMs"/>）。在后台线程上调。</summary>
+    /// <summary>
+    /// 运行并读完 stdout（最多等 <paramref name="timeoutMs"/>）。在后台线程上调。
+    /// stderr 读掉丢弃：不然工具的报错（比如 pactl 连不上音频服务）会直接打到我们的终端上。
+    /// </summary>
     public static string ReadOutput(string file, string[] args, int timeoutMs = 5000)
     {
         var psi = Info(file, args);
         psi.RedirectStandardOutput = true;
+        psi.RedirectStandardError = true;
         using var p = Process.Start(psi) ?? throw new IOException("无法启动 " + file);
+        p.ErrorDataReceived += (_, _) => { };
+        p.BeginErrorReadLine();
         var output = p.StandardOutput.ReadToEnd();
         p.WaitForExit(timeoutMs);
         return output;
