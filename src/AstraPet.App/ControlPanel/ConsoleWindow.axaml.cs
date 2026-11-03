@@ -189,6 +189,7 @@ public partial class ConsoleWindow : Window
     // 桌宠
     private void OnResetPosition(object? sender, RoutedEventArgs e) => _vm.ResetPosition();
     private void OnOpenPetsFolder(object? sender, RoutedEventArgs e) => _vm.OpenPetsFolder();
+    private void OnOpenPetLicense(object? sender, RoutedEventArgs e) => _vm.OpenPetLicense();
     private void OnRefreshPets(object? sender, RoutedEventArgs e) => _vm.RefreshPets();
 
     // 互动

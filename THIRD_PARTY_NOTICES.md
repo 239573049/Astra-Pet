@@ -23,6 +23,16 @@ Official release packages include a minimal `ffmpeg` executable. The program run
 - License text: [licenses/LGPL-2.1-FFmpeg.txt](licenses/LGPL-2.1-FFmpeg.txt). FFmpeg source: <https://ffmpeg.org/download.html>; the exact version and configure flags are in `tools/ffmpeg/build.sh` and also shown by `ffmpeg -version`.
 - You can replace it with your own FFmpeg: point the `FFMPEG` environment variable at your `ffmpeg` (it needs the `libvpx-vp9` decoder), or replace the `ffmpeg` file (`ffmpeg.exe` on Windows) next to the program.
 
+### 大肥鱼（内置角色）—— CC BY-NC-SA 4.0
+
+内置角色「大肥鱼」（`Assets/pets/dafeiyu.astrapet`）不是 RoutinAI 的作品，按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名 · 非商业性使用 · 相同方式共享）授权：
+
+- 形象原型「溟月」：B 站 [@上善无形](https://space.bilibili.com/4456176)；DeepSeek 版（女仆鲸鱼娘）形象设计：B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)（[授权声明](https://www.bilibili.com/opus/1247156596114456581)）。
+- 动画素材：[dsh-pet](https://github.com/PC2005-cloud/dsh-pet)（PC2005-cloud）。Astra Pet 选取了其中 11 段，转码为 640×360 带透明通道的 VP9 WebM，并新增了走路步幅和不镜像片段的配置。
+- 社区二创形象，**不是 DeepSeek 官方形象**，与 DeepSeek 没有关联。**不得用于任何商业目的。**完整说明见角色包里的 `LICENSE.txt`。
+
+The built-in character "Dafeiyu" is not a work of RoutinAI and is licensed under CC BY-NC-SA 4.0 by its original authors (original character by @上善无形, DeepSeek design by @ZipZipPipe, animations from dsh-pet). It is a community fan character, not an official DeepSeek character. No commercial use. See `LICENSE.txt` inside the pack.
+
 ### 其他 / Others
 
 - **Skia / SkiaSharp、HarfBuzz / HarfBuzzSharp、ANGLE（Windows）**：图形和文字排版。Skia 为 BSD-3-Clause，HarfBuzz 为 MIT/Old-MIT，ANGLE 为 BSD-3-Clause（[licenses/BSD-3-Clause-ANGLE.txt](licenses/BSD-3-Clause-ANGLE.txt)）。

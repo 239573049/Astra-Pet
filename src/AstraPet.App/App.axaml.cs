@@ -63,7 +63,7 @@ public partial class App : Application
 
     private ConsoleWindow EnsureConsole() =>
         _console ??= new ConsoleWindow(new ConsoleViewModel(_pet!, _companion!, _settings!, _director!,
-            Composition!.Platform, Composition.Decoder, Composition.BuiltInVideosDir, Composition.Ffmpeg));
+            Composition!.Platform, Composition.Decoder, Composition.Catalog, Composition.Ffmpeg));
 
     private void ShowConsole() => EnsureConsole().Present();
 

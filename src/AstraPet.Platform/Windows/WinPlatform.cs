@@ -51,6 +51,9 @@ internal sealed class WinAppPaths : AppPaths
 
     protected override string PlatformLogDirectory => Path.Combine(
         Folder(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "logs");
+
+    protected override string PlatformCacheDirectory => Path.Combine(
+        Folder(Environment.SpecialFolder.LocalApplicationData), "AstraPet", "cache");
 }
 
 /// <summary>

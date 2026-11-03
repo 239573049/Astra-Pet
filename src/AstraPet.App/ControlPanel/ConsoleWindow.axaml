@@ -446,6 +446,8 @@
 <StackPanel Spacing="3">
 <TextBlock Text="当前角色" Classes="label" />
 <TextBlock Text="{Binding PetInfo}" Classes="note" />
+<TextBlock Text="{Binding PetCredits}" Classes="note" TextWrapping="Wrap" IsVisible="{Binding HasPetCredits}" />
+<arc:Button Content="查看许可" HorizontalAlignment="Left" Margin="0 4 0 0" Click="OnOpenPetLicense" IsVisible="{Binding HasPetLicenseUrl}" />
 </StackPanel>
 <arc:Select ItemsSource="{Binding Pets}" SelectedItem="{Binding SelectedPet, Mode=TwoWay}" HorizontalAlignment="Stretch" AutomationProperties.Name="当前角色" />
 <TextBlock Text="{Binding PetStatus}" Classes="note" IsVisible="{Binding HasPetStatus}" />
@@ -456,9 +458,9 @@
 <StackPanel Spacing="3" VerticalAlignment="Center">
 <TextBlock Text="角色目录" Classes="label" />
 <TextBlock Text="{Binding PetsDirectory}" Classes="note" />
-<TextBlock Text="每个角色一个文件夹，里面放 videos 文件夹，videos 下按 idle、click、drag、move、turn 分类（sing 可选），每类至少一段 640×360 带透明通道的 webm。把仓库 characters 下的角色文件夹拷进来，点「刷新」就能选。" Classes="note" />
+<TextBlock Text="把角色包（.astrapet 文件）拷进来，或者每个角色一个文件夹，里面放 videos 文件夹，videos 下按 idle、click、drag、move、turn 分类（sing 可选），每类至少一段 640×360 带透明通道的 webm。点「刷新」就能选。" Classes="note" />
 <StackPanel Spacing="3" Margin="0 4 0 0" IsVisible="{Binding HasPetProblems}">
-<TextBlock Text="下面的文件夹素材不全，选不了：" Classes="note" />
+<TextBlock Text="下面的角色素材不全，选不了：" Classes="note" />
 <TextBlock Text="{Binding PetProblems}" Classes="note" />
 </StackPanel>
 </StackPanel>

@@ -12,6 +12,12 @@ public interface IAppPaths
     /// </summary>
     string LogDirectory { get; }
 
+    /// <summary>
+    /// 缓存目录（删了也能重建的东西，比如解压出来的角色包）：macOS 在 ~/Library/Caches/AstraPet，
+    /// Windows 在 %LOCALAPPDATA%\AstraPet\cache，Linux 在 $XDG_CACHE_HOME/AstraPet。设了 ASTRA_PET_DATA 时放在数据目录下的 cache 里。
+    /// </summary>
+    string CacheDirectory { get; }
+
     /// <summary>程序所在目录。macOS 的 .app 里是 Contents/MacOS。</summary>
     string AppDirectory { get; }
 

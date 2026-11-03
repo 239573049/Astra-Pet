@@ -63,7 +63,10 @@ python3 tools/petgen/generate.py "$C"
 tools/petgen/.venv/bin/python tools/petgen/process.py "$C"
 
 # 4. 运行桌宠
-cd src && ASTRA_PET_VIDEOS="$PWD/../$C/videos" dotnet run
+ASTRA_PET_VIDEOS="$PWD/$C/videos" dotnet run --project src/AstraPet.App
+
+# 5. 满意了就打成角色包（内置角色见 tools/pets/build.sh）
+python3 tools/pack_pet.py "$C/videos" "$C.astrapet" --id my-pet --name 我的宠物
 ```
 
 不想调图片接口时，也可以直接从设定图里抠：

@@ -37,7 +37,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private readonly PetDirector _director;
     private readonly IPlatform _platform;
     private readonly IClipDecoder _decoder;
-    private readonly string _builtInDir;
+    private readonly PetCatalog _catalog;
     private readonly string _ffmpeg;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
@@ -57,14 +57,14 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private int _petSwitch;
 
     public ConsoleViewModel(PetWindow pet, PetCompanion companion, PetSettings settings, PetDirector director,
-        IPlatform platform, IClipDecoder decoder, string builtInVideosDir, string ffmpeg)
+        IPlatform platform, IClipDecoder decoder, PetCatalog catalog, string ffmpeg)
     {
         _pet = pet;
         _companion = companion;
         _director = director;
         _platform = platform;
         _decoder = decoder;
-        _builtInDir = builtInVideosDir;
+        _catalog = catalog;
         _ffmpeg = ffmpeg;
         Settings = settings;
         Hub = new ProvidersViewModel(settings, platform.Shell);
@@ -216,7 +216,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         ? Caps.NoteFor(nameof(PlatformCapabilities.AudioDetection)) ?? "当前系统暂不支持检测音乐播放。"
         : SingAvailable
             ? "检测到有声音在播放时（音乐、视频都算）改播唱歌动画。"
-            : "检测到在放音乐时唱歌。还没有唱歌素材（Assets/videos/sing），暂时用动作片段代替。";
+            : "检测到在放音乐时唱歌。当前角色没有唱歌素材（videos/sing），暂时用动作片段代替。";
 
     public string StatusText => Settings switch
     {
@@ -231,7 +231,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     // ───── 角色 ─────
 
-    public string PetsDirectory => PetCatalog.Directory;
+    public string PetsDirectory => _catalog.UserDirectory;
 
     /// <summary>能用的角色：内置的加上角色目录里素材齐全的。</summary>
     public IReadOnlyList<PetEntry> Pets { get => _pets; private set => Set(ref _pets, value); }
@@ -258,7 +258,20 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     }
 
     public string PetInfo => $"{_currentPet.Name} · {_director.Library.ClipCount} 段动画" +
-                             (_currentPet.IsBuiltIn || _currentPet.Id == _currentPet.Name ? "" : $" · 文件夹 {_currentPet.Id}");
+                             (_currentPet.IsBuiltIn ? " · 内置" : _currentPet.Id == _currentPet.Name ? "" : $" · {_currentPet.Id}");
+
+    /// <summary>当前角色的作者、许可和署名（来自角色包），一行一条。没有就是空串。</summary>
+    public string PetCredits => _currentPet.Credits is not { } c ? "" : string.Join("\n",
+        new[] { c.Author.Length > 0 ? $"作者：{c.Author}" : "", c.License.Length > 0 ? $"许可：{c.License}" : "" }
+            .Concat(c.Lines).Where(l => l.Length > 0));
+
+    public bool HasPetCredits => PetCredits.Length > 0;
+    public bool HasPetLicenseUrl => _currentPet.Credits is { LicenseUrl.Length: > 0 };
+
+    public void OpenPetLicense()
+    {
+        if (_currentPet.Credits is { LicenseUrl.Length: > 0 } c) _platform.Shell.OpenUrl(c.LicenseUrl);
+    }
 
     /// <summary>目录里素材不全的文件夹，一行一个，说明缺什么。没有就是空串。</summary>
     public string PetProblems { get => _petProblems; private set { if (Set(ref _petProblems, value)) Raise(nameof(HasPetProblems)); } }
@@ -268,7 +281,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     public string PetStatus { get => _petStatus; private set { if (Set(ref _petStatus, value)) Raise(nameof(HasPetStatus)); } }
     public bool HasPetStatus => _petStatus.Length > 0;
 
-    public void OpenPetsFolder() => _platform.Shell.OpenFolder(PetCatalog.Directory);
+    public void OpenPetsFolder() => _platform.Shell.OpenFolder(_catalog.UserDirectory);
 
     /// <summary>重新扫描角色目录。用户往里拷了新角色后点「刷新」。</summary>
     public void RefreshPets() => RefreshPets(_currentPet.Id);
@@ -278,14 +291,14 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         // 选中项会被重置回当前角色，还没加载完的切换也得一起取消，免得界面和实际对不上。
         _petSwitch++;
         PetStatus = "";
-        var all = PetCatalog.Scan(_builtInDir);
+        var all = _catalog.Scan();
         _currentPet = all.FirstOrDefault(p => p.Id == currentId) ?? all[0];
-        PetProblems = string.Join("\n", all.Where(p => p.Problem is not null).Select(p => $"{p.Id}：{p.Problem}"));
+        PetProblems = string.Join("\n", all.Where(p => p.Problem is not null).Select(p => $"{(p.IsBuiltIn ? p.Name : p.Id)}：{p.Problem}"));
         Pets = all.Where(p => p.Problem is null).ToList();
         // Pets 换了之后 ComboBox 的选中项被清掉了，重新选一遍。
         _selectedPet = Pets.FirstOrDefault(p => p == _currentPet);
         Raise(nameof(SelectedPet));
-        Raise(nameof(PetInfo));
+        RaisePetInfo();
     }
 
     private async Task SwitchPetAsync(PetEntry pet)
@@ -294,15 +307,15 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         PetStatus = $"正在加载「{pet.Name}」…";
         try
         {
-            // 每段都要起一次 ffmpeg 探测，放到线程池上，期间宠物照常动。
-            var library = await Task.Run(() => PetLibrary.Load(pet.VideosDir, _decoder, PetLog.Write));
+            // 角色包要先解压，每段还要起一次 ffmpeg 探测，都放到线程池上，期间宠物照常动。
+            var library = await Task.Run(() => _catalog.Load(pet, _decoder));
             if (ticket != _petSwitch) return;   // 加载期间又选了别的，以最后一次为准
             _director.UseLibrary(library);
             _currentPet = pet;
             Settings.PetId = pet.Id;
             PetStatus = "";
-            PetLog.Write($"已切换角色: {pet.Name} ({pet.VideosDir})");
-            Raise(nameof(PetInfo));
+            PetLog.Write($"已切换角色: {pet.Name}");
+            RaisePetInfo();
             Raise(nameof(SingAvailable));
             Raise(nameof(MusicNote));
             ActionOptions = BuildActionOptions();
@@ -446,12 +459,21 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         }
     }
 
-    /// <summary>自启时带上这次用的素材目录和 ffmpeg，让自启的那次和这次一样。</summary>
-    private Dictionary<string, string> AutoStartEnvironment() => new()
+    /// <summary>自启时带上这次用的 ffmpeg（和开发时换掉的默认角色素材），让自启的那次和这次一样。</summary>
+    private Dictionary<string, string> AutoStartEnvironment()
     {
-        ["ASTRA_PET_VIDEOS"] = _builtInDir,
-        ["FFMPEG"] = _ffmpeg,
-    };
+        var env = new Dictionary<string, string> { ["FFMPEG"] = _ffmpeg };
+        if (_catalog.DefaultOverride is { } videos) env["ASTRA_PET_VIDEOS"] = videos;
+        return env;
+    }
+
+    private void RaisePetInfo()
+    {
+        Raise(nameof(PetInfo));
+        Raise(nameof(PetCredits));
+        Raise(nameof(HasPetCredits));
+        Raise(nameof(HasPetLicenseUrl));
+    }
 
     private void RefreshStatus()
     {

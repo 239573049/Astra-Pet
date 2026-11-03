@@ -168,7 +168,7 @@ jobs:
         shell: bash
         # 用真实素材跑一遍程序用到的两条命令，并确认解出来的帧带透明通道。
         run: |
-          CLIP=$(find src/Assets/videos/idle -name '*.webm' | head -n 1)
+          CLIP=$(find characters/小t/videos/idle -name '*.webm' | head -n 1)
           FF=ffmpeg-out/ffmpeg; [ -f ffmpeg-out/ffmpeg.exe ] && FF=ffmpeg-out/ffmpeg.exe
           tools/ffmpeg/selftest.sh "$FF" "$CLIP"
 

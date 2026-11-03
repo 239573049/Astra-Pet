@@ -19,6 +19,14 @@ internal class AppPaths : IAppPaths
 
     public string LogDirectory => CustomData is not null ? Path.Combine(CustomData, "logs") : PlatformLogDirectory;
 
+    public string CacheDirectory => CustomData is not null ? Path.Combine(CustomData, "cache") : PlatformCacheDirectory;
+
+    /// <summary>默认按 XDG 规范：$XDG_CACHE_HOME（默认 ~/.cache）/AstraPet。macOS、Windows 各自覆盖。</summary>
+    protected virtual string PlatformCacheDirectory =>
+        Path.Combine(Environment.GetEnvironmentVariable("XDG_CACHE_HOME") is { Length: > 0 } cache
+            ? cache
+            : Path.Combine(Folder(Environment.SpecialFolder.UserProfile), ".cache"), "AstraPet");
+
     /// <summary>默认按 XDG 规范：$XDG_STATE_HOME（默认 ~/.local/state）/AstraPet。macOS、Windows 各自覆盖。</summary>
     protected virtual string PlatformLogDirectory =>
         Path.Combine(Environment.GetEnvironmentVariable("XDG_STATE_HOME") is { Length: > 0 } state

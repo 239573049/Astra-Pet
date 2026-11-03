@@ -11,7 +11,8 @@
 | 内容 / What | 许可 / License | 文件 / File |
 |---|---|---|
 | 程序源码 / Source code | **MIT** © 2026 RoutinAI | [LICENSE](LICENSE) |
-| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/videos/`、`src/Assets/icons/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
+| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/pets/xiaot.astrapet`、`src/Assets/icons/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
+| 内置角色「大肥鱼」/ Built-in character "Dafeiyu"（`src/Assets/pets/dafeiyu.astrapet`） | **CC BY-NC-SA 4.0**，不属于 RoutinAI，禁止商用。形象：B 站 @上善无形（原型「溟月」）、@ZipZipPipe（DeepSeek 版设计）；动画：[dsh-pet](https://github.com/PC2005-cloud/dsh-pet)。社区二创形象，非 DeepSeek 官方 / not owned by RoutinAI, non-commercial, community fan character, not official DeepSeek | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) 第 2 节 |
 | 第三方库、数据、随包分发的 FFmpeg / Third-party libraries, data, bundled FFmpeg | 各自的许可 / their own licenses | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
 要点：你可以自由使用、修改、发布这份**代码**；但**不能**把宠物素材拿去单独使用、修改、商用或再分发，也不能把它们打进你自己的发布包。想发布自己的版本，请换成你自己的角色（见 [LICENSE-ASSETS.md](LICENSE-ASSETS.md) 第 5 节）。
@@ -29,7 +30,7 @@ dotnet test                              # 单元测试
 
 素材目录和 ffmpeg 的查找顺序：
 
-- 素材：环境变量 `ASTRA_PET_VIDEOS`，其次是程序目录下的 `Assets/videos`。
+- 角色：内置角色包在程序目录下的 `Assets/pets/*.astrapet`（小t 是默认角色，另有大肥鱼），用户的角色放在数据目录的 `characters/` 下（角色包或素材文件夹）。开发时可以用环境变量 `ASTRA_PET_VIDEOS` 指向一个素材目录，代替默认角色。内置角色包用 `tools/pets/build.sh` 重新生成。
 - ffmpeg：环境变量 `FFMPEG`，其次是程序旁边的 `ffmpeg`（Windows 是 `ffmpeg.exe`，官方发布包里就是这个），再其次是系统里的 ffmpeg。
 
 ### Native AOT

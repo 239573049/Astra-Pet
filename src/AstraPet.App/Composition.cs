@@ -14,18 +14,18 @@ namespace AstraPet;
 /// </summary>
 public sealed class Composition
 {
-    private Composition(IPlatform platform, string builtInVideosDir, string ffmpeg)
+    private Composition(IPlatform platform, PetCatalog catalog, string ffmpeg)
     {
         Platform = platform;
-        BuiltInVideosDir = builtInVideosDir;
+        Catalog = catalog;
         Ffmpeg = ffmpeg;
         Decoder = new FfmpegClipDecoder(ffmpeg);
     }
 
     public IPlatform Platform { get; }
 
-    /// <summary>内置角色的素材目录。</summary>
-    public string BuiltInVideosDir { get; }
+    /// <summary>可选的角色：内置角色包（默认小t）+ 用户角色目录里的。</summary>
+    public PetCatalog Catalog { get; }
 
     public string Ffmpeg { get; }
 
@@ -38,16 +38,20 @@ public sealed class Composition
     /// <summary>更新检测的数据源：LocalGate 站点的 latest.json。</summary>
     public IUpdateFeed UpdateFeed { get; } = new HttpUpdateFeed();
 
-    /// <summary>选平台实现、定数据和日志目录、找内置素材和 ffmpeg。找不到素材时抛异常（程序没法跑）。</summary>
+    /// <summary>选平台实现、定数据和日志目录、找内置角色包和 ffmpeg。找不到内置角色时抛异常（程序没法跑）。</summary>
     public static Composition Create()
     {
         var platform = PlatformFactory.Create();
-        PetLog.UseDirectory(platform.Paths.LogDirectory);
-        SettingsStore.UseDirectory(platform.Paths.DataDirectory);
+        var paths = platform.Paths;
+        PetLog.UseDirectory(paths.LogDirectory);
+        SettingsStore.UseDirectory(paths.DataDirectory);
 
-        var composition = new Composition(platform, ResolveVideosDir(platform.Paths), ResolveFfmpeg(platform.Paths));
+        var overrideVideos = Environment.GetEnvironmentVariable("ASTRA_PET_VIDEOS") is { Length: > 0 } v ? v : null;
+        var catalog = new PetCatalog(ResolvePetsDir(paths, overrideVideos is not null),
+            Path.Combine(paths.DataDirectory, "characters"), paths.CacheDirectory, overrideVideos);
+        var composition = new Composition(platform, catalog, ResolveFfmpeg(paths));
         PetLog.Write($"Astra Pet {AppVersion.Current} · {platform.Identity}");
-        PetLog.Write($"内置素材目录: {composition.BuiltInVideosDir}");
+        PetLog.Write($"内置角色包: {ResolvePetsDir(paths, true)}" + (overrideVideos is null ? "" : $"（默认角色换成了 {overrideVideos}）"));
         PetLog.Write($"ffmpeg: {composition.Ffmpeg}");
         return composition;
     }
@@ -60,24 +64,27 @@ public sealed class Composition
     {
         var settings = SettingsStore.Load();
         PetLog.Write($"设置文件: {SettingsStore.FilePath}");
-        var library = PetCatalog.LoadSelected(settings, BuiltInVideosDir, Decoder);
+        var library = Catalog.LoadSelected(settings, Decoder);
         PetLog.Write($"加载完成: {library.ClipCount} 段, 动作 {library[PetLibrary.Click].Count} 个, " +
                      $"移动 {library[PetLibrary.Move].Count} 个, 唱歌 {library[PetLibrary.Sing].Count} 个");
         return (settings, new PetDirector(library, settings));
     }
 
-    /// <summary>内置角色的素材目录：优先用环境变量，其次找程序的资源目录，最后找源码树里的素材。</summary>
-    private static string ResolveVideosDir(IAppPaths paths)
+    /// <summary>
+    /// 内置角色包的目录：程序的资源目录下的 Assets/pets（macOS 的 .app 里在 Contents/Resources），
+    /// 开发运行时找源码树里的 src/Assets/pets。<paramref name="optional"/> 为真时（默认角色被环境变量换掉了）找不到也不报错。
+    /// </summary>
+    private static string ResolvePetsDir(IAppPaths paths, bool optional)
     {
         var candidates = new[]
         {
-            Environment.GetEnvironmentVariable("ASTRA_PET_VIDEOS"),
-            Path.Combine(paths.ResourceDirectory, "Assets", "videos"),
+            Path.Combine(paths.ResourceDirectory, "Assets", "pets"),
             // 开发运行：src/AstraPet.App/bin/<配置>/<框架>/ 往上四层是 src/，共享素材在 src/Assets。
-            Path.GetFullPath(Path.Combine(paths.AppDirectory, "..", "..", "..", "..", "Assets", "videos")),
+            Path.GetFullPath(Path.Combine(paths.AppDirectory, "..", "..", "..", "..", "Assets", "pets")),
         };
-        return candidates.FirstOrDefault(c => c is not null && Directory.Exists(c))
-               ?? throw new DirectoryNotFoundException("找不到素材目录。把 webm 放到 Assets/videos 下，或设置 ASTRA_PET_VIDEOS。");
+        return candidates.FirstOrDefault(Directory.Exists)
+               ?? (optional ? candidates[0] : throw new DirectoryNotFoundException(
+                   "找不到内置角色包（Assets/pets/*.astrapet）。用 tools/pets/build.sh 生成，或设置 ASTRA_PET_VIDEOS 指向素材目录。"));
     }
 
     /// <summary>

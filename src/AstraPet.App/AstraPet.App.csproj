@@ -37,8 +37,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- 内置角色的动画，复制到程序目录下的 Assets/videos。 -->
-    <Content Include="$(AstraAssets)videos\**\*.*" Link="Assets\videos\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 内置角色包（小t 是默认角色），复制到程序目录下的 Assets/pets。由 tools/pets/build.sh 生成。 -->
+    <Content Include="$(AstraAssets)pets\*.astrapet" Link="Assets\pets\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

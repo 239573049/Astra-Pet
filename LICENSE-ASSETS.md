@@ -13,7 +13,7 @@
 
 下列内容，以及由它们派生的一切（截取、缩放、转码、转成别的格式、逐帧图片、预览图、重新上色等）：
 
-1. `src/Assets/videos/` ——内置宠物（小t 和她脚边的水豚）的全部动画和配置；
+1. `src/Assets/pets/xiaot.astrapet` ——默认内置宠物（小t 和她脚边的水豚）的角色包，包括其中的全部动画和配置；
 2. `characters/小t/` 整个目录——角色设定图、立绘、首尾帧、原始生成视频、处理后的视频、预览图，以及 `character.json` 里的角色设定和提示词；
 3. `astra/` ——角色设定图；
 4. `src/Assets/icons/` ——应用图标（用角色头像做的，由 `tools/icon/make_icons.py` 生成）；
@@ -21,7 +21,7 @@
 
 The following, and anything derived from them (crops, rescaling, transcoding, conversion to other formats, frame sequences, previews, recolouring, etc.):
 
-1. `src/Assets/videos/` — all animations and configuration of the built-in pet (Xiao T and her capybara);
+1. `src/Assets/pets/xiaot.astrapet` — the character pack of the default built-in pet (Xiao T and her capybara), including all its animations and configuration;
 2. the whole `characters/小t/` directory — character sheets, standing figure, first/last frames, raw generated videos, processed videos, previews, and the character settings and prompts in `character.json`;
 3. `astra/` — the character sheet;
 4. `src/Assets/icons/` — the app icons (made from the character's portrait by `tools/icon/make_icons.py`);
@@ -31,7 +31,8 @@ The following, and anything derived from them (crops, rescaling, transcoding, co
 
 - **程序源码**：MIT，见 [LICENSE](LICENSE)。 / The program source code: MIT, see [LICENSE](LICENSE).
 - **第三方库和数据**：保留各自的许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；品牌图标里的商标归各自所有者。 / Third-party libraries and data keep their own licenses, see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); trademarks shown in brand icons belong to their owners.
-- **`characters/deepseek/`**：不是 RoutinAI 的作品，来自第三方项目 dsh-pet（<https://github.com/PC2005-cloud/dsh-pet>），版权属于其原作者，使用请遵守原作者的授权。 / **`characters/deepseek/`** is not a work of RoutinAI; it comes from the third-party project dsh-pet and belongs to its original authors. Follow their terms.
+- **内置角色「大肥鱼」（`src/Assets/pets/dafeiyu.astrapet`，源素材目录 `characters/deepseek/` 不在仓库里）**：不是 RoutinAI 的作品，不适用本文件，按 **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)**（署名 · 非商业性使用 · 相同方式共享）授权。形象原型「溟月」出自 B 站 [@上善无形](https://space.bilibili.com/4456176)，DeepSeek 版（女仆鲸鱼娘）形象设计出自 B 站 [@ZipZipPipe](https://space.bilibili.com/4168597)（[授权声明](https://www.bilibili.com/opus/1247156596114456581)），动画素材来自 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet)。这是社区二创形象，**不是 DeepSeek 官方形象**，与 DeepSeek 没有关联。Astra Pet 选取了其中 11 段动画，转码为 640×360 带透明通道的 VP9 WebM，并新增了走路步幅和不镜像片段的配置。**不得用于任何商业目的**；再分发或改编时须保留署名并使用相同许可。完整说明在角色包里的 `LICENSE.txt`（也见 `tools/pets/dafeiyu-LICENSE.txt`）。
+- **The built-in character "Dafeiyu" (`src/Assets/pets/dafeiyu.astrapet`; its source folder `characters/deepseek/` is not in the repository)** is not a work of RoutinAI and is not covered by this document. It is licensed under **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)**. The original character "Mingyue" is by [@上善无形](https://space.bilibili.com/4456176) on Bilibili, the DeepSeek (maid whale girl) design is by [@ZipZipPipe](https://space.bilibili.com/4168597), and the animations come from [dsh-pet](https://github.com/PC2005-cloud/dsh-pet). It is a community fan character, **not an official DeepSeek character**, and is not affiliated with DeepSeek. Astra Pet selected 11 of its animations, transcoded them to 640×360 VP9 WebM with alpha, and added walk-stride and no-mirror configuration. **No commercial use of any kind**; redistributions and adaptations must keep the attribution and use the same license. Full notice: `LICENSE.txt` inside the pack (also `tools/pets/dafeiyu-LICENSE.txt`).
 - **你自己用 `tools/petgen` 生成的宠物**：版权归生成者本人，并受你所用生成服务的条款约束，RoutinAI 对它们不主张权利。 / Pets that you generate yourself with `tools/petgen` belong to you and are subject to the terms of the generation service you use; RoutinAI claims no rights in them.
 
 ## 3. 你可以做什么 / What you may do
@@ -72,9 +73,9 @@ Without RoutinAI's prior written permission you may not:
 
 ## 5. 想基于本项目做自己的版本 / Making your own version
 
-代码是 MIT 的，你可以自由 fork、修改、发布你自己的版本。**发布时请把内置宠物换成你自己的角色**：把 `src/Assets/videos/` 和 `src/Assets/icons/` 里的图标换成你自己的，并删除 `characters/小t/` 和 `astra/`。程序不依赖这些素材运行，角色目录的格式见 `characters/小t/README.md`。
+代码是 MIT 的，你可以自由 fork、修改、发布你自己的版本。**发布时请把内置宠物换成你自己的角色**：把 `src/Assets/pets/xiaot.astrapet` 换成你自己的角色包（用 `tools/pack_pet.py` 打包，加 `--default`），把 `src/Assets/icons/` 里的图标换成你自己的，并删除 `characters/小t/` 和 `astra/`。程序不依赖这些素材运行，角色目录的格式见 `characters/小t/README.md`。大肥鱼按它自己的 CC BY-NC-SA 4.0 许可处理（见第 2 节）。
 
-The code is MIT: you are free to fork, modify and publish your own version. **When you publish, replace the built-in pet with your own character**: swap `src/Assets/videos/` and the icons in `src/Assets/icons/` for your own assets and remove `characters/小t/` and `astra/`. The program does not depend on these assets; see `characters/小t/README.md` for the character directory format.
+The code is MIT: you are free to fork, modify and publish your own version. **When you publish, replace the built-in pet with your own character**: replace `src/Assets/pets/xiaot.astrapet` with your own character pack (built with `tools/pack_pet.py --default`), swap the icons in `src/Assets/icons/` for your own and remove `characters/小t/` and `astra/`. The program does not depend on these assets; see `characters/小t/README.md` for the character directory format. Dafeiyu follows its own CC BY-NC-SA 4.0 license (see section 2).
 
 ## 6. 免责和终止 / Disclaimer and termination
 

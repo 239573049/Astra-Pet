@@ -56,7 +56,7 @@ public sealed class PetSettings : Observable
     private bool _stayStill;
     private bool _musicDetect;
 
-    /// <summary>选的角色，是角色目录（<see cref="PetCatalog.Directory"/>）下的文件夹名；空串是内置角色。</summary>
+    /// <summary>选的角色，见 <see cref="PetEntry.Id"/>：空串是默认角色（小t），builtin:&lt;id&gt; 是其他内置角色，其余是用户角色目录下的文件夹名或角色包文件名。</summary>
     public string PetId { get => _petId; set => Set(ref _petId, value ?? ""); }
     /// <summary>显示缩放，相对素材原寸 640x360。</summary>
     public double Scale { get => _scale; set => Set(ref _scale, Math.Clamp(value, MinScale, MaxScale)); }
