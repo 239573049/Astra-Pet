@@ -11,8 +11,9 @@
 | 内容 / What | 许可 / License | 文件 / File |
 |---|---|---|
 | 程序源码 / Source code | **MIT** © 2026 RoutinAI | [LICENSE](LICENSE) |
-| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/videos/`、`src/Assets/icons/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
-| 第三方库、数据、随包分发的 FFmpeg / Third-party libraries, data, bundled FFmpeg | 各自的许可，其中 AtomUI 是 LGPL-3.0 / their own licenses (AtomUI is LGPL-3.0) | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
+| 宠物形象、动画、角色设定等素材 / Pet characters, animations, artwork（`src/Assets/pets/xiaot.astrapet`、`src/Assets/icons/`、`characters/小t/`、`astra/`） | **© 2026 RoutinAI，保留所有权利 / All rights reserved**，只能按素材许可使用 | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) |
+| 内置角色「大肥鱼」/ Built-in character "Dafeiyu"（`src/Assets/pets/dafeiyu.astrapet`） | **CC BY-NC-SA 4.0**，不属于 RoutinAI，禁止商用。形象：B 站 @上善无形（原型「溟月」）、@ZipZipPipe（DeepSeek 版设计）；动画：[dsh-pet](https://github.com/PC2005-cloud/dsh-pet)。社区二创形象，非 DeepSeek 官方 / not owned by RoutinAI, non-commercial, community fan character, not official DeepSeek | [LICENSE-ASSETS.md](LICENSE-ASSETS.md) 第 2 节 |
+| 第三方库、数据、随包分发的 FFmpeg / Third-party libraries, data, bundled FFmpeg | 各自的许可 / their own licenses | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 
 要点：你可以自由使用、修改、发布这份**代码**；但**不能**把宠物素材拿去单独使用、修改、商用或再分发，也不能把它们打进你自己的发布包。想发布自己的版本，请换成你自己的角色（见 [LICENSE-ASSETS.md](LICENSE-ASSETS.md) 第 5 节）。
 
@@ -23,19 +24,20 @@ In short: you may freely use, modify and publish the **code**; you may **not** u
 需要 .NET 10 SDK 和 ffmpeg（要带 `libvpx-vp9` 解码器：宠物动画是带透明通道的 VP9 WebM，ffmpeg 自带的 VP9 解码器会丢掉透明通道）。**官方发布包已经自带**一个精简的 LGPL 版 ffmpeg，直接用就行；从源码运行时用系统里的（`brew install ffmpeg`）或者自己构建一份（`tools/ffmpeg/build.sh`）。
 
 ```bash
-dotnet run --project src        # 开发运行
+dotnet run --project src/AstraPet.App     # 开发运行
+dotnet test                              # 单元测试
 ```
 
 素材目录和 ffmpeg 的查找顺序：
 
-- 素材：环境变量 `ASTRA_PET_VIDEOS`，其次是程序目录下的 `Assets/videos`。
+- 角色：内置角色包在程序目录下的 `Assets/pets/*.astrapet`（小t 是默认角色，另有大肥鱼），用户的角色放在数据目录的 `characters/` 下（角色包或素材文件夹）。开发时可以用环境变量 `ASTRA_PET_VIDEOS` 指向一个素材目录，代替默认角色。内置角色包用 `tools/pets/build.sh` 重新生成。
 - ffmpeg：环境变量 `FFMPEG`，其次是程序旁边的 `ffmpeg`（Windows 是 `ffmpeg.exe`，官方发布包里就是这个），再其次是系统里的 ffmpeg。
 
 ### Native AOT
 
 ```bash
-dotnet build   src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true
-dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
+dotnet build   src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:PublishAot=true
+dotnet publish src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
 ./publish/AstraPet --smoke      # 冒烟自测，输出 "smoke ok" 才算正常
 ```
 
@@ -58,7 +60,14 @@ dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --
 ## 目录
 
 ```
-src/            程序源码（Avalonia + AtomUI）
+src/            程序源码，按层拆成几个项目（设计见 design/）：
+  AstraPet.Core/            领域模型、设置、动画状态机、更新检测；只依赖 BCL
+  AstraPet.Infrastructure/  大模型客户端、从其他应用导入提供商、下载更新
+  AstraPet.Platform/        与操作系统有关的一切（macOS / Windows / Linux 各自实现）
+  AstraPet.App/             Avalonia 界面和启动代码，唯一引用 Avalonia 的项目
+  Assets/                   宠物动画、图标、模型库（各项目共用，见上面的许可表）
+tests/          单元测试
+design/         架构设计和重构计划
 characters/     宠物角色（素材，见上面的许可表）
 installer/      Windows 安装程序脚本（Inno Setup）
 tools/          素材生成（petgen）、ffmpeg 构建、打包（dmg / deb / 公证）、图标、第三方声明生成等脚本

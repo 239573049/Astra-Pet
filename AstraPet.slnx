@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AstraPet.Core/AstraPet.Core.csproj" />
+    <Project Path="src/AstraPet.Infrastructure/AstraPet.Infrastructure.csproj" />
+    <Project Path="src/AstraPet.Platform/AstraPet.Platform.csproj" />
+    <Project Path="src/AstraPet.App/AstraPet.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AstraPet.Tests/AstraPet.Tests.csproj" />
+  </Folder>
+</Solution>

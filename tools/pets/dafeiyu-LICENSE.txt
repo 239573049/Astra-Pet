@@ -1,0 +1,31 @@
+大肥鱼（女仆鲸鱼娘）—— 署名 · 非商业性使用 · 相同方式共享 4.0 国际（CC BY-NC-SA 4.0）
+Dafeiyu (maid whale girl) — Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
+
+本角色包中的形象和动画不属于 RoutinAI，不适用 Astra Pet 的素材许可（LICENSE-ASSETS.md），
+而是按 CC BY-NC-SA 4.0 授权：https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans
+The character artwork and animations in this pack are NOT owned by RoutinAI and are not covered by
+Astra Pet's asset license; they are licensed under CC BY-NC-SA 4.0:
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+署名 / Attribution
+- 形象原型「溟月」：B 站 @上善无形 https://space.bilibili.com/4456176
+- DeepSeek 版（女仆鲸鱼娘）形象设计：B 站 @ZipZipPipe https://space.bilibili.com/4168597
+- 动画素材：dsh-pet（PC2005-cloud）https://github.com/PC2005-cloud/dsh-pet
+- 形象作者的授权声明：https://www.bilibili.com/opus/1247156596114456581
+  「大肥鱼是遵守CC BY-NC-SA 4.0协议的形象，不可以以任何形式商业化。」
+
+这是社区二创形象，不是 DeepSeek 官方形象，与 DeepSeek 没有任何关联。
+This is a community fan character, not an official DeepSeek character, and is not affiliated with DeepSeek.
+
+修改说明 / Changes
+Astra Pet 对 dsh-pet 的动画做了格式整理：选取其中 11 段，转码为 640×360、带透明通道的 VP9 WebM，
+并新增了走路步幅（move_strides.json）和不镜像片段（text_clips.json）的配置。
+Astra Pet selected 11 of dsh-pet's animations, transcoded them to 640×360 VP9 WebM with alpha,
+and added walk-stride (move_strides.json) and no-mirror (text_clips.json) configuration.
+
+使用限制 / Restrictions
+- 不得用于任何商业目的。/ No commercial use of any kind.
+- 再分发或改编时须保留以上署名，并以相同许可（CC BY-NC-SA 4.0）发布。
+  Redistributions and adaptations must keep the attribution above and use the same license.
+
+素材按「现状」提供，不附带任何担保。/ Provided "as is", without warranty of any kind.

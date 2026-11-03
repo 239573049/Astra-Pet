@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    核心层：领域模型、设置、动画状态机、更新检测。只依赖 BCL，不引用 Avalonia、不引用平台层。
+    起进程、发 HTTP 的实现都在 Infrastructure，这里只定义它们的接口（Ports/）。
+  -->
+  <PropertyGroup>
+    <RootNamespace>AstraPet.Core</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AstraPet.Tests" />
+  </ItemGroup>
+
+  <!-- 版本号和更新服务器地址写成常量，不靠 Assembly.GetCustomAttributes 反射读：NativeAOT 下那条路会因为元数据被裁掉而读不到。 -->
+  <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <BuildInfoFile>$(IntermediateOutputPath)BuildInfo.g.cs</BuildInfoFile>
+      <BuildInfoSource>namespace AstraPet.Core%3B internal static class BuildInfo { public const string Version = "$(Version)"%3B public const string UpdateBaseUrl = "$(UpdateBaseUrl)"%3B }</BuildInfoSource>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(BuildInfoFile)" Lines="$(BuildInfoSource)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(BuildInfoFile)" />
+      <FileWrites Include="$(BuildInfoFile)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

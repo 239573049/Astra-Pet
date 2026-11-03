@@ -1,0 +1,41 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AstraPet.App"
+             RequestedThemeVariant="Dark">
+    <!-- 主题由 Program.cs 里的 UseArc 装，这里不挂 FluentTheme。
+         宠物右键用 Avalonia 原生 ContextMenu（宠物窗口没有 overlay 层），没有主题就没有模板、画不出来，所以这里补一套最小的深色样式。 -->
+    <Application.Styles>
+        <Style Selector="ContextMenu">
+            <Setter Property="Background" Value="#F01B1D1D" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}" MinWidth="120">
+                        <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="MenuItem">
+            <Setter Property="Foreground" Value="#E8E9E9" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="10 6" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Root" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}"
+                                          Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="MenuItem:pointerover /template/ Border#PART_Root, MenuItem:selected /template/ Border#PART_Root">
+            <Setter Property="Background" Value="#26FFFFFF" />
+        </Style>
+    </Application.Styles>
+</Application>

@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 
 SOURCE = "https://models.dev/api.json"
 
-# 与 src/Core/ModelCatalog.cs 的 Whitelist 保持一致。
+# 与 src/AstraPet.Core/ModelCatalog.cs 的 Whitelist 保持一致。
 WHITELIST = [
     "deepseek", "alibaba-cn", "alibaba", "moonshotai-cn", "moonshotai", "zhipuai", "zai",
     "minimax-cn", "minimax", "volcengine", "stepfun", "stepfun-ai", "siliconflow-cn", "siliconflow",

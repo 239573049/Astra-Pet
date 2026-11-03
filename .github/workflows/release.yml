@@ -8,7 +8,7 @@ name: release
 #   Windows  .exe 安装程序（Inno Setup），x64。没有代码签名证书，首次运行会被 SmartScreen 提示
 #   Linux    .deb（Debian / Ubuntu），x64
 #
-# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 src/AstraPet.csproj 的 UpdateBaseUrl）。
+# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 Directory.Build.props 的 UpdateBaseUrl）。
 # 需要在 GitHub 仓库里配置：
 #   Secrets  PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致（没配时只构建，不上传）
 #   Secrets  MACOS_CERT_P12_BASE64、MACOS_CERT_PASSWORD   Developer ID Application 证书（没配时 mac 包只做 ad-hoc 签名）
@@ -115,12 +115,12 @@ jobs:
         # App.Initialize 里的 AvaloniaXamlLoader.Load 不会被改写，程序一启动就报 “No precompiled XAML found”。
         run: |
           ARGS="-c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:Version=$VERSION"
-          dotnet build src/AstraPet.csproj $ARGS
-          dotnet publish src/AstraPet.csproj $ARGS --no-build -o publish
+          dotnet build src/AstraPet.App/AstraPet.App.csproj $ARGS
+          dotnet publish src/AstraPet.App/AstraPet.App.csproj $ARGS --no-build -o publish
 
       - name: Smoke test
         shell: bash
-        # 起 Avalonia 和 AtomUI、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
+        # 起 Avalonia 和 Arc、把控制台 XAML 完整加载一遍：XAML 没编进去、被裁掉的类型都会在这里暴露。
         run: |
           case "${{ runner.os }}" in
             Windows) ./publish/AstraPet.exe --smoke ;;
@@ -168,7 +168,7 @@ jobs:
         shell: bash
         # 用真实素材跑一遍程序用到的两条命令，并确认解出来的帧带透明通道。
         run: |
-          CLIP=$(find src/Assets/videos/idle -name '*.webm' | head -n 1)
+          CLIP=$(find characters/小t/videos/idle -name '*.webm' | head -n 1)
           FF=ffmpeg-out/ffmpeg; [ -f ffmpeg-out/ffmpeg.exe ] && FF=ffmpeg-out/ffmpeg.exe
           tools/ffmpeg/selftest.sh "$FF" "$CLIP"
 
@@ -206,7 +206,7 @@ jobs:
           rm -rf "$APP/Contents/MacOS/"*.dSYM
           cp src/Assets/icons/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
           # 代码签名要求 Contents/MacOS 里只有可执行文件和动态库；素材和许可文本放 Contents/Resources，
-          # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Program.ResolveVideosDir）。
+          # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Composition.ResolveVideosDir）。
           mv "$APP/Contents/MacOS/Assets" "$APP/Contents/Resources/Assets"
           mv "$APP/Contents/MacOS/licenses" "$APP/Contents/Resources/licenses"
           # 此时 MacOS 里应该只剩 Mach-O 文件，多了别的就在这里停下，别等到签名才报错

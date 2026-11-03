@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    可执行程序：Avalonia 界面（宠物窗口、气泡、控制台、对话框）和组装各层的启动代码。
+    整个解决方案里只有这个项目引用 Avalonia。程序集名保持 AstraPet：可执行文件名和 avares://AstraPet/ 资源地址都靠它。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>AstraPet</AssemblyName>
+    <RootNamespace>AstraPet</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Windows 上 exe 文件和任务栏的图标。macOS 的在 .app 的 Info.plist 里、Linux 的在 .desktop 里，由发布工作流放进去。 -->
+    <ApplicationIcon>$(AstraAssets)icons\app.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AstraPet.Core\AstraPet.Core.csproj" />
+    <ProjectReference Include="..\AstraPet.Infrastructure\AstraPet.Infrastructure.csproj" />
+    <ProjectReference Include="..\AstraPet.Platform\AstraPet.Platform.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <!-- 控件库：Arc。它自带流式 Markdown（StreamMark）和代码高亮。 -->
+    <PackageReference Include="TKCode.Arc" Version="0.4.0-preview.1" />
+    <PackageReference Include="TKCode.Arc.Fonts" Version="0.4.0-preview.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 提供商图标，来自 LobeHub Icons，见 tools/fetch_provider_icons.sh -->
+    <AvaloniaResource Include="$(AstraAssets)providers\**\*.png" Link="Assets\providers\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- 窗口图标（控制台、对话框）：Windows 任务栏、Linux 窗口列表里显示 -->
+    <AvaloniaResource Include="$(AstraAssets)icons\app.png" Link="Assets\icons\app.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 内置角色包（小t 是默认角色），复制到程序目录下的 Assets/pets。由 tools/pets/build.sh 生成。 -->
+    <Content Include="$(AstraAssets)pets\*.astrapet" Link="Assets\pets\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 许可文件随程序一起分发（开发运行和发布包里都在程序目录下的 licenses/），LGPL 和宠物素材的版权声明都要求附带。 -->
+    <Content Include="..\..\LICENSE;..\..\LICENSE-ASSETS.md;..\..\THIRD_PARTY_NOTICES.md" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\licenses\*.txt" Link="licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

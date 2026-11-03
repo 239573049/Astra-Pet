@@ -1,6 +1,7 @@
 name: ci
 
-# 每次推送和 PR 都编一遍 Native AOT 的 macOS 版并跑一次冒烟，尽早发现 AOT 警告变成运行时错误。
+# 每次推送和 PR：三个平台各跑一遍单元测试，编 Native AOT 版本并做冒烟测试，
+# 再打印平台能力探测结果（--platform-report），尽早发现 AOT 警告变成运行时错误、某个平台的实现跑不起来。
 on:
   push:
     branches: [main]
@@ -8,17 +9,43 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15,       rid: osx-arm64 }
+          - { os: windows-latest, rid: win-x64 }
+          - { os: ubuntu-24.04,   rid: linux-x64 }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        # clang、zlib1g-dev：Native AOT 在 Linux 上的编译要求；xvfb：冒烟测试的虚拟显示器；其余是运行时要加载的库。
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev xvfb libfontconfig1 libx11-6 libice6 libsm6 libxss1
+
+      - name: Unit tests
+        run: dotnet test tests/AstraPet.Tests/AstraPet.Tests.csproj -c Release
+
       - name: Build (Native AOT)
+        shell: bash
         # 先 build 再 publish --no-build：直接 publish 开着 AOT 时，Avalonia 的 XAML 编译会被跳过，
         # App.Initialize 里的 AvaloniaXamlLoader.Load 不会被改写，程序一启动就报 “No precompiled XAML found”。
         run: |
-          dotnet build src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true
-          dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
-      - name: Smoke test
-        run: ./publish/AstraPet --smoke
+          dotnet build src/AstraPet.App/AstraPet.App.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true
+          dotnet publish src/AstraPet.App/AstraPet.App.csproj -c Release -r ${{ matrix.rid }} -p:PublishAot=true --no-build -o publish
+
+      - name: Smoke test and platform report
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Windows) ./publish/AstraPet.exe --smoke && ./publish/AstraPet.exe --platform-report ;;
+            Linux)   xvfb-run -a ./publish/AstraPet --smoke && xvfb-run -a ./publish/AstraPet --platform-report ;;
+            *)       ./publish/AstraPet --smoke && ./publish/AstraPet --platform-report ;;
+          esac
