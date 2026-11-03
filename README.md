@@ -23,7 +23,8 @@ In short: you may freely use, modify and publish the **code**; you may **not** u
 需要 .NET 10 SDK 和 ffmpeg（要带 `libvpx-vp9` 解码器：宠物动画是带透明通道的 VP9 WebM，ffmpeg 自带的 VP9 解码器会丢掉透明通道）。**官方发布包已经自带**一个精简的 LGPL 版 ffmpeg，直接用就行；从源码运行时用系统里的（`brew install ffmpeg`）或者自己构建一份（`tools/ffmpeg/build.sh`）。
 
 ```bash
-dotnet run --project src        # 开发运行
+dotnet run --project src/AstraPet.App     # 开发运行
+dotnet test                              # 单元测试
 ```
 
 素材目录和 ffmpeg 的查找顺序：
@@ -34,8 +35,8 @@ dotnet run --project src        # 开发运行
 ### Native AOT
 
 ```bash
-dotnet build   src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true
-dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
+dotnet build   src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:PublishAot=true
+dotnet publish src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:PublishAot=true --no-build -o publish
 ./publish/AstraPet --smoke      # 冒烟自测，输出 "smoke ok" 才算正常
 ```
 
@@ -58,7 +59,14 @@ dotnet publish src/AstraPet.csproj -c Release -r osx-arm64 -p:PublishAot=true --
 ## 目录
 
 ```
-src/            程序源码（Avalonia + TKCode.Arc）
+src/            程序源码，按层拆成几个项目（设计见 design/）：
+  AstraPet.Core/            领域模型、设置、动画状态机、更新检测；只依赖 BCL
+  AstraPet.Infrastructure/  大模型客户端、从其他应用导入提供商、下载更新
+  AstraPet.Platform/        与操作系统有关的一切（macOS / Windows / Linux 各自实现）
+  AstraPet.App/             Avalonia 界面和启动代码，唯一引用 Avalonia 的项目
+  Assets/                   宠物动画、图标、模型库（各项目共用，见上面的许可表）
+tests/          单元测试
+design/         架构设计和重构计划
 characters/     宠物角色（素材，见上面的许可表）
 installer/      Windows 安装程序脚本（Inno Setup）
 tools/          素材生成（petgen）、ffmpeg 构建、打包（dmg / deb / 公证）、图标、第三方声明生成等脚本

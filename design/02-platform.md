@@ -28,7 +28,7 @@
 
 所有接口定义在 `AstraPet.Core/Ports/Platform/`，实现在 `AstraPet.Platform/`。
 
-> **实现状态（第 1 步完成后）**：接口暂时放在 `src/Platform/Abstractions/`，第 4 步拆项目时再挪进 Core。
+> **实现状态**：接口目前在 `src/AstraPet.Platform/Abstractions/`（项目已拆分，但接口还没挪进 Core；Core 现在还用不到它们，等第 3 步行为层挪进 Core 时一起挪）。
 > 和下面的目标形态相比，第 1 步有这些差别：`ISecretStore` 留到第 5 步；`IAppPaths` 的 `LogDirectory`、`CacheDirectory` 留到 2b；
 > `IAppPaths` 多了 `FindTool(name)`（找随包的或系统里的 ffmpeg）；`AttachWindow` 不分窗口角色；
 > 毛玻璃背景（`InstallGlassBackdrop`）换成 Arc 界面库后已经没人用，没有搬过来。

@@ -111,6 +111,9 @@ public static class ImportSources
 
     /// <summary>手选文件时按格式找来源。</summary>
     public static IImportSource? ForFile(string path) => All.FirstOrDefault(s => s.Accepts(path));
+
+    /// <summary>展示用：把用户目录缩成 ~。</summary>
+    public static string DisplayPath(string path) => ImportKit.Pretty(path);
 }
 
 /// <summary>几个来源共用的小工具。</summary>
@@ -129,22 +132,6 @@ internal static class ImportKit
             : null;
 
     /// <summary>
-    /// 接口地址去掉尾部的端点：不少人会把完整的 …/chat/completions 填进来，
-    /// 而 Astra 自己会拼路径。
-    /// </summary>
-    public static string NormalizeEndpoint(string url)
-    {
-        url = url.Trim().TrimEnd('/');
-        foreach (var suffix in new[] { "/chat/completions", "/responses", "/v1/messages", "/messages" })
-            if (url.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                url = url[..^suffix.Length];
-                break;
-            }
-        return url.TrimEnd('/');
-    }
-
-    /// <summary>
     /// 组一个候选。预设按 <paramref name="presetId"/> 找，找不到再按地址猜；
     /// 名字为空时用预设名，没有预设就用地址的主机名。
     /// </summary>
@@ -152,7 +139,7 @@ internal static class ImportKit
         string? apiKey, string? model, IEnumerable<string>? models = null, string note = "", string skip = "",
         string presetId = "")
     {
-        baseUrl = NormalizeEndpoint(baseUrl);
+        baseUrl = ProviderText.NormalizeEndpoint(baseUrl);
         var preset = ProviderPresets.ById(presetId) ?? ProviderPresets.MatchUrl(baseUrl);
         var list = (models ?? []).Append(model ?? "").Where(m => !string.IsNullOrWhiteSpace(m))
             .Select(m => m.Trim()).Distinct().ToList();

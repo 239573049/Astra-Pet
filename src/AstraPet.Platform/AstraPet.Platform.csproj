@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    平台层：一切与操作系统有关的代码（macOS / Windows / Linux 各自的实现 + 不支持时的空实现）。
+    只依赖 Core，不引用 Avalonia：窗口相关的调用只认原生句柄，由 App 里的适配器从 Avalonia 取出来传进来。
+    设计见 design/02-platform.md。
+  -->
+  <PropertyGroup>
+    <RootNamespace>AstraPet.Platform</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- P/Invoke 用 [LibraryImport] 源生成，生成的代码需要 unsafe。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AstraPet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AstraPet.Core\AstraPet.Core.csproj" />
+  </ItemGroup>
+</Project>

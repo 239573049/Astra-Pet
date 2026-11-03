@@ -59,7 +59,7 @@ internal sealed class XdgAutoStart : IAutoStart
         var args = new List<string> { "env" };
         args.AddRange(environment.Select(kv => $"{kv.Key}={kv.Value}"));
         args.Add(exe);
-        var exec = string.Join(" ", args.Select(Quote));
+        var exec = string.Join(" ", args.Select(DesktopEntry.Quote));
         var entry = $"""
             [Desktop Entry]
             Type=Application
@@ -73,12 +73,16 @@ internal sealed class XdgAutoStart : IAutoStart
         Directory.CreateDirectory(Path.GetDirectoryName(EntryPath)!);
         File.WriteAllText(EntryPath, entry + "\n");
     }
+}
 
+/// <summary>Desktop Entry（.desktop 文件）的小工具。纯字符串处理，和平台无关，单独放出来方便测试。</summary>
+internal static class DesktopEntry
+{
     /// <summary>
     /// Desktop Entry 规范的 Exec 引号规则：含空格或保留字符的参数用双引号括起来，
     /// 引号里的 " ` $ \ 前面加反斜杠；% 一律写成 %%（它是字段代码的前缀）。
     /// </summary>
-    private static string Quote(string arg)
+    public static string Quote(string arg)
     {
         arg = arg.Replace("%", "%%");
         if (arg.Length > 0 && !arg.Any(c => char.IsWhiteSpace(c) || "\"'\\><~|&;$*?#()`".Contains(c)))

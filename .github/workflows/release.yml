@@ -8,7 +8,7 @@ name: release
 #   Windows  .exe 安装程序（Inno Setup），x64。没有代码签名证书，首次运行会被 SmartScreen 提示
 #   Linux    .deb（Debian / Ubuntu），x64
 #
-# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 src/AstraPet.csproj 的 UpdateBaseUrl）。
+# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 Directory.Build.props 的 UpdateBaseUrl）。
 # 需要在 GitHub 仓库里配置：
 #   Secrets  PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致（没配时只构建，不上传）
 #   Secrets  MACOS_CERT_P12_BASE64、MACOS_CERT_PASSWORD   Developer ID Application 证书（没配时 mac 包只做 ad-hoc 签名）
@@ -115,8 +115,8 @@ jobs:
         # App.Initialize 里的 AvaloniaXamlLoader.Load 不会被改写，程序一启动就报 “No precompiled XAML found”。
         run: |
           ARGS="-c Release -r ${{ matrix.rid }} -p:PublishAot=true -p:Version=$VERSION"
-          dotnet build src/AstraPet.csproj $ARGS
-          dotnet publish src/AstraPet.csproj $ARGS --no-build -o publish
+          dotnet build src/AstraPet.App/AstraPet.App.csproj $ARGS
+          dotnet publish src/AstraPet.App/AstraPet.App.csproj $ARGS --no-build -o publish
 
       - name: Smoke test
         shell: bash

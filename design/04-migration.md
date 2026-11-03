@@ -81,7 +81,15 @@
 
 **验收**：`grep -rn "using Avalonia" src/Core` 没有结果；`--smoke` 走的是 Composition。
 
-## 第 4 步：拆成多个项目并接入测试
+## 第 4 步：拆成多个项目并接入测试 ✅（提前到第 3 步之前做了）
+
+> 核对依赖后发现各目录之间已经没有环，可以直接拆，于是提前做了：先立起项目边界，第 3 步挪代码时越界的引用编译器当场就报。
+> 实际结构：`AstraPet.Core`、`AstraPet.Infrastructure`（Ai、Import、UpdateDownloader）、`AstraPet.Platform`、`AstraPet.App`、`tests/AstraPet.Tests`，
+> 公共属性在仓库根的 `Directory.Build.props`，共享素材仍在 `src/Assets/`（各项目链接引用，许可文件里的路径不用改）。
+> 和下面的计划相比还差：`ClipStream`、`PetClip`、`UpdateChecker`、`ModelCatalog` 还在 Core（要等第 3 步的接口），
+> 平台接口还在 Platform 项目里。拆分时编译器抓到一处越界：App 直接用了 Infrastructure 内部的 `ImportKit`，
+> 已改成 `ProviderText.NormalizeEndpoint`（Core）和 `ImportSources.DisplayPath`。
+> 验证：30 个单元测试通过；macOS Debug 运行、NativeAOT `--smoke` 通过；Linux 容器里 `--platform-report` 和 `--smoke` 通过。
 
 **目标**：用项目引用把依赖规则固定下来，CI 跑单元测试。
 

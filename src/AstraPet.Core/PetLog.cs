@@ -43,6 +43,8 @@ public static class PetLog
         }
         try
         {
+            // 第一次运行时目录还不存在，不用清理（也别让 EnumerateFiles 抛异常：正常路径不抛异常）。
+            if (!System.IO.Directory.Exists(directory)) return;
             var cutoff = DateTime.Now.Date.AddDays(-KeepDays);
             foreach (var old in System.IO.Directory.EnumerateFiles(directory, "astra-pet-*.log"))
                 if (File.GetLastWriteTime(old) < cutoff)

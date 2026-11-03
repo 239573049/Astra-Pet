@@ -1,8 +1,24 @@
 namespace AstraPet.Core;
 
-/// <summary>提供商在界面上展示用的几个小转换：主机名、协议简称、遮盖后的 Key。</summary>
+/// <summary>提供商地址和展示用的几个小转换：规整接口地址、主机名、协议简称、遮盖后的 Key。</summary>
 public static class ProviderText
 {
+    /// <summary>
+    /// 接口地址去掉尾部的端点：不少人会把完整的 …/chat/completions 填进来，
+    /// 而 Astra 自己会拼路径。手动填写和从其他应用导入都走这里。
+    /// </summary>
+    public static string NormalizeEndpoint(string url)
+    {
+        url = url.Trim().TrimEnd('/');
+        foreach (var suffix in new[] { "/chat/completions", "/responses", "/v1/messages", "/messages" })
+            if (url.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                url = url[..^suffix.Length];
+                break;
+            }
+        return url.TrimEnd('/');
+    }
+
     /// <summary>接口地址的主机部分（带非默认端口），解析不了就原样返回。</summary>
     public static string Host(string baseUrl)
     {

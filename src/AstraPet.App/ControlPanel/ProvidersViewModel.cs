@@ -480,7 +480,7 @@ public sealed class ProvidersViewModel : Observable
     {
         var copy = _draft!.Clone();
         copy.Name = copy.Name.Trim();
-        copy.BaseUrl = ImportKit.NormalizeEndpoint(copy.BaseUrl);
+        copy.BaseUrl = ProviderText.NormalizeEndpoint(copy.BaseUrl);
         copy.ApiKey = copy.ApiKey.Trim();
         copy.Model = copy.Model.Trim();
         return copy;
@@ -754,7 +754,7 @@ public sealed class ProvidersViewModel : Observable
             ImportError = $"不认识这个文件：{Path.GetFileName(path)}。支持 CC Switch 的 .db、Codex 的 config.toml / auth.json、Claude Code 的 settings.json、DeepSeek Harness 的 .yaml。";
             return;
         }
-        var item = new ImportSourceItem(source.Name, ImportKit.Pretty(path), IconOf(source.Id), GlyphOf(source.Id));
+        var item = new ImportSourceItem(source.Name, ImportSources.DisplayPath(path), IconOf(source.Id), GlyphOf(source.Id));
         var scan = source.ScanFile(path);
         item.SetResult(scan);
         if (!item.CanOpen)

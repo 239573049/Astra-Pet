@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    基础设施：和外部世界打交道的实现——大模型 HTTP 客户端、从其他应用导入提供商、下载更新包。
+    只依赖 Core，不引用 Avalonia。
+  -->
+  <PropertyGroup>
+    <RootNamespace>AstraPet</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AstraPet.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AstraPet.Core\AstraPet.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 从其他应用导入提供商：CC Switch 是 SQLite，Codex 是 TOML，DeepSeek Harness 是 YAML。 -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+</Project>

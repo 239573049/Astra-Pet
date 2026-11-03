@@ -109,7 +109,8 @@ class Program
         {
             Environment.GetEnvironmentVariable("ASTRA_PET_VIDEOS"),
             Path.Combine(paths.ResourceDirectory, "Assets", "videos"),
-            Path.GetFullPath(Path.Combine(paths.AppDirectory, "..", "..", "..", "Assets", "videos")),
+            // 开发运行：src/AstraPet.App/bin/<配置>/<框架>/ 往上四层是 src/，共享素材在 src/Assets。
+            Path.GetFullPath(Path.Combine(paths.AppDirectory, "..", "..", "..", "..", "Assets", "videos")),
         };
         var found = candidates.FirstOrDefault(c => c is not null && Directory.Exists(c));
         if (found is null)
