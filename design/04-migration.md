@@ -68,7 +68,19 @@
 3. 两台不同 DPI 的显示器之间拖动后，命中位置仍然准确（`GetDpiForWindow` 换算）。
 4. 控制台预热期间（启动后约 2 秒）不挡鼠标，预热完打开控制台能正常操作。
 
-## 第 3 步：Core 去掉对 Avalonia 的依赖
+## 第 3 步：Core 去掉对 Avalonia 的依赖 ✅
+
+> 已完成（3a–3e 五个提交）。Core 现在只依赖 BCL：没有 Avalonia、`Process`、`HttpClient`。和计划的差别：
+>
+> - `PetClip` 没有改名成 `ClipInfo`（改名牵动太多，收益不大）；解码接口叫 `IClipDecoder`（探测 + 打开），帧源叫 `IFrameSource`。
+> - `PetAgent` 没有改名成 `AgentService`；`LlmClient` 的测试和拉模型列表仍是静态方法，只有对话走 `ILlmClient`。
+> - 平台接口（`IPlatform` 等）挪进了 `Core/Ports/Platform`，命名空间保持 `AstraPet.Platform`。
+> - `PetCompanion` 留在 App 里当适配层（转发窗口事件、实现 `IPetVoice` / `IPetCommands`、对话后冒气泡和朗读）。
+> - 行为变化：久坐计时的「离开 5 分钟算活动过」改在 15 秒的提醒检查里判断；读不到空闲时长时不重置。
+> - 组合根 `App/Composition.cs`：唯一创建 ffmpeg 解码器、HTTP 客户端、平台实现的地方；`--smoke` 也走它。
+>
+> 验证：81 个单元测试（状态机、走路、7 个行为、更新检测、对话智能体、平台、日志）；macOS Debug 和 NativeAOT 实际运行；
+> Linux 容器 `--smoke` 和 `--platform-report`；更新检测连真实站点（最新 0.1.3 = 当前版本）和不存在的服务器各跑一次。
 
 **目标**：Core 目录下的代码不引用 `Avalonia.*`，也不引用 `System.Diagnostics.Process`。
 

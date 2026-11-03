@@ -2,7 +2,6 @@ using AstraPet.Adapters;
 using AstraPet.Ai;
 using AstraPet.Core;
 using AstraPet.Core.Behaviors;
-using AstraPet.Infrastructure.Update;
 using AstraPet.Platform;
 
 namespace AstraPet.Pet;
@@ -20,15 +19,16 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IDisposable
     private readonly IPlatform _platform;
     private readonly PetHost _host;
 
-    public PetCompanion(PetWindow pet, PetDirector director, PetSettings settings, IPlatform platform)
+    public PetCompanion(PetWindow pet, PetDirector director, PetSettings settings, IPlatform platform,
+        ILlmClient llm, IUpdateFeed updateFeed)
     {
         _pet = pet;
         _director = director;
         _settings = settings;
         _platform = platform;
-        Agent = new PetAgent(settings, LlmClient.Instance);
+        Agent = new PetAgent(settings, llm);
         Bubble = new BubbleWindow(pet, settings, platform);
-        Updates = new UpdateChecker(settings, new HttpUpdateFeed(), platform.Identity.Key, platform.Installer.PreferredKinds);
+        Updates = new UpdateChecker(settings, updateFeed, platform.Identity.Key, platform.Installer.PreferredKinds);
 
         var input = new PetInput();
         _host = new PetHost(new PetContext
