@@ -47,9 +47,6 @@ public class PetWindow : Window
 
     private INativeWindow _native = NullNativeWindow.Instance;
 
-    /// <summary>一圈走路：起点、方向、这一圈走多少桌面像素。</summary>
-    public sealed record Walk(int StartX, int Direction, double Distance, Gait Gait);
-
     /// <summary>单击角色（没有拖动）。</summary>
     public event Action? Clicked;
 
@@ -240,36 +237,20 @@ public class PetWindow : Window
             StepWalk(_walk);
     }
 
-    /// <summary>
-    /// 开始走一圈前定方向和距离，照原版 choose_move_direction：两边都够走一圈就随机挑，
-    /// 只有一边够就往那边，都不够就往空间大的一边走、距离缩到剩余空间。朝向跟着走路方向。
-    /// </summary>
+    /// <summary>开始走一圈：屏幕几何在这里算好（桌面像素），方向和距离交给 <see cref="WalkPlanner"/>。朝向跟着走路方向。</summary>
     private Walk? PlanWalk(PetClip clip)
     {
         if (_director.Library.GaitOf(clip) is not { } gait) return null;
 
         var (minX, maxX) = WalkBounds();
         var stride = gait.Stride * _settings.Scale * DesktopScaling;
-        double Room(int dir) => dir < 0 ? Position.X - minX : maxX - Position.X;
-
-        var direction = (Room(-1) >= stride, Room(1) >= stride) switch
-        {
-            (true, true) => _random.Next(2) == 0 ? -1 : 1,
-            (true, false) => -1,
-            (false, true) => 1,
-            _ => Room(-1) >= Room(1) ? -1 : 1,
-        };
-        _director.Direction = direction;
-        return new Walk(Position.X, direction, Math.Clamp(Room(direction), 0, stride), gait);
+        var walk = WalkPlanner.Plan(Position.X, minX, maxX, stride, gait, _random);
+        _director.Direction = walk.Direction;
+        return walk;
     }
 
-    /// <summary>位置只由帧号决定：起点 + 距离 × 曲线进度。不累加每帧位移，取整误差不会攒起来。</summary>
-    private void StepWalk(Walk walk)
-    {
-        var progress = walk.Gait.ProgressAt(_director.Frame, _director.Current.Clip.EstimatedFrames);
-        var x = walk.StartX + walk.Direction * (int)Math.Round(walk.Distance * progress);
-        Position = new PixelPoint(x, Position.Y);
-    }
+    private void StepWalk(Walk walk) =>
+        Position = new PixelPoint(walk.XAt(_director.Frame, _director.Current.Clip.EstimatedFrames), Position.Y);
 
     /// <summary>窗口左上角 X 的活动范围（桌面像素）。</summary>
     private (int Min, int Max) WalkBounds()
