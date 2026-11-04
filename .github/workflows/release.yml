@@ -204,7 +204,9 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp -R publish/. "$APP/Contents/MacOS/"
           cp ffmpeg-out/ffmpeg "$APP/Contents/MacOS/ffmpeg"
+          # .NET 11 的 Native AOT 在 macOS 上同时产出 .dSYM 和各程序集的 .pdb，都是调试符号，不进安装包
           rm -rf "$APP/Contents/MacOS/"*.dSYM
+          rm -f "$APP/Contents/MacOS/"*.pdb
           cp src/Assets/icons/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
           # 代码签名要求 Contents/MacOS 里只有可执行文件和动态库；素材和许可文本放 Contents/Resources，
           # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Composition.ResolveVideosDir）。
