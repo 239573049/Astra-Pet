@@ -63,7 +63,7 @@ case "$OS" in
 esac
 
 fetch() { # <url> <文件>
-  curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 "$1" -o "$2"
+  curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20 "$1" -o "$2"
 }
 
 echo "== libvpx $LIBVPX_VERSION ($VPX_TARGET)"
@@ -81,8 +81,18 @@ mkdir libvpx && tar xzf libvpx.tar.gz -C libvpx --strip-components=1
 )
 
 echo "== FFmpeg $FFMPEG_VERSION"
-fetch "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" ffmpeg.tar.xz
-mkdir ffmpeg-src && tar xJf ffmpeg.tar.xz -C ffmpeg-src --strip-components=1
+# ffmpeg.org 偶尔整站连不上（CI 里出现过 443 连接超时 / 被重置），所以依次尝试几个地址：
+# GitHub 上的官方镜像（tag 是 n<版本>）、osuosl 镜像、最后才是 ffmpeg.org。三者内容都是同一个版本的源码。
+ok=0
+for url in \
+  "https://github.com/FFmpeg/FFmpeg/archive/refs/tags/n${FFMPEG_VERSION}.tar.gz" \
+  "https://ftp.osuosl.org/pub/blfs/conglomeration/ffmpeg/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+  "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"; do
+  echo "  尝试 $url"
+  if fetch "$url" ffmpeg.tar && mkdir ffmpeg-src && tar xf ffmpeg.tar -C ffmpeg-src --strip-components=1; then ok=1; break; fi
+  rm -rf ffmpeg-src ffmpeg.tar
+done
+[ "$ok" = 1 ] || { echo "FFmpeg 源码所有下载地址都失败" >&2; exit 1; }
 (
   cd ffmpeg-src
   PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig" ./configure \
