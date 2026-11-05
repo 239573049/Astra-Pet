@@ -1,16 +1,17 @@
 name: release
 
 # 打 v* 标签（例如 v0.2.0、v0.3.0-preview.1）或手动触发：各平台编一份 Native AOT 的程序，冒烟通过后做成安装包，
-# 上传到 LocalGate 站点（/api/pet-releases/upload），站点的 /pet 页就会出现新版本，
+# 上传到 Astra Hub（/api/pet-releases/upload），站点的 /download 页就会出现新版本，
 # 正在运行的宠物下次检测更新时会冒气泡提醒。
 #
 #   macOS    .dmg（Developer ID 签名；配了公证凭据就公证并钉票据），arm64 和 x64 各一个
 #   Windows  .exe 安装程序（Inno Setup），x64。没有代码签名证书，首次运行会被 SmartScreen 提示
 #   Linux    .deb（Debian / Ubuntu），x64
 #
-# 站点固定是 https://astra-gate.si（程序里的更新检测地址也是它，见 Directory.Build.props 的 UpdateBaseUrl）。
+# 站点固定是 https://hub.astra-gate.si（程序里的更新检测地址也是它，见 Directory.Build.props 的 UpdateBaseUrl）。
 # 需要在 GitHub 仓库里配置：
-#   Secrets  PET_UPLOAD_TOKEN   和站点环境变量 PET_UPLOAD_TOKEN 的值一致（没配时只构建，不上传）
+#   Secrets  HUB_RELEASE_TOKEN  和 Hub 的配置 Releases__UploadToken 一致（没配时只构建，不上传）
+#   Secrets  PET_UPLOAD_TOKEN   可选：同时上传到旧站点 LocalGate，给 0.1.4 及以前的老程序检测更新
 #   Secrets  MACOS_CERT_P12_BASE64、MACOS_CERT_PASSWORD   Developer ID Application 证书（没配时 mac 包只做 ad-hoc 签名）
 #   公证（可选）：APPLE_API_KEY_P8_BASE64 + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID，或 APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
 on:
@@ -98,7 +99,8 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
+          dotnet-quality: 'preview'   # .NET 11 还是预览版；GA 出来后这个设置也能装到正式版
 
       - name: Install build dependencies (Linux)
         if: runner.os == 'Linux'
@@ -166,11 +168,13 @@ jobs:
 
       - name: Check ffmpeg
         shell: bash
-        # 用真实素材跑一遍程序用到的两条命令，并确认解出来的帧带透明通道。
+        # 用真实素材跑一遍程序用到的命令：播放（解码并确认带透明通道），导入动作（解 H.264 mp4、编 VP9 webm）。
         run: |
           CLIP=$(find characters/小t/videos/idle -name '*.webm' | head -n 1)
+          MP4=$(find characters/小t/raw/idle -name '*.mp4' | head -n 1)
           FF=ffmpeg-out/ffmpeg; [ -f ffmpeg-out/ffmpeg.exe ] && FF=ffmpeg-out/ffmpeg.exe
-          tools/ffmpeg/selftest.sh "$FF" "$CLIP"
+          tools/ffmpeg/selftest.sh "$FF" "$CLIP" "$MP4"
+          ls -la ffmpeg-out
 
       - name: Import signing certificate (macOS)
         if: runner.os == 'macOS' && env.MACOS_CERT_P12_BASE64 != '' && env.MACOS_CERT_PASSWORD != ''
@@ -203,7 +207,9 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp -R publish/. "$APP/Contents/MacOS/"
           cp ffmpeg-out/ffmpeg "$APP/Contents/MacOS/ffmpeg"
+          # .NET 11 的 Native AOT 在 macOS 上同时产出 .dSYM 和各程序集的 .pdb，都是调试符号，不进安装包
           rm -rf "$APP/Contents/MacOS/"*.dSYM
+          rm -f "$APP/Contents/MacOS/"*.pdb
           cp src/Assets/icons/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
           # 代码签名要求 Contents/MacOS 里只有可执行文件和动态库；素材和许可文本放 Contents/Resources，
           # 否则 codesign 会报 “code object is not signed at all / In subcomponent: …/licenses/…”。程序按这个位置找（见 Composition.ResolveVideosDir）。
@@ -305,8 +311,12 @@ jobs:
     env:
       VERSION: ${{ needs.meta.outputs.version }}
       CHANNEL: ${{ needs.meta.outputs.channel }}
-      SITE: https://astra-gate.si
-      TOKEN: ${{ secrets.PET_UPLOAD_TOKEN }}
+      HUB: https://hub.astra-gate.si
+      HUB_TOKEN: ${{ secrets.HUB_RELEASE_TOKEN }}
+      # 旧站点 LocalGate：0.1.4 及以前的程序从 astra-gate.si 检测更新。配了 PET_UPLOAD_TOKEN 就同时传一份，
+      # 让老用户也能收到这次更新（新版本改从 Hub 检测），老用户都升级后删掉这个 Secret 即可。
+      LEGACY_SITE: https://astra-gate.si
+      LEGACY_TOKEN: ${{ secrets.PET_UPLOAD_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -317,20 +327,22 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Upload to LocalGate
+      - name: Release notes
         shell: bash
+        # 版本说明：上一个标签到这次之间的提交标题。
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::warning::没有配置 PET_UPLOAD_TOKEN（Secrets），跳过上传。构建产物在本次运行的 Artifacts 里。"
-            exit 0
-          fi
-
-          # 版本说明：上一个标签到这次之间的提交标题。
           PREV=$(git describe --tags --abbrev=0 --match 'v*' "HEAD^" 2>/dev/null || true)
           RANGE=${PREV:+$PREV..}HEAD
           NOTES=$(git log --no-merges --pretty='- %s' $RANGE | head -n 50)
-          NOTES_B64=$(printf '%s' "$NOTES" | base64 | tr -d '\n')
+          echo "NOTES_B64=$(printf '%s' "$NOTES" | base64 | tr -d '\n')" >> "$GITHUB_ENV"
 
+      - name: Upload to Astra Hub
+        shell: bash
+        run: |
+          if [ -z "$HUB_TOKEN" ]; then
+            echo "::warning::没有配置 HUB_RELEASE_TOKEN（Secrets），跳过上传到 Astra Hub。构建产物在本次运行的 Artifacts 里。"
+            exit 0
+          fi
           for FILE in dist/AstraPet-*; do
             NAME=$(basename "$FILE")
             # 文件名是 AstraPet-<版本>-<平台>.<扩展名>，扩展名就是站点上的 kind（dmg / exe / deb）
@@ -338,8 +350,8 @@ jobs:
             KIND=${REST##*.}
             PLATFORM=${REST%.*}
             echo "上传 $NAME（$PLATFORM，$KIND）"
-            curl --fail-with-body -sS -X POST "$SITE/api/pet-releases/upload" \
-              -H "Authorization: Bearer $TOKEN" \
+            curl --fail-with-body -sS --retry 3 --retry-all-errors -X POST "$HUB/api/pet-releases/upload" \
+              -H "Authorization: Bearer $HUB_TOKEN" \
               -H "x-astra-version: $VERSION" \
               -H "x-astra-channel: $CHANNEL" \
               -H "x-astra-platform: $PLATFORM" \
@@ -347,12 +359,39 @@ jobs:
               -H "x-astra-notes-b64: $NOTES_B64" \
               -H "Content-Type: application/octet-stream" \
               --data-binary "@$FILE" -o response.json
-            # 站点返回它自己算的 sha256，和本地文件核对，防止传了一半或被中间人改过。
+            # 站点返回它自己算的 sha256（统一响应体 data.file.sha256），和本地文件核对，防止传了一半或被中间人改过。
             LOCAL=$(sha256sum "$FILE" | cut -d' ' -f1)
-            REMOTE=$(python3 -c "import json;print(json.load(open('response.json'))['file']['sha256'])")
+            REMOTE=$(python3 -c "import json;print(json.load(open('response.json'))['data']['file']['sha256'])")
             if [ "$LOCAL" != "$REMOTE" ]; then
               echo "::error::$NAME 的 sha256 对不上：本地 $LOCAL，站点 $REMOTE"
               exit 1
             fi
           done
-          echo "已上传 $VERSION（$CHANNEL）：$SITE/pet"
+          echo "已发布 $VERSION（$CHANNEL）：$HUB/download"
+
+      - name: Upload to LocalGate (legacy)
+        if: env.LEGACY_TOKEN != ''
+        shell: bash
+        run: |
+          for FILE in dist/AstraPet-*; do
+            NAME=$(basename "$FILE")
+            REST=${NAME#AstraPet-$VERSION-}
+            KIND=${REST##*.}
+            PLATFORM=${REST%.*}
+            echo "上传 $NAME 到 LocalGate"
+            curl --fail-with-body -sS -X POST "$LEGACY_SITE/api/pet-releases/upload" \
+              -H "Authorization: Bearer $LEGACY_TOKEN" \
+              -H "x-astra-version: $VERSION" \
+              -H "x-astra-channel: $CHANNEL" \
+              -H "x-astra-platform: $PLATFORM" \
+              -H "x-astra-kind: $KIND" \
+              -H "x-astra-notes-b64: $NOTES_B64" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$FILE" -o response.json
+            LOCAL=$(sha256sum "$FILE" | cut -d' ' -f1)
+            REMOTE=$(python3 -c "import json;print(json.load(open('response.json'))['file']['sha256'])")
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "::error::$NAME 的 sha256 对不上（LocalGate）：本地 $LOCAL，站点 $REMOTE"
+              exit 1
+            fi
+          done

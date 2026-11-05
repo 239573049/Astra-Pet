@@ -1,13 +1,13 @@
 <Project>
   <!-- 所有项目共用的设置。各项目只写自己特有的东西。 -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
     <!-- 版本号：发布时由 GitHub 工作流用 -p:Version=x.y.z 覆盖（全局属性，所有项目一起变），更新检测拿它和服务器上的最新版本比较。 -->
-    <Version>0.1.3</Version>
+    <Version>0.1.4</Version>
     <Product>Astra Pet</Product>
     <Authors>RoutinAI</Authors>
     <Company>RoutinAI</Company>
@@ -15,9 +15,14 @@
     <RepositoryType>git</RepositoryType>
     <Copyright>Copyright (c) 2026 RoutinAI (https://routin.ai). Source code: MIT. Pet artwork: all rights reserved, see LICENSE-ASSETS.md.</Copyright>
 
-    <!-- 更新服务器：LocalGate 官网，固定是这个地址。用户可以在控制台里改成别的；构建时也能用 -p:UpdateBaseUrl=https://… 覆盖。
+    <!-- 更新服务器：Astra Hub（安装包由 release.yml 上传到这里，下载页 /download）。用户可以在控制台里改成别的；构建时也能用 -p:UpdateBaseUrl=https://… 覆盖。
          由 AstraPet.Core 写进 BuildInfo 常量（见它的 GenerateBuildInfo）。 -->
-    <UpdateBaseUrl Condition="'$(UpdateBaseUrl)' == ''">https://astra-gate.si</UpdateBaseUrl>
+    <UpdateBaseUrl Condition="'$(UpdateBaseUrl)' == ''">https://hub.astra-gate.si</UpdateBaseUrl>
+
+    <!-- 宠物市场（Astra Hub）：地址固定，界面上不显示、设置里不能改、也没有环境变量覆盖（见 design/market/README.md）。
+         只有开发时能在构建期换掉，连本地的 Hub 测：dotnet build -p:HubBaseUrl=http://localhost:5000。
+         同样由 AstraPet.Core 写进 BuildInfo 常量。 -->
+    <HubBaseUrl Condition="'$(HubBaseUrl)' == ''">https://hub.astra-gate.si</HubBaseUrl>
 
     <!-- NativeAOT：编译期就把裁剪和 AOT 的问题报出来，不要等到运行时才炸。 -->
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>

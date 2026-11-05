@@ -1,6 +1,9 @@
 using AstraPet.Ai;
 using AstraPet.Core;
+using AstraPet.Core.Market;
+using AstraPet.Infrastructure.Market;
 using AstraPet.Infrastructure.Media;
+using AstraPet.Infrastructure.Studio;
 using AstraPet.Infrastructure.Update;
 using AstraPet.Platform;
 
@@ -35,8 +38,40 @@ public sealed class Composition
     /// <summary>大模型：三种协议的 HTTP 调用。</summary>
     public ILlmClient Llm { get; } = LlmClient.Instance;
 
-    /// <summary>更新检测的数据源：LocalGate 站点的 latest.json。</summary>
+    /// <summary>角色工作台的工程都在这里（数据目录下的 studio）。</summary>
+    public string StudioRoot => Path.Combine(Platform.Paths.DataDirectory, "studio");
+
+    /// <summary>
+    /// 工作台的视频任务队列，全程序一个：窗口关了任务照常查；启动时把所有工程没完成的任务接着查（不重新提交）。
+    /// 提供商按 id 从设置里找（密钥只在内存里用）。
+    /// </summary>
+    public VideoTaskQueue CreateVideoQueue(PetSettings settings) => new(
+        p => MediaClients.Video(p.Protocol),
+        id => settings.MediaProviders.ToList().FirstOrDefault(p => p.Id == id));
+
+    /// <summary>更新检测的数据源：Astra Hub 的 latest.json。</summary>
     public IUpdateFeed UpdateFeed { get; } = new HttpUpdateFeed();
+
+    /// <summary>宠物市场（Astra Hub）的 HTTP 客户端。地址构建时写死（<see cref="MarketHub.BaseUri"/>），不读设置、不读环境变量。</summary>
+    public IHubClient HubClient { get; } = new HttpHubClient(MarketHub.BaseUri);
+
+    private MarketService? _market;
+
+    /// <summary>
+    /// 宠物市场的登录状态和下载安装，全程序一个：控制台释放重建后登录状态还在。
+    /// 令牌存在数据目录的 hub-session.json（不进 settings.json），装好的角色包放进用户角色目录。
+    /// </summary>
+    public MarketService Market => _market ??= new MarketService(HubClient,
+        new HubSessionStore(Platform.Paths.DataDirectory), Catalog, $"Astra Pet {AppVersion.Current} · {OsName(Platform.Identity.Os)}");
+
+    /// <summary>登录时报给服务器的设备名里的系统名，用户在网页的「已连接的设备」里看到。</summary>
+    private static string OsName(string os) => os switch
+    {
+        "darwin" => "macOS",
+        "win32" => "Windows",
+        "linux" => "Linux",
+        _ => os,
+    };
 
     /// <summary>选平台实现、定数据和日志目录、找内置角色包和 ffmpeg。找不到内置角色时抛异常（程序没法跑）。</summary>
     public static Composition Create()
@@ -48,7 +83,8 @@ public sealed class Composition
 
         var overrideVideos = Environment.GetEnvironmentVariable("ASTRA_PET_VIDEOS") is { Length: > 0 } v ? v : null;
         var catalog = new PetCatalog(ResolvePetsDir(paths, overrideVideos is not null),
-            Path.Combine(paths.DataDirectory, "characters"), paths.CacheDirectory, overrideVideos);
+            Path.Combine(paths.DataDirectory, "characters"), paths.CacheDirectory, overrideVideos,
+            overlayRoot: Path.Combine(paths.DataDirectory, "pets"));
         var composition = new Composition(platform, catalog, ResolveFfmpeg(paths));
         PetLog.Write($"Astra Pet {AppVersion.Current} · {platform.Identity}");
         PetLog.Write($"内置角色包: {ResolvePetsDir(paths, true)}" + (overrideVideos is null ? "" : $"（默认角色换成了 {overrideVideos}）"));
@@ -65,8 +101,9 @@ public sealed class Composition
         var settings = SettingsStore.Load();
         PetLog.Write($"设置文件: {SettingsStore.FilePath}");
         var library = Catalog.LoadSelected(settings, Decoder);
-        PetLog.Write($"加载完成: {library.ClipCount} 段, 动作 {library[PetLibrary.Click].Count} 个, " +
-                     $"移动 {library[PetLibrary.Move].Count} 个, 唱歌 {library[PetLibrary.Sing].Count} 个");
+        PetLog.Write($"加载完成: 格式 {library.Format}, {library.ClipCount} 段, {library.Actions.All.Count} 个动作" +
+                     $"（点击 {library.Actions.WithRole(PetLibrary.Click).Count}、移动 {library.Actions.WithRole(PetLibrary.Move).Count}、" +
+                     $"唱歌 {library.Actions.WithRole(PetLibrary.Sing).Count}）");
         return (settings, new PetDirector(library, settings));
     }
 

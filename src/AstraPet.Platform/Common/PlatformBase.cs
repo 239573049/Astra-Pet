@@ -22,6 +22,8 @@ internal class PlatformBase(string os) : IPlatform
     public ISpeech Speech { get; protected init; } = new UnsupportedSpeech();
     public ISystemMonitor Monitor { get; protected init; } = new UnsupportedMonitor();
     public IUpdateInstaller Installer { get; protected init; } = new UnsupportedInstaller();
+    public IWindowSurfaces Windows { get; protected init; } = NoWindowSurfaces.Instance;
+    public IGlobalHotkey Hotkey { get; protected init; } = NoGlobalHotkey.Instance;
 
     public virtual INativeWindow AttachWindow(nint handle) => NullNativeWindow.Instance;
 }

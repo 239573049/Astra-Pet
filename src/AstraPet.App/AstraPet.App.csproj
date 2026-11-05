@@ -12,7 +12,16 @@
     <ApplicationIcon>$(AstraAssets)icons\app.ico</ApplicationIcon>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!--
+      常驻小程序，内存比吞吐重要：关掉后台 GC（少一个线程和它预留的空间），
+      ConserveMemory 让 GC 在大对象堆碎片多时压缩它（帧缓冲、工作台处理都是大数组）。实测常驻占用少约 35MB。
+    -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
   </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AstraPet.Core\AstraPet.Core.csproj" />
@@ -26,6 +35,9 @@
     <!-- 控件库：Arc。它自带流式 Markdown（StreamMark）和代码高亮。 -->
     <PackageReference Include="TKCode.Arc" Version="0.4.0-preview.1" />
     <PackageReference Include="TKCode.Arc.Fonts" Version="0.4.0-preview.1" />
+    <!-- 页面级区块：控制台左侧导航用它的 Sidebar。 -->
+    <PackageReference Include="TKCode.Arc.Blocks" Version="0.4.0-preview.1" />
+    <PackageReference Include="TKCode.Arc.Special" Version="0.4.0-preview.1" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
   </ItemGroup>
 

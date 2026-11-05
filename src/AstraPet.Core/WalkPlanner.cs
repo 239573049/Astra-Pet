@@ -22,9 +22,22 @@ public static class WalkPlanner
     /// <param name="minX">左上角 X 的活动范围下限（已经扣掉边缘余量）。</param>
     /// <param name="maxX">左上角 X 的活动范围上限。</param>
     /// <param name="stride">这一圈完整走下来的距离（桌面像素，已经乘过缩放）。</param>
-    public static Walk Plan(int x, int minX, int maxX, double stride, Gait gait, Random random)
+    public static Walk Plan(int x, int minX, int maxX, double stride, Gait gait, Random random) =>
+        Plan(x, minX, maxX, stride, gait, random, null);
+
+    /// <param name="target">
+    /// 目标位置（窗口左上角 X）：主动靠近光标、陪玩、去屏幕边（design/pet-life/04 §6）。朝它走，到了就停；null 随机走。
+    /// </param>
+    public static Walk Plan(int x, int minX, int maxX, double stride, Gait gait, Random random, int? target)
     {
         double Room(int dir) => dir < 0 ? x - minX : maxX - x;
+
+        if (target is { } t)
+        {
+            var goal = Math.Clamp(t, minX, maxX);
+            var dir = goal < x ? -1 : 1;
+            return new Walk(x, dir, Math.Min(stride, Math.Abs(goal - x)), gait);
+        }
 
         var direction = (Room(-1) >= stride, Room(1) >= stride) switch
         {

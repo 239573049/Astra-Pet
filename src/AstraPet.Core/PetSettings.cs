@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
+using AstraPet.Core.Studio;
 
 namespace AstraPet.Core;
 
@@ -20,6 +21,7 @@ public sealed class PetSettings : Observable
         Providers.CollectionChanged += OnCollectionChanged;
         Memories.CollectionChanged += OnCollectionChanged;
         MenuItems.CollectionChanged += OnCollectionChanged;
+        MediaProviders.CollectionChanged += OnCollectionChanged;
     }
 
     /// <summary>任何设置（含列表里的条目）变了，存盘用。</summary>
@@ -42,6 +44,27 @@ public sealed class PetSettings : Observable
     public bool AllowCapture { get => _allowCapture; set => Set(ref _allowCapture, value); }
     /// <summary>透明像素放行鼠标。哪些平台支持见 PlatformCapabilities.ClickThrough。</summary>
     public bool ClickThrough { get => _clickThrough; set => Set(ref _clickThrough, value); }
+
+    // ───── 外观 ─────
+
+    public const string DefaultAccent = "#32AA7D";
+
+    private string _appearance = "system";
+    private string _accent = DefaultAccent;
+
+    /// <summary>控制台、对话框、右键菜单的明暗：system 跟随系统，light、dark 固定。</summary>
+    public string Appearance
+    {
+        get => _appearance;
+        set => Set(ref _appearance, value is "light" or "dark" ? value : "system");
+    }
+
+    /// <summary>主色，#RRGGBB。默认是宠物的绿。</summary>
+    public string Accent
+    {
+        get => _accent;
+        set => Set(ref _accent, value is { Length: 7 } && value[0] == '#' ? value.ToUpperInvariant() : DefaultAccent);
+    }
 
     // ───── 桌宠 ─────
 
@@ -94,6 +117,56 @@ public sealed class PetSettings : Observable
     /// <summary>点击台词，一行一句。</summary>
     public string ClickLines { get => _clickLines; set => Set(ref _clickLines, value); }
 
+    private List<TriggerRule> _triggers = new();
+
+    /// <summary>
+    /// 用户的全局触发规则（和具体宠物无关，只引用 role:）。和内置规则同 id 时覆盖内置的。整体替换，不原地改。
+    /// 只对某只宠物生效的规则在它的覆盖层里（<see cref="ActionOverlay"/>）。
+    /// </summary>
+    public List<TriggerRule> Triggers { get => _triggers; set => Set(ref _triggers, value ?? new()); }
+
+    // ───── 宠物体系（design/pet-life） ─────
+
+    public const string PlacementGround = "ground";
+    public const string PlacementFree = "free";
+    /// <summary>宠物体系的设置版本：0 是 0.1.x 升级上来的老设置（放置方式保持自由放置，L6）。</summary>
+    public const int CurrentLifeVersion = 1;
+
+    private bool _lifeEnabled = true;
+    private double _lifeSpeed = 1;
+    private string _needHints = "bubble";
+    private bool _hoverStatus = true;
+    private string _placement = PlacementGround;
+    private bool _allowClimb = true;
+    private bool _allowThrow = true;
+    private string _userCallName = "";
+    private bool _perchOnWindows;
+    private bool _summonHotkey = true;
+
+    /// <summary>启用宠物体系：饱腹、精力、心情、亲密度。关掉后数值冻结，回到纯观赏。</summary>
+    public bool LifeEnabled { get => _lifeEnabled; set => Set(ref _lifeEnabled, value); }
+    /// <summary>数值变化速度：0.5 慢 / 1 标准 / 2 快。</summary>
+    public double LifeSpeed { get => _lifeSpeed; set => Set(ref _lifeSpeed, value <= 0.75 ? 0.5 : value >= 1.5 ? 2 : 1); }
+    /// <summary>饿了困了时：bubble 冒气泡 / card 只在状态浮层显示 / off 不提醒。</summary>
+    public string NeedHints { get => _needHints; set => Set(ref _needHints, value is "card" or "off" ? value : "bubble"); }
+    /// <summary>鼠标在宠物身上停一秒显示状态浮层。</summary>
+    public bool HoverStatus { get => _hoverStatus; set => Set(ref _hoverStatus, value); }
+    /// <summary>放置方式：ground 站在地面（有重力、能甩、能爬墙），free 自由放置（0.1.x 的行为）。</summary>
+    public string Placement { get => _placement; set => Set(ref _placement, value == PlacementFree ? PlacementFree : PlacementGround); }
+    /// <summary>走到屏幕边上时按概率爬墙（要这只宠物有贴墙动作）。</summary>
+    public bool AllowClimb { get => _allowClimb; set => Set(ref _allowClimb, value); }
+    /// <summary>拖拽时快速松手会把它甩出去。</summary>
+    public bool AllowThrow { get => _allowThrow; set => Set(ref _allowThrow, value); }
+    /// <summary>希望宠物怎么称呼用户；亲密度 5 级以后会用（台词里的 {user}）。</summary>
+    public string UserCallName { get => _userCallName; set => Set(ref _userCallName, (value ?? "").Trim()); }
+    public int LifeVersion { get; set; }
+    /// <summary>站在其他应用的窗口顶上（design/pet-life/04 §7，L9 默认关）。只读窗口位置，不读标题。</summary>
+    public bool PerchOnWindows { get => _perchOnWindows; set => Set(ref _perchOnWindows, value); }
+    /// <summary>全局快捷键召唤（Ctrl+Alt+P / ⌃⌥P）：宠物跑到光标下面。</summary>
+    public bool SummonHotkey { get => _summonHotkey; set => Set(ref _summonHotkey, value); }
+
+    [JsonIgnore] public bool GroundMode => Placement == PlacementGround;
+
     // ───── 菜单 ─────
 
     /// <summary>右键菜单的条目和顺序。加载时会补上新版本新增的条目。</summary>
@@ -130,10 +203,17 @@ public sealed class PetSettings : Observable
     private string _systemPrompt = DefaultSystemPrompt;
     private bool _memoryEnabled = true;
     private bool _autoMemory = true;
+    private PersonaMode _personaMode = PersonaMode.Pack;
+    private string _personaCustom = "";
+    private string _personaNotes = "";
 
+    /// <summary>0.1.4 及以前的默认提示词。迁移时用来判断用户改没改过（03 §3.6）。</summary>
     public const string DefaultSystemPrompt =
         "你是 Astra，一只住在用户桌面上的小宠物。说话简短、温暖、带一点俏皮，每次回复不超过三句话，" +
         "不用 Markdown。你会记住用户告诉你的兴趣爱好和习惯，并在合适的时候自然地提起。";
+
+    /// <summary>当前的提示词结构版本：2 是分层提示词（人设 + 用户补充，格式要求由程序管）。</summary>
+    public const int CurrentPromptVersion = 2;
 
     public ObservableCollection<LlmProvider> Providers { get; set; } = new();
     public string ActiveProviderId { get => _activeProviderId; set => Set(ref _activeProviderId, value); }
@@ -142,7 +222,20 @@ public sealed class PetSettings : Observable
     /// <summary>每次请求带上最近多少轮对话。</summary>
     public int ContextTurns { get => _contextTurns; set => Set(ref _contextTurns, Math.Clamp(value, 0, 50)); }
     public int TimeoutSeconds { get => _timeoutSeconds; set => Set(ref _timeoutSeconds, Math.Clamp(value, 5, 300)); }
-    public string SystemPrompt { get => _systemPrompt; set => Set(ref _systemPrompt, value); }
+    /// <summary>
+    /// 旧版整段的系统提示词，只为迁移保留：加载时如果用户改过，搬进 <see cref="PersonaCustom"/>，之后清空不再使用。
+    /// </summary>
+    public string SystemPrompt { get => _systemPrompt; set => Set(ref _systemPrompt, value ?? ""); }
+    /// <summary>设置文件里的提示词结构版本，旧文件没有这个字段（0）。</summary>
+    public int PromptVersion { get; set; }
+    /// <summary>迁移时把用户改过的旧提示词搬成了自定义人设，控制台提示一次后清掉。</summary>
+    public bool PromptMigrationNotice { get; set; }
+    /// <summary>人设来源：角色包里的，还是用户整段自定义的。</summary>
+    public PersonaMode PersonaMode { get => _personaMode; set => Set(ref _personaMode, value); }
+    /// <summary>自定义人设（<see cref="PersonaMode.Custom"/> 时用），描述名字、性格、说话风格。</summary>
+    public string PersonaCustom { get => _personaCustom; set => Set(ref _personaCustom, value ?? ""); }
+    /// <summary>用户对宠物的额外要求（「叫我老板」「多用颜文字」），两种人设下都生效。</summary>
+    public string PersonaNotes { get => _personaNotes; set => Set(ref _personaNotes, value ?? ""); }
     /// <summary>把记忆写进系统提示词。</summary>
     public bool MemoryEnabled { get => _memoryEnabled; set => Set(ref _memoryEnabled, value); }
     /// <summary>每轮对话后让模型提取值得记住的信息。</summary>
@@ -152,6 +245,36 @@ public sealed class PetSettings : Observable
     [JsonIgnore]
     public LlmProvider? ActiveProvider =>
         Providers.FirstOrDefault(p => p.Id == ActiveProviderId) ?? Providers.FirstOrDefault();
+
+    // ───── 生成模型（工作台） ─────
+
+    private string _activeImageProviderId = "";
+    private string _activeVideoProviderId = "";
+
+    /// <summary>工作台用的图片和视频生成接口（design/pet-studio/05）。</summary>
+    public ObservableCollection<MediaProvider> MediaProviders { get; set; } = new();
+    public string ActiveImageProviderId { get => _activeImageProviderId; set => Set(ref _activeImageProviderId, value ?? ""); }
+    public string ActiveVideoProviderId { get => _activeVideoProviderId; set => Set(ref _activeVideoProviderId, value ?? ""); }
+
+    [JsonIgnore] public MediaProvider? ActiveImageProvider => ActiveMedia(MediaKind.Image, ActiveImageProviderId);
+    [JsonIgnore] public MediaProvider? ActiveVideoProvider => ActiveMedia(MediaKind.Video, ActiveVideoProviderId);
+
+    private MediaProvider? ActiveMedia(MediaKind kind, string id) =>
+        MediaProviders.FirstOrDefault(p => p.Kind == kind && p.Id == id) ?? MediaProviders.FirstOrDefault(p => p.Kind == kind);
+
+    // ───── 外部控制 ─────
+
+    public const int DefaultExternalPort = 47615;
+
+    private bool _externalApi;
+    private int _externalPort = DefaultExternalPort;
+    private string _externalToken = "";
+
+    /// <summary>本地 HTTP 接口：让 Claude Code、脚本等外部 Agent 驱动宠物。默认关，只监听 127.0.0.1（03 §2）。</summary>
+    public bool ExternalApi { get => _externalApi; set => Set(ref _externalApi, value); }
+    public int ExternalPort { get => _externalPort; set => Set(ref _externalPort, Math.Clamp(value, 1024, 65535)); }
+    /// <summary>外部请求要带的令牌（Authorization: Bearer）。打开接口时生成。</summary>
+    public string ExternalToken { get => _externalToken; set => Set(ref _externalToken, value ?? ""); }
 
     // ───── 语音 ─────
 
@@ -182,7 +305,7 @@ public sealed class PetSettings : Observable
     public bool AutoCheckUpdate { get => _autoCheckUpdate; set => Set(ref _autoCheckUpdate, value); }
     /// <summary>stable 只收正式版；preview 同时收预览版。</summary>
     public string UpdateChannel { get => _updateChannel; set => Set(ref _updateChannel, value == "preview" ? "preview" : "stable"); }
-    /// <summary>更新服务器（LocalGate 站点的地址）。空 = 用构建时写进程序的那个。</summary>
+    /// <summary>更新服务器（Astra Hub 的地址）。空 = 用构建时写进程序的那个。</summary>
     public string UpdateServer { get => _updateServer; set => Set(ref _updateServer, value ?? ""); }
     /// <summary>已经用气泡提醒过的新版本号，同一个版本只提醒一次，不烦人。</summary>
     public string NotifiedUpdate { get => _notifiedUpdate; set => Set(ref _notifiedUpdate, value ?? ""); }
@@ -201,26 +324,23 @@ public sealed class PetSettings : Observable
     /// <summary>省电模式已生效（用户离开超过设定时间）。</summary>
     [JsonIgnore] public bool PowerSavingActive { get => _saving; set => Set(ref _saving, value); }
 
-    /// <summary>随机链权重，照原版 window.py：待机 30 / 转向 10 / 动作 40 / 移动 20。</summary>
-    [JsonIgnore]
-    public (string Category, int Weight)[] Chain => PowerSavingActive
-        ? [(PetLibrary.Idle, 1)]
-        : [
-            (PetLibrary.Idle, 30),
-            (PetLibrary.Turn, 10),
-            (PetLibrary.Click, 40),
-            (PetLibrary.Move, StayStill ? 0 : 20),
-        ];
-
     /// <summary>实际帧率倍率：省电时减半。</summary>
     [JsonIgnore] public double EffectiveSpeed => PowerSavingActive ? Speed * 0.5 : Speed;
 
     public string[] ClickLineList() =>
         ClickLines.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    /// <summary>加载后调用：补默认菜单项、挂上条目的变更通知。</summary>
-    public void Normalize()
+    /// <summary>加载后调用：迁移旧提示词、补默认菜单项、挂上条目的变更通知。</summary>
+    /// <param name="upgraded">设置是从已有文件读出来的（不是新安装）。</param>
+    public void Normalize(bool upgraded = false)
     {
+        MigratePrompt();
+        if (LifeVersion < CurrentLifeVersion)
+        {
+            // L6：老用户升级后保持「自由放置」，新安装默认「站在地面」。
+            if (upgraded) Placement = PlacementFree;
+            LifeVersion = CurrentLifeVersion;
+        }
         foreach (var id in MenuEntry.AllIds)
             if (MenuItems.All(m => m.Id != id))
                 MenuItems.Add(new MenuEntry { Id = id, Visible = MenuEntry.DefaultVisible(id) });
@@ -229,13 +349,12 @@ public sealed class PetSettings : Observable
         foreach (var exit in MenuItems.Where(m => !m.CanHide))
             exit.Visible = true;
 
-        Providers.CollectionChanged -= OnCollectionChanged;
-        Memories.CollectionChanged -= OnCollectionChanged;
-        MenuItems.CollectionChanged -= OnCollectionChanged;
-        Providers.CollectionChanged += OnCollectionChanged;
-        Memories.CollectionChanged += OnCollectionChanged;
-        MenuItems.CollectionChanged += OnCollectionChanged;
-        foreach (var item in Providers.Cast<INotifyPropertyChanged>().Concat(Memories).Concat(MenuItems))
+        foreach (var list in new INotifyCollectionChanged[] { Providers, Memories, MenuItems, MediaProviders })
+        {
+            list.CollectionChanged -= OnCollectionChanged;
+            list.CollectionChanged += OnCollectionChanged;
+        }
+        foreach (var item in Providers.Cast<INotifyPropertyChanged>().Concat(Memories).Concat(MenuItems).Concat(MediaProviders))
         {
             item.PropertyChanged -= OnItemChanged;
             item.PropertyChanged += OnItemChanged;
@@ -244,14 +363,41 @@ public sealed class PetSettings : Observable
         PropertyChanged += OnSelfChanged;
     }
 
+    /// <summary>
+    /// 0.1.4 的整段提示词拆成「人设 + 用户补充」（03 §3.6）：没改过（等于旧默认值或空）用角色包的人设；
+    /// 改过就整段当自定义人设，控制台提示一次。
+    /// </summary>
+    private void MigratePrompt()
+    {
+        if (PromptVersion >= CurrentPromptVersion) return;
+        var old = SystemPrompt.Trim();
+        if (old.Length > 0 && old != DefaultSystemPrompt)
+        {
+            PersonaMode = PersonaMode.Custom;
+            PersonaCustom = old;
+            PromptMigrationNotice = true;
+        }
+        SystemPrompt = "";
+        PromptVersion = CurrentPromptVersion;
+    }
+
     private void OnSelfChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(Paused) or nameof(Visible) or nameof(MusicPlaying) or nameof(PowerSavingActive))
+        if (e.PropertyName is nameof(Paused) or nameof(Visible) or nameof(MusicPlaying) or nameof(PowerSavingActive)
+            or nameof(ActiveImageProvider) or nameof(ActiveVideoProvider))
             return;
         Changed?.Invoke();
     }
 
-    private void OnItemChanged(object? sender, PropertyChangedEventArgs e) => Changed?.Invoke();
+    private void OnItemChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is MediaProvider)
+        {
+            Raise(nameof(ActiveImageProvider));
+            Raise(nameof(ActiveVideoProvider));
+        }
+        Changed?.Invoke();
+    }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -260,8 +406,31 @@ public sealed class PetSettings : Observable
         foreach (INotifyPropertyChanged item in e.OldItems ?? Array.Empty<object>())
             item.PropertyChanged -= OnItemChanged;
         if (sender == Providers) Raise(nameof(ActiveProvider));
+        if (sender == MediaProviders)
+        {
+            Raise(nameof(ActiveImageProvider));
+            Raise(nameof(ActiveVideoProvider));
+        }
         Changed?.Invoke();
     }
+}
+
+/// <summary>人设来源。</summary>
+public enum PersonaMode
+{
+    /// <summary>用角色包里的人设（格式 1 的角色用通用人设）。</summary>
+    Pack,
+    /// <summary>用户整段自定义。</summary>
+    Custom,
+}
+
+/// <summary>模型支不支持工具调用（让宠物做动作要用）。</summary>
+public enum ToolSupport
+{
+    /// <summary>先带工具请求，被拒（4xx 且提到 tool / function）就去掉工具重试，并记住这个模型不支持。</summary>
+    Auto,
+    On,
+    Off,
 }
 
 /// <summary>大模型接口协议。</summary>
@@ -285,6 +454,8 @@ public sealed class LlmProvider : Observable
     private string _model = "gpt-4o-mini";
     private string _presetId = "";
     private List<string> _models = new();
+    private ToolSupport _toolSupport;
+    private string _noToolsModel = "";
 
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get => _name; set => Set(ref _name, value); }
@@ -292,11 +463,24 @@ public sealed class LlmProvider : Observable
     public string BaseUrl { get => _baseUrl; set => Set(ref _baseUrl, value); }
     public string ApiKey { get => _apiKey; set => Set(ref _apiKey, value); }
     /// <summary>对话实际使用的模型名。</summary>
-    public string Model { get => _model; set => Set(ref _model, value); }
+    public string Model { get => _model; set { if (Set(ref _model, value)) Raise(nameof(UsesTools)); } }
     /// <summary>来自哪个预设（<see cref="ProviderPresets"/>），决定图标。旧配置里没有，按地址猜。</summary>
     public string PresetId { get => _presetId; set => Set(ref _presetId, value ?? ""); }
     /// <summary>这个接口提供的模型列表（「获取模型」或导入得到），只用来给模型输入框做候选，可以为空。整体替换，不原地改。</summary>
     public List<string> Models { get => _models; set => Set(ref _models, value ?? new()); }
+    /// <summary>工具调用：自动 / 开 / 关。</summary>
+    public ToolSupport ToolSupport { get => _toolSupport; set { if (Set(ref _toolSupport, value)) Raise(nameof(UsesTools)); } }
+    /// <summary>自动探测发现不支持工具的模型名；换了模型就重新探测。</summary>
+    public string NoToolsModel { get => _noToolsModel; set { if (Set(ref _noToolsModel, value ?? "")) Raise(nameof(UsesTools)); } }
+
+    /// <summary>这次请求带不带工具。</summary>
+    [JsonIgnore]
+    public bool UsesTools => ToolSupport switch
+    {
+        ToolSupport.On => true,
+        ToolSupport.Off => false,
+        _ => !string.Equals(NoToolsModel, Model, StringComparison.Ordinal),
+    };
 
     public LlmProvider Clone()
     {
@@ -315,6 +499,8 @@ public sealed class LlmProvider : Observable
         Model = other.Model;
         PresetId = other.PresetId;
         Models = new List<string>(other.Models);
+        ToolSupport = other.ToolSupport;
+        NoToolsModel = other.NoToolsModel;
     }
 
     public override string ToString() => $"{Name} · {Model}";
@@ -345,8 +531,14 @@ public sealed class MenuEntry : Observable
     public const string Center = "center";
     public const string Hide = "hide";
     public const string Exit = "exit";
+    public const string Feed = "feed";
+    public const string Play = "play";
+    public const string Sleep = "sleep";
+    public const string Status = "status";
+    /// <summary>喂食子菜单里每个食物的命令：feed:&lt;食物 id&gt;。</summary>
+    public const string FeedPrefix = "feed:";
 
-    public static readonly string[] AllIds = [Chat, Console, Pause, StayStill, Pomodoro, Mute, Center, Hide, Exit];
+    public static readonly string[] AllIds = [Chat, Feed, Play, Sleep, Status, Console, Pause, StayStill, Pomodoro, Mute, Center, Hide, Exit];
 
     private bool _visible = true;
 
@@ -365,6 +557,10 @@ public sealed class MenuEntry : Observable
         Center => "把宠物放回屏幕中央。",
         Hide => "隐藏宠物，可在控制台重新显示。",
         Exit => "退出 Astra Pet。始终保留。",
+        Feed => "喂它吃东西：饭团、牛奶不限量，零食靠完成番茄钟攒。",
+        Play => "陪它玩一分钟：它会追着光标跑。",
+        Sleep => "哄它睡觉 / 叫醒它（这只宠物有睡觉动作时才显示）。",
+        Status => "打开控制台的「状态」页。",
         _ => "",
     };
     /// <summary>退出项不能隐藏，否则没有托盘时就关不掉了。</summary>
@@ -381,6 +577,10 @@ public sealed class MenuEntry : Observable
         Center => "回到屏幕中央",
         Hide => "隐藏宠物",
         Exit => "退出",
+        Feed => "喂食",
+        Play => "陪我玩",
+        Sleep => "哄睡",
+        Status => "查看状态",
         _ => id,
     };
 

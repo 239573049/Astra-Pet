@@ -14,21 +14,37 @@ public sealed class PetHost : IDisposable
     {
         _context = context;
         Pomodoro = new PomodoroBehavior();
-        Menu = new MenuBehavior(Pomodoro);
+        Play = new PlayBehavior();
+        Summon = new SummonBehavior();
+        Life = new PetLife();
+        context.Life = Life;
+        Menu = new MenuBehavior(Pomodoro, Play);
         UpdateNotifier = new UpdateNotifyBehavior();
+        Reminders = new ReminderBehavior();
+        Triggers = new TriggerEngine();
         _behaviors =
         [
+            Triggers,   // 最先启动：其他行为启动时就可能发事件（打招呼）
+            Life,       // 其次：读存档、装上随机链调制，之后的行为发的事件它都要听
             new InteractionBehavior(),
             Menu,
             Pomodoro,
-            new ReminderBehavior(),
+            Reminders,
             new PresenceBehavior(),
             new GreetingBehavior(),
             UpdateNotifier,
+            Play,
+            new CursorBehavior(),
+            Summon,
         ];
     }
 
+    public TriggerEngine Triggers { get; }
+    public PetLife Life { get; }
+    public PlayBehavior Play { get; }
+    public SummonBehavior Summon { get; }
     public PomodoroBehavior Pomodoro { get; }
+    public ReminderBehavior Reminders { get; }
     public MenuBehavior Menu { get; }
     public UpdateNotifyBehavior UpdateNotifier { get; }
 

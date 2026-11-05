@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using AstraPet.Core;
 using AstraPet.Pet;
 using Avalonia.Layout;
-using Avalonia.Media;
 
 namespace AstraPet.ControlPanel;
 
@@ -13,8 +12,7 @@ public sealed record ChatLine(string Text, bool FromUser, bool IsError = false)
     public bool IsMarkdown => !FromUser && !IsError;
     public bool IsPlain => !IsMarkdown;
     public HorizontalAlignment Alignment => FromUser ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-    public IBrush Background => IsError ? Brush.Parse("#33D46A6A") : FromUser ? Brush.Parse("#3A32AA7D") : Brush.Parse("#1FFFFFFF");
-    public IBrush Foreground => IsError ? Brush.Parse("#E8B4B4") : Brush.Parse("#E8E9E9");
+    // 气泡颜色由 ChatWindow.axaml 按 FromUser / IsError 套设计令牌，跟着明暗主题走。
 }
 
 public sealed class ChatViewModel : Observable

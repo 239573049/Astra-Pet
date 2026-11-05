@@ -201,7 +201,8 @@ public sealed class ModelCatalog
         {
             if (File.Exists(CachePath)) cached = Parse(JsonNode.Parse(File.ReadAllText(CachePath)), fromCache: true);
         }
-        catch (Exception e) when (e is JsonException or IOException)
+        // 没设数据目录（单元测试单独跑某个协议测试时）就没有缓存，用内置快照。
+        catch (Exception e) when (e is JsonException or IOException or InvalidOperationException)
         {
             PetLog.Write($"模型库缓存读取失败，改用内置快照: {e.Message}");
         }

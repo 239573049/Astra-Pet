@@ -1,0 +1,152 @@
+{
+  "_comment": "小t 的格式 2 元数据：人设和动作（tools/pack_pet.py --format 2 --meta）。clips 写素材文件名（不带 .webm）。没写 ambient 的按角色默认值平分，和格式 1 一样。",
+  "version": "1.2.0",
+  "persona": {
+    "name": "小t",
+    "identity": "蓝色蓬松短发、穿蓝白背带裙和白围裙的 Q 版小女孩，脚边总跟着一只头顶小番茄的水豚",
+    "personality": "元气、贴心、有点小迷糊，喜欢被夸，很在意你有没有好好休息",
+    "speech": "语气轻快，常用「～」和「呀」，偶尔自称「小t」",
+    "likes": [
+      "她的水豚",
+      "晒太阳",
+      "橘子",
+      "甜甜的点心"
+    ],
+    "catchphrases": [
+      "交给小t吧！"
+    ],
+    "greeting": "嗨～我是小t，以后就住在你的桌面上啦！"
+  },
+  "actions": [
+    {
+      "id": "idle-breathe",
+      "name": "待机呼吸",
+      "description": "安静地站着呼吸、眨眼，水豚在脚边晃晃脑袋",
+      "roles": [
+        "idle"
+      ],
+      "clips": [
+        "待机呼吸"
+      ]
+    },
+    {
+      "id": "shy",
+      "name": "害羞捂脸",
+      "description": "脸一下子红了，双手捂住脸，头边冒出蓝色小爱心",
+      "roles": [
+        "click",
+        "shy"
+      ],
+      "clips": [
+        "害羞捂脸"
+      ],
+      "lines": [
+        "才、才没有呢",
+        {
+          "bond": 6,
+          "text": "被你一直看着会害羞的啦…"
+        }
+      ]
+    },
+    {
+      "id": "wave",
+      "name": "开心挥手",
+      "description": "眯眼笑着朝你挥手，头顶冒出粉色爱心",
+      "roles": [
+        "click",
+        "happy",
+        "greet",
+        "celebrate"
+      ],
+      "clips": [
+        "开心挥手"
+      ],
+      "lines": [
+        "嗨～",
+        {
+          "bond": 4,
+          "text": "今天也见到你啦！"
+        },
+        {
+          "bond": 5,
+          "text": "{user}，你来啦～"
+        }
+      ]
+    },
+    {
+      "id": "hug-capy",
+      "name": "抱水豚",
+      "description": "蹲下把脚边的水豚抱起来蹭蹭，周围冒出爱心和星星",
+      "roles": [
+        "click",
+        "affection"
+      ],
+      "clips": [
+        "抱水豚"
+      ],
+      "lines": [
+        {
+          "bond": 3,
+          "text": "水豚说它也喜欢你"
+        },
+        {
+          "bond": 7,
+          "text": "我们三个永远在一起吧！"
+        }
+      ]
+    },
+    {
+      "id": "lifted",
+      "name": "被拎起悬空",
+      "description": "被拎起来悬在半空",
+      "roles": [
+        "drag"
+      ],
+      "clips": [
+        "被拎起悬空"
+      ]
+    },
+    {
+      "id": "trot",
+      "name": "原地小跑",
+      "description": "侧身小跑",
+      "roles": [
+        "move"
+      ],
+      "clips": [
+        "原地小跑"
+      ]
+    },
+    {
+      "id": "look-around",
+      "name": "东张西望",
+      "description": "和水豚一起左右张望",
+      "roles": [
+        "turn"
+      ],
+      "clips": [
+        "东张西望"
+      ]
+    }
+  ],
+  "profile": {
+    "species": "humanoid",
+    "traits": {
+      "energetic": 65,
+      "clingy": 75,
+      "greedy": 60,
+      "bold": 40,
+      "curious": 70
+    },
+    "diet": {
+      "likes": [
+        "cake",
+        "cookie",
+        "milk"
+      ],
+      "dislikes": [
+        "vegetable"
+      ]
+    }
+  }
+}

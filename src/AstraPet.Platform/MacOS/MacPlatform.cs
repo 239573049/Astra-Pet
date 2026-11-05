@@ -13,6 +13,8 @@ internal sealed class MacPlatform : PlatformBase
         Speech = new MacSpeech();
         Monitor = new MacMonitor();
         Installer = new MacDmgInstaller();
+        Windows = new MacWindowSurfaces();
+        Hotkey = new MacGlobalHotkey();
         Capabilities = new PlatformCapabilities
         {
             ClickThrough = true,
@@ -23,6 +25,8 @@ internal sealed class MacPlatform : PlatformBase
             IdleDetection = true,
             AudioDetection = true,
             InAppUpdate = MacDmgInstaller.CurrentAppBundle() is not null,
+            WindowSurfaces = MacWindowSurfaces.Available,
+            GlobalHotkey = true,
             Notes = new Dictionary<string, string>
             {
                 [nameof(PlatformCapabilities.OverFullscreen)] = "全屏隐藏：宠物不进入其他应用的全屏空间。",

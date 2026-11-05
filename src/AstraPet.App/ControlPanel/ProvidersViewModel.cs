@@ -23,6 +23,19 @@ public sealed record ProtocolOption(LlmProtocol Protocol, string Label, string H
     public override string ToString() => Label;
 }
 
+/// <summary>「工具调用」下拉框的一项。</summary>
+public sealed record ToolSupportOption(ToolSupport Value, string Label)
+{
+    public static readonly ToolSupportOption[] All =
+    [
+        new(ToolSupport.Auto, "自动（推荐）"),
+        new(ToolSupport.On, "开"),
+        new(ToolSupport.Off, "关"),
+    ];
+
+    public override string ToString() => Label;
+}
+
 /// <summary>添加提供商时选择列表里的一块。</summary>
 public sealed class PresetItem(ProviderPreset preset)
 {
@@ -86,7 +99,7 @@ public enum ProviderDialog { None, Picker, Form, Import }
 /// 对话框是窗口里叠的一层，不是独立窗口，所以这里用一个 <see cref="Dialog"/> 状态管着显示哪一屏。
 /// 编辑用草稿：点保存才写回设置，取消不留痕迹。
 /// </summary>
-public sealed class ProvidersViewModel : Observable
+public sealed class ProvidersViewModel : Observable, IDisposable
 {
     private readonly PetSettings _settings;
     private readonly IShell _shell;
@@ -125,6 +138,15 @@ public sealed class ProvidersViewModel : Observable
         _noticeTimer.Tick += (_, _) => Notice = "";
         ModelCatalog.Updated += OnCatalogUpdated;
         RebuildGroups();
+    }
+
+    /// <summary>控制台释放时退订（ModelCatalog 是静态的，不退订会让控制台一直留在内存里）。</summary>
+    public void Dispose()
+    {
+        _settings.Providers.CollectionChanged -= OnProvidersChanged;
+        _settings.PropertyChanged -= OnSettingChanged;
+        ModelCatalog.Updated -= OnCatalogUpdated;
+        _noticeTimer.Stop();
     }
 
     // ───── 卡片 ─────
@@ -233,9 +255,12 @@ public sealed class ProvidersViewModel : Observable
     }
 
     public bool IsOpen => _dialog != ProviderDialog.None;
-    public bool IsPicker => _dialog == ProviderDialog.Picker;
-    public bool IsForm => _dialog == ProviderDialog.Form;
-    public bool IsImport => _dialog == ProviderDialog.Import;
+
+    // 三个 arc:Dialog 的 IsOpen 双向绑到这里：Esc、点遮罩、右上角关闭时对话框写回 false，就当作关闭。
+    // 从一屏切到另一屏时这里先变 false，对话框收到的是同一个值，写回来也不会误关。
+    public bool IsPicker { get => _dialog == ProviderDialog.Picker; set { if (!value && IsPicker) Close(); } }
+    public bool IsForm { get => _dialog == ProviderDialog.Form; set { if (!value && IsForm) Close(); } }
+    public bool IsImport { get => _dialog == ProviderDialog.Import; set { if (!value && IsImport) Close(); } }
 
     public void Close()
     {
@@ -311,6 +336,30 @@ public sealed class ProvidersViewModel : Observable
     }
 
     public string ProtocolHint => DraftProtocol?.Hint ?? "";
+
+    public IReadOnlyList<ToolSupportOption> ToolSupportList => ToolSupportOption.All;
+
+    /// <summary>工具调用：宠物靠它在聊天时做动作（03 §1.5）。</summary>
+    public ToolSupportOption? DraftToolSupport
+    {
+        get => _draft is { } d ? ToolSupportOption.All.First(o => o.Value == d.ToolSupport) : null;
+        set
+        {
+            if (value is null || _draft is not { } d || d.ToolSupport == value.Value) return;
+            d.ToolSupport = value.Value;
+            Raise(nameof(DraftToolSupport));
+            Raise(nameof(ToolSupportHint));
+        }
+    }
+
+    public string ToolSupportHint => _draft switch
+    {
+        null => "",
+        { ToolSupport: ToolSupport.Off } => "不带工具请求：回复后宠物随机做一个反应。",
+        { ToolSupport: ToolSupport.On } => "总是带工具请求。模型不支持时会报错，那就改成「自动」或「关」。",
+        { UsesTools: false } => $"已探测到 {_draft.Model} 不支持工具调用，不再带工具；换模型或点「测试连接」会重新探测。",
+        _ => "带工具请求，模型可以让宠物做动作；接口拒绝时自动去掉工具重试，并记住这个模型不支持。",
+    };
 
     /// <summary>
     /// 模型输入框下面的候选：优先用「获取模型」拿到的列表，没有就用预设建议；
@@ -431,6 +480,7 @@ public sealed class ProvidersViewModel : Observable
         _draft = draft;
         if (_draft is not null) _draft.PropertyChanged += OnDraftChanged;
         foreach (var name in new[] { nameof(Draft), nameof(DraftProtocol), nameof(ProtocolHint), nameof(CanSave),
+                     nameof(DraftToolSupport), nameof(ToolSupportHint),
                      nameof(ModelSuggestions), nameof(ModelSuggestNote), nameof(HasModelSuggestions),
                      nameof(ModelInfoText), nameof(HasModelInfo) })
             Raise(name);
@@ -447,6 +497,10 @@ public sealed class ProvidersViewModel : Observable
             case nameof(LlmProvider.Name):
                 Raise(nameof(FormGlyph));
                 Raise(nameof(CanSave));
+                break;
+            case nameof(LlmProvider.UsesTools):
+            case nameof(LlmProvider.ToolSupport):
+                Raise(nameof(ToolSupportHint));
                 break;
             case nameof(LlmProvider.Model):
             case nameof(LlmProvider.Models):
@@ -499,6 +553,12 @@ public sealed class ProvidersViewModel : Observable
                 TimeSpan.FromSeconds(_settings.TimeoutSeconds));
             FormTestOk = true;
             FormTestText = $"连接成功 · {elapsed.TotalMilliseconds:0} ms · 模型回复：{reply}";
+            if (p.ToolSupport != ToolSupport.Off)
+            {
+                FormTestText += "\n正在测试工具调用…";
+                var tools = await TestToolsAsync(p);
+                FormTestText = $"连接成功 · {elapsed.TotalMilliseconds:0} ms · 模型回复：{reply}\n{tools}";
+            }
         }
         catch (Exception e)
         {
@@ -507,6 +567,27 @@ public sealed class ProvidersViewModel : Observable
         finally
         {
             FormTesting = false;
+        }
+    }
+
+    /// <summary>
+    /// 测一次带工具的请求，自动模式下把结果记到草稿上（保存后生效）。返回给人看的一行。
+    /// 工具测试本身出错（超时之类）不算不支持，只提示。
+    /// </summary>
+    private async Task<string> TestToolsAsync(LlmProvider p)
+    {
+        try
+        {
+            var (supported, called) = await LlmClient.TestToolsAsync(p, Math.Max(64, _settings.MaxTokens),
+                TimeSpan.FromSeconds(_settings.TimeoutSeconds));
+            if (_draft is { } d && d.ToolSupport == ToolSupport.Auto)
+                d.NoToolsModel = supported ? "" : p.Model;
+            if (!supported) return "这个模型不能控制动作，回复后宠物会随机做一个反应。";
+            return called ? "这个模型支持动作 ✓" : "接口接受工具，但这次模型没有调用；聊天时它可能很少做动作。";
+        }
+        catch (Exception e)
+        {
+            return $"工具调用测试失败：{e.Message}";
         }
     }
 
@@ -662,6 +743,8 @@ public sealed class ProvidersViewModel : Observable
             Raise(nameof(IsImportDetail));
             Raise(nameof(ImportCandidates));
             Raise(nameof(CurrentSourceName));
+            Raise(nameof(ImportTitle));
+            Raise(nameof(ImportDescription));
             Raise(nameof(SelectedCount));
             Raise(nameof(ImportButtonText));
             Raise(nameof(CanImport));
@@ -671,6 +754,10 @@ public sealed class ProvidersViewModel : Observable
     public bool IsImportList => _currentSource is null;
     public bool IsImportDetail => _currentSource is not null;
     public string CurrentSourceName => _currentSource?.Name ?? "";
+    public string ImportTitle => _currentSource is { } s ? $"从 {s.Name} 导入" : "从其他应用导入";
+    public string ImportDescription => _currentSource is null
+        ? "读取这些应用已经配好的接口，省得再抄一遍地址和 Key。只读取，不会改动它们的任何文件。"
+        : "勾选要导入的提供商。Key 会复制到 Astra 的设置文件里；已经有的配置默认不勾选。";
     public IReadOnlyList<ImportCandidate> ImportCandidates => _currentSource?.Candidates ?? [];
     public int SelectedCount => ImportCandidates.Count(c => c.Selected);
     public bool CanImport => SelectedCount > 0;

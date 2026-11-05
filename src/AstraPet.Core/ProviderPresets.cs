@@ -46,7 +46,7 @@ public static class ProviderPresets
             ["deepseek-v4.1-flash-1017", "claude-sonnet-5-5", "claude-haiku-5-5", "gpt-6-luna", "gpt-6-sol",
              "glm-5.3-flash", "gemini-4-argon", "minimax-m3.1-flash"],
             KeyUrl: "https://nextco.work/dashboard/api-keys",
-            Hint: "一个 Key 通用 Claude、GPT、DeepSeek、Gemini、GLM 等模型；三种协议都支持，换协议不用改地址。",
+            Hint: "一个 Key 通用 Claude、GPT、DeepSeek、Gemini、GLM 等模型；三种协议都支持，换协议不用改地址。角色工作台的图片（GPT Image 2.5）和视频（Seedance 2.5）也用这个 Key。",
             Hosts: ["nextco.work"]),
 
         // ───── 国内 ─────

@@ -4,9 +4,10 @@
 #
 # 宠物动画是带透明通道的 VP9 WebM。ffmpeg 自带的 VP9 解码器会丢掉透明通道，必须用 libvpx 的 libvpx-vp9 解码器，
 # 所以普通的 ffmpeg 不行，而网上现成的完整版又大（一百多 MB）又常常是 GPL。这里从未修改的官方源码构建，
-# 只打开解码本项目素材所需的最少组件：
-#   输入  matroska/webm 解复用 + libvpx-vp9 解码
-#   输出  rawvideo（RGBA 裸帧，程序从管道读）和 null（启动时探测用）
+# 只打开播放和导入动作（design/pet-studio/06 §5）所需的最少组件：
+#   播放  matroska/webm 解复用 + libvpx-vp9 解码 → rawvideo（RGBA 裸帧，程序从管道读）、null（启动时探测用）
+#   导入  mov/mp4 解复用 + h264 解码（视频模型的输出）、hevc 解码（手机录的视频；7.1 的 h264 也依赖它带进来的 aom_film_grain）、prores 解码（带透明通道的 ProRes 4444 mov）
+#         → rawvideo；处理后的 RGBA 帧 → libvpx-vp9 编码（yuva420p）→ webm 封装
 #   不开 --enable-gpl / --enable-nonfree，不联网，不用系统库（--disable-autodetect），所以产物是自包含的 LGPL 可执行文件。
 #
 # 用法：tools/ffmpeg/build.sh <输出目录>
@@ -74,7 +75,7 @@ mkdir libvpx && tar xzf libvpx.tar.gz -C libvpx --strip-components=1
   ./configure --target="$VPX_TARGET" --prefix="$PREFIX" \
     --disable-shared --enable-static --enable-pic \
     --disable-examples --disable-tools --disable-docs --disable-unit-tests \
-    --disable-vp8 --disable-vp9-encoder --enable-vp9-decoder
+    --disable-vp8 --enable-vp9-encoder --enable-vp9-decoder
   make -j"$JOBS"
   make install
 )
@@ -92,9 +93,10 @@ mkdir ffmpeg-src && tar xJf ffmpeg.tar.xz -C ffmpeg-src --strip-components=1
     --disable-ffplay --disable-ffprobe --enable-ffmpeg \
     --enable-small \
     --enable-libvpx \
-    --enable-decoder=libvpx_vp9 --enable-parser=vp9 \
-    --enable-demuxer=matroska --enable-protocol=file,pipe \
-    --enable-encoder=rawvideo,wrapped_avframe --enable-muxer=rawvideo,null \
+    --enable-decoder=libvpx_vp9,h264,hevc,prores,rawvideo --enable-parser=vp9,h264,hevc \
+    --enable-demuxer=matroska,mov,rawvideo --enable-protocol=file,pipe \
+    --enable-encoder=rawvideo,wrapped_avframe,libvpx_vp9 --enable-muxer=rawvideo,null,webm \
+    --enable-bsf=vp9_superframe \
     --enable-swscale --enable-avfilter \
     --enable-filter=scale,format,null,buffer,buffersink
   make -j"$JOBS"
@@ -105,6 +107,10 @@ install -m 755 "$WORK/ffmpeg-install/bin/ffmpeg$EXE" "$OUT/ffmpeg$EXE"
 
 echo "== 自检"
 "$OUT/ffmpeg$EXE" -hide_banner -decoders 2>/dev/null | grep -q libvpx-vp9 || { echo "缺少 libvpx_vp9 解码器" >&2; exit 1; }
+"$OUT/ffmpeg$EXE" -hide_banner -encoders 2>/dev/null | grep -q libvpx-vp9 || { echo "缺少 libvpx_vp9 编码器" >&2; exit 1; }
+for d in h264 prores; do
+  "$OUT/ffmpeg$EXE" -hide_banner -decoders 2>/dev/null | grep -q " $d " || { echo "缺少 $d 解码器" >&2; exit 1; }
+done
 if "$OUT/ffmpeg$EXE" -version | grep -E -q -- '--enable-(gpl|nonfree|version3)'; then
   echo "这不是 LGPL 构建（configure 里有 gpl / nonfree / version3）" >&2; exit 1
 fi

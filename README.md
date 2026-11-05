@@ -2,7 +2,7 @@
 
 一只住在桌面上的宠物：会走动、会回应点击和摸头，可以接入大模型陪你聊天，也会提醒你喝水、起身活动。用 [Avalonia](https://avaloniaui.net/) 写成，支持 macOS 和 Windows，可以编成 Native AOT。
 
-下载：<https://astra-gate.si/pet>　源码：<https://github.com/239573049/Astra-Pet>
+下载：<https://hub.astra-gate.si/download>　源码：<https://github.com/239573049/Astra-Pet>
 
 ## 许可 / License
 
@@ -45,7 +45,7 @@ dotnet publish src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:P
 
 ### 发布
 
-给仓库打 `v*` 标签（例如 `v0.2.0`、`v0.3.0-preview.1`），GitHub 工作流 `.github/workflows/release.yml` 会构建各平台的安装包并上传到 <https://astra-gate.si>：
+给仓库打 `v*` 标签（例如 `v0.2.0`、`v0.3.0-preview.1`），GitHub 工作流 `.github/workflows/release.yml` 会构建各平台的安装包并上传到 Astra Hub（<https://hub.astra-gate.si/download>）：
 
 | 平台 | 安装包 | 说明 |
 |---|---|---|
@@ -53,7 +53,7 @@ dotnet publish src/AstraPet.App/AstraPet.App.csproj -c Release -r osx-arm64 -p:P
 | Windows x64 | `.exe` 安装程序（Inno Setup） | 装到当前用户目录，不需要管理员权限；没有代码签名 |
 | Linux x64 | `.deb`（Debian / Ubuntu） | 实验性：开机自启、朗读、点击穿透、听歌检测暂不支持 |
 
-三个平台的包都自带精简的 LGPL 版 ffmpeg。需要在仓库 Secrets 里配置 `PET_UPLOAD_TOKEN`（上传）和 `MACOS_CERT_P12_BASE64`、`MACOS_CERT_PASSWORD`（macOS 签名）。
+三个平台的包都自带精简的 LGPL 版 ffmpeg。需要在仓库 Secrets 里配置 `HUB_RELEASE_TOKEN`（上传到 Astra Hub，和站点的 `Releases__UploadToken` 一致）和 `MACOS_CERT_P12_BASE64`、`MACOS_CERT_PASSWORD`（macOS 签名）。
 
 应用图标由 `python3 tools/icon/make_icons.py` 从角色立绘生成（`.icns` 只能在 macOS 上生成，生成后提交到仓库）。
 

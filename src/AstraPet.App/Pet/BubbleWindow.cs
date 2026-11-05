@@ -111,18 +111,16 @@ public sealed class BubbleWindow : Window
         _native.SetCapturable(_settings.AllowCapture);
     }
 
-    /// <summary>水平居中在宠物上方，底边落在角色头顶；超出屏幕顶端时贴着屏幕上沿。</summary>
+    /// <summary>水平居中在角色上方，底边落在角色头顶（按 PetBody 算，贴墙、朝右时也对）；超出屏幕顶端时贴着屏幕上沿。</summary>
     private void Follow()
     {
         if (!IsVisible) return;
         var scaling = DesktopScaling;
-        var petScaling = _pet.DesktopScaling;
-        var petWidth = _pet.Width * petScaling;
-        var head = HeadY * _settings.Scale * petScaling;
         var w = Bounds.Width * scaling;
         var h = Bounds.Height * scaling;
-        var x = _pet.Position.X + (petWidth - w) / 2;
-        var y = _pet.Position.Y + head - h;
+        var (center, top) = _pet.HeadAnchor;
+        var x = center - w / 2;
+        var y = top + (HeadY - 60) * _settings.Scale * _pet.DesktopScaling - h;
         var area = (Screens.ScreenFromWindow(_pet) ?? Screens.Primary)?.WorkingArea;
         if (area is { } a)
         {

@@ -15,6 +15,10 @@ public interface IPlatform
     ISpeech Speech { get; }
     ISystemMonitor Monitor { get; }
     IUpdateInstaller Installer { get; }
+    /// <summary>其他应用的窗口位置（宠物站在窗口顶上用）。</summary>
+    IWindowSurfaces Windows => NoWindowSurfaces.Instance;
+    /// <summary>召唤用的全局快捷键。</summary>
+    IGlobalHotkey Hotkey => NoGlobalHotkey.Instance;
 
     /// <summary>
     /// 窗口打开后调用，拿到操作这个窗口的原生接口。<paramref name="handle"/> 在 macOS 上是 NSWindow*，
@@ -54,6 +58,10 @@ public sealed record PlatformCapabilities
     public bool AudioDetection { get; init; }
     /// <summary>能在应用内安装更新；不能时退回浏览器下载。</summary>
     public bool InAppUpdate { get; init; }
+    /// <summary>能读到其他应用窗口的位置（宠物能站在窗口顶上）。</summary>
+    public bool WindowSurfaces { get; init; }
+    /// <summary>能注册全局快捷键（召唤）。</summary>
+    public bool GlobalHotkey { get; init; }
 
     /// <summary>给用户看的说明，键是上面的属性名。支持的能力也可以有说明（比如「需要 Windows 10 2004 及以上」）。</summary>
     public IReadOnlyDictionary<string, string> Notes { get; init; } = new Dictionary<string, string>();

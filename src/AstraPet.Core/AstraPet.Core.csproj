@@ -12,11 +12,11 @@
     <InternalsVisibleTo Include="AstraPet.Tests" />
   </ItemGroup>
 
-  <!-- 版本号和更新服务器地址写成常量，不靠 Assembly.GetCustomAttributes 反射读：NativeAOT 下那条路会因为元数据被裁掉而读不到。 -->
+  <!-- 版本号、更新服务器和宠物市场的地址写成常量，不靠 Assembly.GetCustomAttributes 反射读：NativeAOT 下那条路会因为元数据被裁掉而读不到。 -->
   <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
     <PropertyGroup>
       <BuildInfoFile>$(IntermediateOutputPath)BuildInfo.g.cs</BuildInfoFile>
-      <BuildInfoSource>namespace AstraPet.Core%3B internal static class BuildInfo { public const string Version = "$(Version)"%3B public const string UpdateBaseUrl = "$(UpdateBaseUrl)"%3B }</BuildInfoSource>
+      <BuildInfoSource>namespace AstraPet.Core%3B internal static class BuildInfo { public const string Version = "$(Version)"%3B public const string UpdateBaseUrl = "$(UpdateBaseUrl)"%3B public const string HubBaseUrl = "$(HubBaseUrl)"%3B }</BuildInfoSource>
     </PropertyGroup>
     <WriteLinesToFile File="$(BuildInfoFile)" Lines="$(BuildInfoSource)" Overwrite="true" WriteOnlyWhenDifferent="true" />
     <ItemGroup>

@@ -7,7 +7,7 @@ using AstraPet.Core;
 namespace AstraPet.Infrastructure.Update;
 
 /// <summary>
-/// 从 LocalGate 站点取发布信息：GET {服务器}/api/pet-releases/{渠道}/latest.json?platform=…（地址由 UpdateChecker 拼好）。
+/// 从更新服务器（Astra Hub）取发布信息：GET {服务器}/api/pet-releases/{渠道}/latest.json?platform=…（地址由 UpdateChecker 拼好）。
 /// 404 表示这个渠道还没有发布过版本，返回 null。
 /// </summary>
 public sealed class HttpUpdateFeed : IUpdateFeed

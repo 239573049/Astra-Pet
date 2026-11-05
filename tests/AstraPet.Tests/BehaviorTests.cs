@@ -15,7 +15,7 @@ internal sealed class FakeCommands : IPetCommands
 {
     public List<string> Calls { get; } = new();
     public void OpenChat() => Calls.Add(nameof(OpenChat));
-    public void OpenConsole() => Calls.Add(nameof(OpenConsole));
+    public void OpenConsole(string? page = null) => Calls.Add(nameof(OpenConsole));
     public void ResetPosition() => Calls.Add(nameof(ResetPosition));
 }
 
@@ -46,11 +46,12 @@ internal sealed class HostRig : IDisposable
     public PetSettings Settings { get; } = new() { AutoCheckUpdate = false, DailyGreeting = false };
     public PetDirector Director { get; }
     public PetHost Host { get; }
+    public PetEventBus Events { get; } = new();
 
-    public HostRig(DateTimeOffset? start = null, PlatformCapabilities? caps = null)
+    public HostRig(DateTimeOffset? start = null, PlatformCapabilities? caps = null, IGlobalHotkey? hotkey = null)
     {
         Time = new FakeTimeProvider(start ?? new DateTimeOffset(2026, 11, 3, 9, 0, 0, TimeSpan.Zero));
-        Director = new PetDirector(PetLibrary.Load(_dir.Dir, new FakeDecoder()), Settings, new Random(1));
+        Director = new PetDirector(PetLibrary.Load(_dir.Dir, new FakeDecoder()), Settings, new Random(1), Time);
         Director.Start();
         Host = new PetHost(new PetContext
         {
@@ -65,6 +66,8 @@ internal sealed class HostRig : IDisposable
             Time = Time,
             Ui = new InlineUi(),
             Random = new Random(1),
+            Events = Events,
+            Hotkey = hotkey ?? NoGlobalHotkey.Instance,
         });
     }
 
@@ -96,6 +99,31 @@ public class ReminderTests
         Assert.DoesNotContain(rig.Voice.Said, ReminderBehavior.DrinkLines.Contains);
         rig.Advance(TimeSpan.FromMinutes(2));
         Assert.Single(rig.Voice.Said, ReminderBehavior.DrinkLines.Contains);
+    }
+
+    [Fact]
+    public void Continuous_use_is_tracked_regardless_of_sit_reminder_and_resets_when_away()
+    {
+        using var rig = new HostRig();
+        rig.Settings.SitReminder = false;
+        rig.Host.Start();
+
+        rig.Advance(TimeSpan.FromMinutes(100));
+        Assert.Equal(TimeSpan.FromMinutes(100), rig.Host.Reminders.ContinuousUse);
+        rig.Monitor.Idle = TimeSpan.FromMinutes(6);
+        rig.Advance(TimeSpan.FromSeconds(30));
+        rig.Monitor.Idle = TimeSpan.Zero;
+        rig.Advance(TimeSpan.FromMinutes(10));
+        Assert.InRange(rig.Host.Reminders.ContinuousUse!.Value.TotalMinutes, 10, 10.5);
+    }
+
+    [Fact]
+    public void Continuous_use_is_unknown_without_idle_detection()
+    {
+        using var rig = new HostRig(caps: new PlatformCapabilities { IdleDetection = false });
+        rig.Host.Start();
+        rig.Advance(TimeSpan.FromMinutes(60));
+        Assert.Null(rig.Host.Reminders.ContinuousUse);
     }
 
     [Fact]
