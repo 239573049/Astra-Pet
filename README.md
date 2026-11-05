@@ -4,6 +4,14 @@
 
 下载：<https://hub.astra-gate.si/download>　源码：<https://github.com/239573049/Astra-Pet>
 
+## 交流群
+
+QQ 群「Agents」，群号 **1040022423**，扫码加入：
+
+<p align="center">
+  <img src="docs/qq-group.png" width="260" alt="QQ 群 Agents（群号 1040022423）二维码">
+</p>
+
 ## 许可 / License
 
 > **源码开源（MIT），宠物形象的版权归 RoutinAI。 / Source code is open source (MIT); the pet artwork is copyrighted by RoutinAI.**
