@@ -9,10 +9,11 @@ namespace AstraPet.Infrastructure.Media;
 /// 一次播放：起一个 ffmpeg 进程边解边播。后台线程把 RGBA 帧读进有界队列，UI 线程每个 tick 取一帧。
 /// 队列满了，ffmpeg 就被管道背压挡住，所以每条流只占几帧内存，和片段长短、片段个数都无关。
 /// libvpx-vp9 解 640x360 出首帧只要二十毫秒左右，比一帧的间隔还短，现开现播不会卡。
+/// 整段解码比实时快一百多倍，队列不用深：每帧 900KB，当前段和预取的下一段各占一队列。
 /// </summary>
 internal sealed class FfmpegFrameSource : IFrameSource
 {
-    private const int QueueFrames = 6;
+    private const int QueueFrames = 3;
 
     private readonly Process _process;
     private readonly BlockingCollection<byte[]> _ready = new(QueueFrames);

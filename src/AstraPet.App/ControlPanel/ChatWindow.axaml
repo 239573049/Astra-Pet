@@ -1,26 +1,38 @@
 <Window xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:arc="clr-namespace:TKCode.Arc;assembly=TKCode.Arc"
+             xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
              xmlns:local="using:AstraPet.ControlPanel"
              x:Class="AstraPet.ControlPanel.ChatWindow"
              Icon="avares://AstraPet/Assets/icons/app.png"
              x:DataType="local:ChatViewModel"
              Title="和 Astra 聊天"
              Width="380" Height="520" MinWidth="320" MinHeight="360"
-             FontSize="12" RequestedThemeVariant="Dark"
-             Background="#F0171919" TransparencyLevelHint="AcrylicBlur,Blur"
-             TransparencyBackgroundFallback="#191B1B"
+             FontSize="13" Foreground="{arc:ArcDesignTokenResource Foreground}"
+             Background="{arc:ArcDesignTokenResource Background}"
              WindowStartupLocation="CenterScreen">
     <Window.Styles>
         <Style Selector="arc|Button">
             <Setter Property="Variant" Value="Secondary" />
         </Style>
+        <!-- 气泡：模型的回复用浅底，自己说的用主色淡底，出错用 Danger 淡底 -->
+        <Style Selector="Border.bubble">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource SurfaceMuted}" />
+        </Style>
+        <Style Selector="Border.bubble.user">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource AccentSubtle}" />
+        </Style>
+        <Style Selector="Border.bubble.error">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource DangerSubtle}" />
+        </Style>
+        <Style Selector="Border.bubble.error SelectableTextBlock">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Danger}" />
+        </Style>
     </Window.Styles>
     <Grid RowDefinitions="Auto,*,Auto" Margin="16 12 16 14">
         <Grid ColumnDefinitions="*,Auto" Margin="0 0 0 10">
             <StackPanel Spacing="2">
-                <TextBlock Text="和 Astra 聊天" FontSize="14" FontWeight="SemiBold" Foreground="#E8E9E9" />
-                <TextBlock Text="{Binding ProviderText}" FontSize="10.5" Foreground="#8D9190" />
+                <TextBlock Text="和 Astra 聊天" FontSize="14" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding ProviderText}" FontSize="12" Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
             </StackPanel>
             <arc:Button Grid.Column="1" Content="清空上下文" Size="Small" VerticalAlignment="Center" Click="OnClear" />
         </Grid>
@@ -31,11 +43,11 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:ChatLine">
-                        <Border CornerRadius="10" Padding="10 7" MaxWidth="330"
-                                HorizontalAlignment="{Binding Alignment}" Background="{Binding Background}">
+                        <Border Classes="bubble" Classes.user="{Binding FromUser}" Classes.error="{Binding IsError}"
+                                CornerRadius="12" Padding="11 8" MaxWidth="330" HorizontalAlignment="{Binding Alignment}">
                             <Panel>
                                 <SelectableTextBlock Text="{Binding Text}" IsVisible="{Binding IsPlain}" TextWrapping="Wrap"
-                                                     Foreground="{Binding Foreground}" LineHeight="18" />
+                                                     LineHeight="19" />
                                 <arc:Markdown Text="{Binding Text}" IsVisible="{Binding IsMarkdown}" />
                             </Panel>
                         </Border>
@@ -43,7 +55,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
-        <TextBlock Grid.Row="1" Text="说点什么吧～ 回车发送，回复也会出现在宠物头顶。" FontSize="11" Foreground="#8D9190"
+        <TextBlock Grid.Row="1" Text="说点什么吧～ 回车发送，回复也会出现在宠物头顶。" FontSize="12" Foreground="{arc:ArcDesignTokenResource TextSecondary}"
                    IsVisible="{Binding !Lines.Count}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" />
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0 12 0 0">
             <arc:Input x:Name="Input" Text="{Binding Input, Mode=TwoWay}" PlaceholderText="和它说话…"

@@ -42,7 +42,7 @@ public class UpdateCheckerTests
         Assert.Equal(UpdateState.Available, checker.State);
         Assert.Equal("dmg", info.Kind);                                          // dmg 优先于 zip
         Assert.Equal("https://example.test/files/AstraPet-0.2.0-darwin-arm64.dmg", info.DownloadUrl);
-        Assert.Equal("https://example.test/pet", info.PageUrl);                  // 没给下载页时用默认的
+        Assert.Equal("https://example.test/download", info.PageUrl);                  // 没给下载页时用默认的
         Assert.Equal("https://example.test/api/pet-releases/stable/latest.json?platform=darwin-arm64",
             Assert.Single(feed.Requested).ToString());
     }

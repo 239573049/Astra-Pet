@@ -34,3 +34,9 @@
   平台分支用 `OperatingSystem.IsXxx()`，让 ILC 在按 RID 发布时把其他平台的分支裁掉。
 - **小步迁移，每步都能发版。** 每一步结束时 `dotnet build`、`--smoke`、三个平台的 release 构建都要通过。
 - **保持用户数据兼容。** 设置文件格式变化必须带版本号和自动迁移，老用户升级后配置不丢。
+
+## 其他设计
+
+- [pet-studio/](pet-studio/README.md)：动作系统、Agent 触发与系统提示词、宠物工作台、角色包格式 2
+- [pet-life/](pet-life/README.md)：宠物体系——档案与性格、饱腹 / 精力 / 心情 / 亲密度、更多互动、地面重力与爬墙（姿态图）、工作台扩展
+- [market/](market/README.md)：宠物市场——设备码登录、固定的 Hub 地址、令牌存储、下载安装与校验

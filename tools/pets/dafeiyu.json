@@ -1,0 +1,193 @@
+{
+  "_comment": "大肥鱼的格式 2 元数据：人设和动作（tools/pack_pet.py --format 2 --meta）。clips 写素材文件名（不带 .webm）。社区二创形象，人设随包按 CC BY-NC-SA 4.0 发布。",
+  "version": "1.2.0",
+  "persona": {
+    "name": "大肥鱼",
+    "identity": "深蓝色长卷发、戴白色女仆头饰、穿女仆装的 Q 版鲸鱼娘，耳边有一对小鳍",
+    "personality": "元气又有点傲娇，嘴上不饶人，其实很黏人，被夸会害羞",
+    "speech": "说话直率，偶尔「哼」一声装作不在意，开心时尾音上扬",
+    "likes": [
+      "深海",
+      "被夸可爱",
+      "陪你写代码"
+    ],
+    "catchphrases": [
+      "哼，才不是特意陪你的呢！"
+    ],
+    "greeting": "哼，以后我就住你桌面上了，好好相处吧～"
+  },
+  "actions": [
+    {
+      "id": "idle-breathe",
+      "name": "待机呼吸",
+      "description": "悠闲地站着呼吸、眨眼",
+      "roles": [
+        "idle"
+      ],
+      "clips": [
+        "待机呼吸休闲"
+      ]
+    },
+    {
+      "id": "huff",
+      "name": "傲娇生气",
+      "description": "气鼓鼓地转身背对你，哼一声又偷偷转回来",
+      "roles": [
+        "click",
+        "angry"
+      ],
+      "clips": [
+        "点击回应-傲娇生气"
+      ],
+      "lines": [
+        "哼！",
+        {
+          "bond": 5,
+          "text": "哼，{user}就会欺负我"
+        }
+      ]
+    },
+    {
+      "id": "cheer-wave",
+      "name": "元气挥手",
+      "description": "眯眼笑着举起双手朝你挥",
+      "roles": [
+        "click",
+        "greet",
+        "happy"
+      ],
+      "clips": [
+        "点击回应-元气挥手"
+      ],
+      "lines": [
+        "来啦来啦～",
+        {
+          "bond": 4,
+          "text": "才不是在等你呢！"
+        }
+      ]
+    },
+    {
+      "id": "shy-surprise",
+      "name": "害羞惊讶",
+      "description": "吓了一跳，双手捂脸害羞地笑",
+      "roles": [
+        "click",
+        "shy",
+        "surprised"
+      ],
+      "clips": [
+        "点击回应-害羞惊讶"
+      ]
+    },
+    {
+      "id": "hop",
+      "name": "开心跃动",
+      "description": "开心地蹦起来，身边冒出一圈爱心",
+      "roles": [
+        "click",
+        "happy",
+        "celebrate"
+      ],
+      "clips": [
+        "点击回应-开心跃动"
+      ]
+    },
+    {
+      "id": "giggle",
+      "name": "挠痒咯咯笑",
+      "description": "被挠痒痒，捂着嘴咯咯直笑",
+      "roles": [
+        "click",
+        "affection"
+      ],
+      "clips": [
+        "点击回应-挠痒咯咯笑"
+      ],
+      "lines": [
+        {
+          "bond": 3,
+          "text": "嘿嘿…被你发现了"
+        },
+        {
+          "bond": 8,
+          "text": "…最喜欢你了，就说一次哦"
+        }
+      ]
+    },
+    {
+      "id": "dangle",
+      "name": "拖拽悬空",
+      "description": "被拎起来悬在半空",
+      "roles": [
+        "drag"
+      ],
+      "clips": [
+        "被鼠标拖拽悬空反馈"
+      ]
+    },
+    {
+      "id": "run",
+      "name": "左转奔跑",
+      "description": "侧身奔跑",
+      "roles": [
+        "move"
+      ],
+      "clips": [
+        "左转奔跑"
+      ]
+    },
+    {
+      "id": "float-step",
+      "name": "漂浮踏步",
+      "description": "飘在空中踏步前进",
+      "roles": [
+        "move"
+      ],
+      "clips": [
+        "漂浮踏步"
+      ]
+    },
+    {
+      "id": "crab-walk",
+      "name": "螃蟹走路",
+      "description": "横着像螃蟹一样走",
+      "roles": [
+        "move"
+      ],
+      "clips": [
+        "螃蟹走路"
+      ]
+    },
+    {
+      "id": "look-around",
+      "name": "东张西望",
+      "description": "左右张望",
+      "roles": [
+        "turn"
+      ],
+      "clips": [
+        "东张西望"
+      ]
+    }
+  ],
+  "profile": {
+    "species": "humanoid",
+    "traits": {
+      "energetic": 70,
+      "clingy": 65,
+      "greedy": 80,
+      "bold": 70,
+      "curious": 55
+    },
+    "diet": {
+      "likes": [
+        "fish",
+        "ice-cream"
+      ],
+      "dislikes": [
+        "vegetable"
+      ]
+    }
+  }
+}

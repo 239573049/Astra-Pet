@@ -32,13 +32,17 @@ public sealed class PetCatalog
     private readonly string _builtInPacks;
     private readonly string _cacheDirectory;
     private readonly string? _defaultOverride;
+    private readonly string? _overlayRoot;
 
     /// <param name="builtInPacks">内置角色包所在目录。</param>
     /// <param name="userDirectory">用户的角色目录，不存在也没关系。</param>
     /// <param name="cacheDirectory">角色包解压到这里。</param>
     /// <param name="defaultOverride">开发用：用这个素材目录代替默认角色（环境变量 ASTRA_PET_VIDEOS）。</param>
-    public PetCatalog(string builtInPacks, string userDirectory, string cacheDirectory, string? defaultOverride = null)
+    /// <param name="overlayRoot">用户对各宠物动作的自定义存在这里（数据目录下的 pets），null 表示不支持自定义。</param>
+    public PetCatalog(string builtInPacks, string userDirectory, string cacheDirectory, string? defaultOverride = null,
+        string? overlayRoot = null)
     {
+        _overlayRoot = overlayRoot;
         _builtInPacks = builtInPacks;
         UserDirectory = userDirectory;
         _cacheDirectory = cacheDirectory;
@@ -80,6 +84,16 @@ public sealed class PetCatalog
         return pets;
     }
 
+    /// <summary>内置角色包的清单 id（xiaot、dafeiyu…）。从市场安装时不许用这些 id，免得和内置角色混在一起。</summary>
+    public IReadOnlySet<string> BuiltInPackIds()
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        if (Directory.Exists(_builtInPacks))
+            foreach (var file in Directory.EnumerateFiles(_builtInPacks, "*" + PetPack.Extension))
+                if (PetPack.Inspect(file).Manifest is { } manifest) ids.Add(manifest.Id);
+        return ids;
+    }
+
     /// <summary>角色的素材目录。角色包第一次用到时解压到缓存目录（几十毫秒到一两秒），放到后台线程上调。</summary>
     public string Resolve(PetEntry pet) => pet.IsPack ? PetPack.Extract(pet.Location, _cacheDirectory) : pet.Location;
 
@@ -115,7 +129,27 @@ public sealed class PetCatalog
         if (pet.Problem is { } problem) throw new InvalidOperationException(problem);
         var videos = Resolve(pet);
         PetLog.Write($"角色: {pet.Name} ({videos})");
-        return PetLibrary.Load(videos, decoder, PetLog.Write);
+        var library = PetLibrary.Load(videos, decoder, PetLog.Write, OverlayDirectoryOf(pet));
+        library.Name = pet.Name;
+        return library;
+    }
+
+    /// <summary>
+    /// 这只宠物的覆盖层目录：角色包按包 id（升级包后改动还在），用户文件夹按文件夹名（加 dir- 前缀，免得和包 id 撞），
+    /// 开发素材不支持自定义。
+    /// </summary>
+    public string? OverlayDirectoryOf(PetEntry pet)
+    {
+        if (_overlayRoot is null) return null;
+        string key;
+        if (pet.IsPack)
+        {
+            if (PetPack.Inspect(pet.Location).Manifest is not { } manifest) return null;
+            key = manifest.Id;
+        }
+        else if (pet.IsBuiltIn) return null;
+        else key = "dir-" + Path.GetFileName(Path.TrimEndingDirectorySeparator(pet.Id));
+        return Path.Combine(_overlayRoot, key);
     }
 
     private IEnumerable<PetEntry> ScanUser()
@@ -144,6 +178,9 @@ public sealed class PetCatalog
     /// <summary>必需的分类里有没有 webm。全有返回 null，否则返回缺哪些。</summary>
     private static string? CheckFolder(string videosDir)
     {
+        if (File.Exists(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(videosDir)) ?? videosDir, "pet.json"))
+            || File.Exists(Path.Combine(videosDir, "pet.json")))
+            return null;   // 可能是格式 2，加载时再检查
         var missing = PetLibrary.Required.Where(c => !HasClips(Path.Combine(videosDir, c))).ToList();
         return missing.Count == 0 ? null : $"缺少 {string.Join("、", missing)} 的 webm";
     }

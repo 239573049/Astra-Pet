@@ -1,41 +1,103 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="AstraPet.App"
-             RequestedThemeVariant="Dark">
-    <!-- 主题由 Program.cs 里的 UseArc 装，这里不挂 FluentTheme。
-         宠物右键用 Avalonia 原生 ContextMenu（宠物窗口没有 overlay 层），没有主题就没有模板、画不出来，所以这里补一套最小的深色样式。 -->
+             xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+             x:Class="AstraPet.App">
+    <!-- 主题由 Program.cs 里的 UseArc 装，明暗和主色由设置决定（见 App.ApplyTheme），这里不挂 FluentTheme。
+         宠物右键用 Avalonia 原生 ContextMenu（宠物窗口没有 overlay 层），没有主题就没有模板、画不出来，
+         所以这里补一套菜单样式，颜色全部取 Arc 的设计令牌，跟着明暗和主色走。
+         每项三列：图标、文字、勾选标记；分组之间是细分隔线；「退出」是 danger。 -->
     <Application.Styles>
         <Style Selector="ContextMenu">
-            <Setter Property="Background" Value="#F01B1D1D" />
-            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource SurfaceRaised}" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="4" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="5" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}" MinWidth="120">
+                            Padding="{TemplateBinding Padding}" MinWidth="188">
                         <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
+
         <Style Selector="MenuItem">
-            <Setter Property="Foreground" Value="#E8E9E9" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="10 6" />
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Foreground}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="8 0 10 0" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="PART_Root" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}"
-                                          Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                    <Border Name="PART_Root" Background="Transparent" CornerRadius="7" Padding="{TemplateBinding Padding}">
+                        <Grid ColumnDefinitions="26,*,Auto">
+                            <ContentPresenter Name="PART_IconPresenter" Content="{TemplateBinding Icon}"
+                                              HorizontalAlignment="Left" VerticalAlignment="Center" />
+                            <ContentPresenter Name="PART_HeaderPresenter" Grid.Column="1" Content="{TemplateBinding Header}"
+                                              Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                            <Path Name="PART_Check" Grid.Column="2" Width="12" Height="12" Margin="12 0 0 0" Stretch="Uniform"
+                                  Data="M 2,7 L 5.5,10.5 L 12,3" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{arc:ArcDesignTokenResource Accent}" VerticalAlignment="Center"
+                                  IsVisible="{TemplateBinding IsChecked}" />
+                            <!-- 有子菜单（喂食）时右边一个小箭头；没有子项的（:empty）藏起来。 -->
+                            <Path Name="PART_Chevron" Grid.Column="2" Width="7" Height="11" Margin="12 0 0 0" Stretch="Uniform"
+                                  Data="M 1,1 L 6,6 L 1,11" StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{arc:ArcDesignTokenResource TextSecondary}" VerticalAlignment="Center" />
+                            <!-- 子菜单弹窗：MenuItem 靠名为 PART_Popup 的 Popup 打开子项，模板里没有它子菜单就点不开。 -->
+                            <Popup Name="PART_Popup" Placement="RightEdgeAlignedTop" HorizontalOffset="6" VerticalOffset="-6"
+                                   IsLightDismissEnabled="False" IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}">
+                                <Border Background="{arc:ArcDesignTokenResource SurfaceRaised}" BorderBrush="{arc:ArcDesignTokenResource Border}"
+                                        BorderThickness="1" CornerRadius="12" Padding="5" MinWidth="160">
+                                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                                </Border>
+                            </Popup>
+                        </Grid>
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="MenuItem:pointerover /template/ Border#PART_Root, MenuItem:selected /template/ Border#PART_Root">
-            <Setter Property="Background" Value="#26FFFFFF" />
+        <Style Selector="MenuItem:empty /template/ Path#PART_Chevron">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <!-- 冷却中、没有零食的食物置灰，不响应悬停。 -->
+        <Style Selector="MenuItem:disabled">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+        <Style Selector="MenuItem:pointerover /template/ Border#PART_Root, MenuItem:selected /template/ Border#PART_Root, MenuItem:open /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource AccentSubtle}" />
+        </Style>
+        <Style Selector="MenuItem Path.menu-icon">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="Width" Value="15" />
+            <Setter Property="Height" Value="15" />
+            <Setter Property="Stretch" Value="Uniform" />
+        </Style>
+        <Style Selector="MenuItem:pointerover Path.menu-icon, MenuItem:selected Path.menu-icon">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource AccentStrong}" />
+        </Style>
+        <Style Selector="MenuItem.danger">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Danger}" />
+        </Style>
+        <Style Selector="MenuItem.danger Path.menu-icon, MenuItem.danger:pointerover Path.menu-icon">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource Danger}" />
+        </Style>
+        <Style Selector="MenuItem.danger:pointerover /template/ Border#PART_Root">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource DangerSubtle}" />
+        </Style>
+
+        <Style Selector="ContextMenu > Separator">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Margin" Value="8 4" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{arc:ArcDesignTokenResource BorderSubtle}" />
+                </ControlTemplate>
+            </Setter>
         </Style>
     </Application.Styles>
 </Application>

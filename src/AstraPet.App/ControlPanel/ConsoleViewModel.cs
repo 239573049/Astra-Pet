@@ -7,6 +7,8 @@ using AstraPet.Platform;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Threading;
+using TKCode.Arc;
+using MemoryItem = AstraPet.Core.MemoryItem;
 
 namespace AstraPet.ControlPanel;
 
@@ -25,12 +27,29 @@ public sealed class NavItem(string key, string label, string description, string
 /// <summary>互动页的动作预览按钮。</summary>
 public sealed record ActionOption(string Category, string Label);
 
+/// <summary>侧边栏的一组页面，Title 为空的组不显示组名。</summary>
+public sealed record NavGroup(string Title, NavItem[] Items)
+{
+    public bool HasTitle => Title.Length > 0;
+}
+
+/// <summary>常规页「主色」的一个色块。</summary>
+public sealed class AccentOption(string name, string hex) : Observable
+{
+    private bool _selected;
+
+    public string Name { get; } = name;
+    public string Hex { get; } = hex;
+    public IBrush Brush { get; } = new SolidColorBrush(Color.Parse(hex));
+    public bool IsSelected { get => _selected; set => Set(ref _selected, value); }
+}
+
 /// <summary>
 /// 控制台的视图模型。设置项直接绑到 <see cref="PetSettings"/>，改了立即生效并自动存盘；
 /// 这里只放需要额外逻辑的东西：页面切换、记忆、语音列表、菜单排序、番茄钟状态；
 /// 提供商（卡片、添加、导入）单独放在 <see cref="ProvidersViewModel"/>。
 /// </summary>
-public sealed class ConsoleViewModel : Observable, IDisposable
+public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHost
 {
     private readonly PetWindow _pet;
     private readonly PetCompanion _companion;
@@ -42,7 +61,6 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     private NavItem _page;
-    private bool _sidebarExpanded = true;
     private string _newMemory = "";
     private string _promptPreview = "";
     private string _speechSample = "你好呀，我是 Astra，今天也要开开心心的！";
@@ -69,29 +87,65 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         Settings = settings;
         Hub = new ProvidersViewModel(settings, platform.Shell);
         Update = new UpdateViewModel(companion, settings, platform, Exit);
+        Actions = new ActionsViewModel(director, companion, settings, ffmpeg);
+        Life = new LifeViewModel(companion, director, pet, settings, platform.Capabilities, platform.Hotkey.Display);
+        Market = new MarketViewModel(App.Composition!.Market, App.Composition.HubClient, platform.Shell,
+            RefreshPets, UseInstalledPet, () => IsMarket);
+        companion.ExternalStatusChanged += RaiseExternal;
 
         Pages =
         [
-            new("General", "常规", "启动、窗口层级与录屏。",
-                "M 12,8 A 4,4 0 1 0 12,16 A 4,4 0 1 0 12,8 Z M 12,2 L 12,5 M 12,19 L 12,22 M 2,12 L 5,12 M 19,12 L 22,12 M 4.9,4.9 L 7,7 M 17,17 L 19.1,19.1 M 4.9,19.1 L 7,17 M 17,7 L 19.1,4.9"),
-            new("Pet", "桌宠", "角色外观、动画节奏与行为。",
+            new("Overview", "概览", "它现在在做什么，以及最常用的几个开关。",
+                "M 4,4 L 10,4 L 10,11 L 4,11 Z M 14,4 L 20,4 L 20,8 L 14,8 Z M 14,12 L 20,12 L 20,20 L 14,20 Z M 4,15 L 10,15 L 10,20 L 4,20 Z"),
+            new("Pet", "角色", "换角色，调大小、透明度、动画节奏和省电。",
                 "M 12,3 A 9,9 0 1 0 12,21 A 9,9 0 1 0 12,3 Z M 8,14 Q 12,18 16,14 M 9,9 L 9,10 M 15,9 L 15,10"),
+            new("Life", "状态", "饱腹、精力、心情和亲密度；喂食、性格和口味。",
+                "M 12,20 C 5,15 3,11 3,8 A 4.5,4.5 0 0 1 12,6 A 4.5,4.5 0 0 1 21,8 C 21,11 19,15 12,20 Z"),
+            new("Place", "位置", "站在地面还是自由放置，爬墙、甩出去和几个试玩按钮。",
+                "M 3,20 L 21,20 M 5,20 L 5,4 M 9,16 A 2,2 0 1 0 9,12 A 2,2 0 1 0 9,16 Z M 9,16 L 9,20"),
             new("Interaction", "互动", "点击、双击、拖拽与摸头时它会怎么回应。",
                 "M 9,12 L 9,5 A 1.5,1.5 0 0 1 12,5 L 12,11 M 12,10 L 12,9 A 1.5,1.5 0 0 1 15,9 L 15,12 M 15,11 A 1.5,1.5 0 0 1 18,11 L 18,15 A 6,6 0 0 1 12,21 L 11.5,21 A 6,6 0 0 1 6.5,18 L 4,14 A 1.5,1.5 0 0 1 7,13 L 9,15"),
-            new("Menu", "菜单", "右键宠物时弹出的菜单项和顺序。",
-                "M 4,6 L 20,6 M 4,12 L 20,12 M 4,18 L 14,18"),
-            new("Widgets", "桌面组件", "问候、报时、喝水与久坐提醒、番茄钟。",
-                "M 4,4 L 10,4 L 10,10 L 4,10 Z M 14,4 L 20,4 L 20,10 L 14,10 Z M 4,14 L 10,14 L 10,20 L 4,20 Z M 14,14 L 20,14 L 20,20 L 14,20 Z"),
-            new("Ai", "智能", "大模型接口、对话参数、人设与记忆。",
+            new("Actions", "动作", "它会哪些动作：预览、启用、调随机权重、改台词、绑定触发。",
+                "M 12,4 A 2,2 0 1 0 12,8 A 2,2 0 1 0 12,4 Z M 12,8 L 12,15 M 12,15 L 8,21 M 12,15 L 16,21 M 6,11 L 12,10 L 18,7"),
+            new("Menu", "右键菜单", "右键宠物时弹出哪些项，按什么顺序。",
+                "M 4,4 L 20,4 L 20,20 L 4,20 Z M 8,9 L 16,9 M 8,13 L 16,13 M 8,17 L 13,17"),
+            new("Widgets", "提醒与专注", "问候、报时、喝水与久坐提醒、番茄钟。",
+                "M 12,6 A 7.5,7.5 0 1 0 12,21 A 7.5,7.5 0 1 0 12,6 Z M 12,10 L 12,14 L 14.5,15.5 M 10,3 L 14,3"),
+            new("Ai", "模型与记忆", "大模型接口、对话参数、人设与记忆。",
                 "M 12,3 L 14,10 L 21,12 L 14,14 L 12,21 L 10,14 L 3,12 L 10,10 Z"),
             new("Voice", "语音", "用系统语音朗读回复和提醒。",
                 "M 9,5 A 3,3 0 0 1 15,5 L 15,11 A 3,3 0 0 1 9,11 Z M 5,10 A 7,7 0 0 0 19,10 M 12,17 L 12,21"),
+            new("Market", "宠物市场", "浏览、购买和下载其他创作者做的角色。",
+                "M 4,9 L 5.5,4 L 18.5,4 L 20,9 M 4,9 L 20,9 M 4,9 A 2.7,2.7 0 0 0 9.3,9 A 2.7,2.7 0 0 0 14.7,9 A 2.7,2.7 0 0 0 20,9 M 5,11.5 L 5,20 L 19,20 L 19,11.5 M 10,20 L 10,15 L 14,15 L 14,20"),
+            new("General", "常规", "外观、启动、窗口层级、更新与数据。",
+                "M 12,8 A 4,4 0 1 0 12,16 A 4,4 0 1 0 12,8 Z M 12,2 L 12,5 M 12,19 L 12,22 M 2,12 L 5,12 M 19,12 L 22,12 M 4.9,4.9 L 7,7 M 17,17 L 19.1,19.1 M 4.9,19.1 L 7,17 M 17,7 L 19.1,4.9"),
         ];
         _page = Pages[0];
         _page.IsActive = true;
+        NavItem Page(string key) => Pages.First(p => p.Key == key);
+        NavGroups =
+        [
+            new("", [Page("Overview")]),
+            new("宠物", [Page("Pet"), Page("Life"), Page("Actions"), Page("Place"), Page("Interaction"), Page("Menu")]),
+            new("陪伴", [Page("Widgets"), Page("Ai"), Page("Voice")]),
+            new("市场", [Page("Market")]),
+            new("应用", [Page("General")]),
+        ];
         if (Environment.GetEnvironmentVariable("ASTRA_PET_PAGE") is { } start) Navigate(start);
         if (Environment.GetEnvironmentVariable("ASTRA_PET_DIALOG") is { } dialog)
             Dispatcher.UIThread.Post(() => Hub.OpenForTest(dialog));
+
+        AccentOptions =
+        [
+            new("薄荷绿", PetSettings.DefaultAccent),
+            new("湖蓝", "#2F80ED"),
+            new("鸢尾紫", "#7B61FF"),
+            new("莓果", "#D9467A"),
+            new("珊瑚", "#EE6C4D"),
+            new("琥珀", "#D99A1E"),
+            new("石墨", "#6B7280"),
+        ];
+        SyncAccent();
 
         ActionOptions = BuildActionOptions();
         RefreshPets(settings.PetId);
@@ -110,51 +164,37 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     public IPlatform Platform => _platform;
     public ProvidersViewModel Hub { get; }
     public UpdateViewModel Update { get; }
+    public ActionsViewModel Actions { get; }
+    public LifeViewModel Life { get; }
+    public MarketViewModel Market { get; }
     public NavItem[] Pages { get; }
+    public NavGroup[] NavGroups { get; }
     public ActionOption[] ActionOptions { get; private set; }
+
+    /// <summary>宠物窗口：概览页的实时预览从它取帧。</summary>
+    public PetWindow Pet => _pet;
+
+    /// <summary>macOS 上窗口按钮画在左上角（红黄绿），其他系统在右上角。</summary>
+    public bool IsMac => OperatingSystem.IsMacOS();
+    public bool IsNotMac => !IsMac;
 
     // ───── 布局 ─────
 
-    public bool SidebarExpanded
-    {
-        get => _sidebarExpanded;
-        set
-        {
-            if (!Set(ref _sidebarExpanded, value)) return;
-            Raise(nameof(SidebarWidth));
-            Raise(nameof(SidebarLabelOpacity));
-            Raise(nameof(NavPadding));
-            Raise(nameof(SidebarToggleMargin));
-        }
-    }
-
-    // 收起时宽度要容得下左上角的三个窗口按钮（约 22 到 82）。
-    public double SidebarWidth => SidebarExpanded ? 184 : 72;
-
-    /// <summary>侧栏文字的透明度。用淡出代替直接隐藏，宽度过渡时才不会闪。</summary>
-    public double SidebarLabelOpacity => SidebarExpanded ? 1 : 0;
-
-    /// <summary>导航按钮的内边距：展开时图标靠左，收起后挪到按钮正中（按钮内宽 54，图标 15）。</summary>
-    public Thickness NavPadding => SidebarExpanded ? new Thickness(10, 0) : new Thickness(19.5, 0, 0, 0);
-
-    /// <summary>收起后标题隐藏，右侧的展开按钮往左挪 12，落在侧栏正中。</summary>
-    public Thickness SidebarToggleMargin => SidebarExpanded ? default : new Thickness(0, 0, 12, 0);
-
-    /// <summary>导航按钮高 34 加间距 3，和 XAML 里的尺寸对应。</summary>
-    private const double NavPitch = 37;
-
-    /// <summary>选中高亮胶囊的位置：第几项乘以每项的高度。</summary>
-    public Thickness NavHighlightMargin => new(0, Array.IndexOf(Pages, _page) * NavPitch, 0, 0);
     public string CurrentKey => _page.Key;
     public string PageTitle => _page.Label;
     public string PageDescription => _page.Description;
+    public bool IsOverview => _page.Key == "Overview";
     public bool IsGeneral => _page.Key == "General";
     public bool IsPet => _page.Key == "Pet";
     public bool IsInteraction => _page.Key == "Interaction";
+    public bool IsActions => _page.Key == "Actions";
     public bool IsMenu => _page.Key == "Menu";
     public bool IsWidgets => _page.Key == "Widgets";
     public bool IsAi => _page.Key == "Ai";
     public bool IsVoice => _page.Key == "Voice";
+    public bool IsLife => _page.Key == "Life";
+    public bool IsPlace => _page.Key == "Place";
+    public bool IsMarket => _page.Key == "Market";
 
     public void Navigate(string key)
     {
@@ -162,10 +202,31 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         _page.IsActive = false;
         _page = page;
         page.IsActive = true;
-        foreach (var name in new[] { nameof(PageTitle), nameof(PageDescription), nameof(IsGeneral), nameof(IsPet),
-                     nameof(IsInteraction), nameof(IsMenu), nameof(IsWidgets), nameof(IsAi), nameof(IsVoice),
-                     nameof(NavHighlightMargin) })
+        foreach (var name in new[] { nameof(PageTitle), nameof(PageDescription), nameof(IsOverview), nameof(IsGeneral),
+                     nameof(IsPet), nameof(IsInteraction), nameof(IsActions), nameof(IsMenu), nameof(IsWidgets), nameof(IsAi), nameof(IsVoice),
+                     nameof(IsLife), nameof(IsPlace), nameof(IsMarket), nameof(CurrentKey) })
             Raise(name);
+        if (IsMarket) Market.Activate();
+    }
+
+    // ───── 概览 ─────
+
+    public string PetName => _currentPet.Name;
+
+    /// <summary>正在用的模型，「名字 · 模型」；还没配就提示去配。</summary>
+    public string ActiveProviderText => Settings.ActiveProvider is { } p ? $"{p.Name} · {p.Model}" : "还没有配置模型";
+    public bool HasProvider => Settings.ActiveProvider is not null;
+
+    // ───── 外观 ─────
+
+    public AccentOption[] AccentOptions { get; }
+
+    public void SelectAccent(AccentOption option) => Settings.Accent = option.Hex;
+
+    private void SyncAccent()
+    {
+        foreach (var option in AccentOptions)
+            option.IsSelected = string.Equals(option.Hex, Settings.Accent, StringComparison.OrdinalIgnoreCase);
     }
 
     // ───── 常规 ─────
@@ -177,6 +238,45 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     public bool CanExcludeCapture => Caps.CaptureExclusion;
     public bool CanClickThrough => Caps.ClickThrough;
     public string SettingsPath => SettingsStore.FilePath;
+
+    // ───── 外部控制（03 §2） ─────
+
+    public string ExternalStatusText => _companion.ExternalStatus
+        ?? "让 Claude Code 这类编程 Agent、脚本通过本机接口驱动宠物：做动作、说话、发事件。只监听 127.0.0.1，要带令牌。";
+
+    public string ExternalPortText
+    {
+        get => Settings.ExternalPort.ToString();
+        set
+        {
+            if (int.TryParse(value, out var port) && port is >= 1024 and <= 65535) Settings.ExternalPort = port;
+            Raise(nameof(ExternalPortText));
+        }
+    }
+
+    /// <summary>令牌只显示前后几位，复制按钮复制完整的。</summary>
+    public string ExternalTokenMasked => Settings.ExternalToken is { Length: > 8 } t ? $"{t[..4]}…{t[^4..]}" : "（打开接口时生成）";
+
+    public void RegenerateExternalToken() => Settings.ExternalToken = Core.External.ExternalApi.NewToken();
+
+    private static string ExePath => Environment.ProcessPath ?? "AstraPet";
+
+    /// <summary>加到 Claude Code：claude mcp add。</summary>
+    public string McpCommandText => $"claude mcp add astrapet -- \"{ExePath}\" mcp";
+
+    /// <summary>直接 curl 发事件的例子（hooks 里用）。</summary>
+    public string CurlExample =>
+        $"curl -s -X POST http://127.0.0.1:{Settings.ExternalPort}/v1/events \\\n" +
+        $"  -H \"Authorization: Bearer {Settings.ExternalToken}\" \\\n" +
+        "  -d '{\"type\":\"external.done\"}'";
+
+    private void RaiseExternal()
+    {
+        Raise(nameof(ExternalStatusText));
+        Raise(nameof(ExternalPortText));
+        Raise(nameof(ExternalTokenMasked));
+        Raise(nameof(CurlExample));
+    }
 
     /// <summary>窗口相关开关的说明（哪些不支持、为什么），由平台的能力描述拼出来。</summary>
     public string PlatformNote => string.Join(" ", new[]
@@ -225,6 +325,14 @@ public sealed class ConsoleViewModel : Observable, IDisposable
         { PowerSavingActive: true } => "省电中",
         { MusicPlaying: true, MusicDetect: true } => "正在唱歌",
         _ => "运行中",
+    };
+
+    /// <summary>概览页状态徽标的色调：运行中绿，暂停、隐藏中性，其余提示色。</summary>
+    public BadgeTone StatusTone => Settings switch
+    {
+        { Visible: false } or { Paused: true } => BadgeTone.Neutral,
+        { PowerSavingActive: true } => BadgeTone.Warning,
+        _ => BadgeTone.Success,
     };
 
     public void ResetPosition() => _pet.ResetPosition();
@@ -283,6 +391,21 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     public void OpenPetsFolder() => _platform.Shell.OpenFolder(_catalog.UserDirectory);
 
+    /// <summary>
+    /// 市场页的「使用」：重新扫描角色目录，按 id（{packId}.astrapet）选中，走和「角色」页下拉框同一条切换路径。
+    /// 找不到或素材有问题时返回原因，成功返回 null（加载失败的话 PetStatus 里有）。
+    /// </summary>
+    private string? UseInstalledPet(string id)
+    {
+        RefreshPets();
+        if (Pets.FirstOrDefault(p => p.Id == id) is { } entry)
+        {
+            SelectedPet = entry;
+            return null;
+        }
+        return _catalog.Scan().FirstOrDefault(p => p.Id == id)?.Problem ?? "在角色目录里没找到这个角色，试试刷新";
+    }
+
     /// <summary>重新扫描角色目录。用户往里拷了新角色后点「刷新」。</summary>
     public void RefreshPets() => RefreshPets(_currentPet.Id);
 
@@ -310,16 +433,8 @@ public sealed class ConsoleViewModel : Observable, IDisposable
             // 角色包要先解压，每段还要起一次 ffmpeg 探测，都放到线程池上，期间宠物照常动。
             var library = await Task.Run(() => _catalog.Load(pet, _decoder));
             if (ticket != _petSwitch) return;   // 加载期间又选了别的，以最后一次为准
-            _director.UseLibrary(library);
-            _currentPet = pet;
-            Settings.PetId = pet.Id;
-            PetStatus = "";
-            PetLog.Write($"已切换角色: {pet.Name}");
-            RaisePetInfo();
-            Raise(nameof(SingAvailable));
-            Raise(nameof(MusicNote));
-            ActionOptions = BuildActionOptions();
-            Raise(nameof(ActionOptions));
+            ApplyLibrary(library, pet, persist: true);
+            _tryoutReturn = null;
         }
         catch (Exception e)
         {
@@ -330,6 +445,87 @@ public sealed class ConsoleViewModel : Observable, IDisposable
             _selectedPet = Pets.FirstOrDefault(p => p == _currentPet);
             Raise(nameof(SelectedPet));
         }
+    }
+
+    private void ApplyLibrary(PetLibrary library, PetEntry pet, bool persist)
+    {
+        Actions.Save();
+        _director.UseLibrary(library);
+        Actions.Reload();
+        _currentPet = pet;
+        if (persist) Settings.PetId = pet.Id;
+        PetStatus = "";
+        PetLog.Write($"已切换角色: {pet.Name}" + (persist ? "" : "（试用，不记进设置）"));
+        RaisePetInfo();
+        Raise(nameof(SingAvailable));
+        Raise(nameof(MusicNote));
+        ActionOptions = BuildActionOptions();
+        Raise(nameof(ActionOptions));
+    }
+
+    // ───── 工作台：试用和安装 ─────
+
+    /// <summary>试用前的角色；不在试用时为 null。</summary>
+    private PetEntry? _tryoutReturn;
+
+    public bool IsTryingOut => _tryoutReturn is not null;
+
+    /// <summary>
+    /// 工作台 ⑦：把临时导出的包直接放到桌面上试，不改设置（程序重启后还是原来的角色），不套用户对动作的自定义。
+    /// 失败抛异常，宠物保持原样。
+    /// </summary>
+    public async Task TryoutAsync(string packPath, string name)
+    {
+        var entry = new PetEntry("studio-tryout", name + "（试用）", packPath, IsPack: true, IsBuiltIn: false, null);
+        var cache = App.Composition?.Platform.Paths.CacheDirectory ?? Path.GetTempPath();
+        var library = await Task.Run(() =>
+        {
+            var dir = PetPack.Extract(packPath, cache);
+            var lib = PetLibrary.Load(dir, _decoder, PetLog.Write);
+            lib.Name = entry.Name;
+            return lib;
+        });
+        _petSwitch++;
+        _tryoutReturn ??= _currentPet;
+        ApplyLibrary(library, entry, persist: false);
+        _selectedPet = null;
+        Raise(nameof(SelectedPet));
+    }
+
+    /// <summary>结束试用，回到试用前的角色。</summary>
+    public async Task EndTryoutAsync()
+    {
+        if (_tryoutReturn is not { } back) return;
+        _tryoutReturn = null;
+        RefreshPets(back.Id);
+        await SwitchPetAsync(_currentPet);
+    }
+
+    /// <summary>工作台 ⑧：把导出的包拷进角色目录（同名覆盖）并切过去。返回装好的文件路径。</summary>
+    public async Task<string> InstallPackAsync(string packPath, string id)
+    {
+        Directory.CreateDirectory(_catalog.UserDirectory);
+        var target = Path.Combine(_catalog.UserDirectory, id + PetPack.Extension);
+        if (!string.Equals(Path.GetFullPath(packPath), Path.GetFullPath(target), StringComparison.Ordinal))
+            File.Copy(packPath, target, overwrite: true);
+        _tryoutReturn = null;
+        RefreshPets(_currentPet.Id);
+        var entry = Pets.FirstOrDefault(p => p.Id == Path.GetFileName(target))
+                    ?? throw new InvalidDataException("装好的角色包没出现在角色列表里：" +
+                                                     (_catalog.Scan().FirstOrDefault(p => p.Id == Path.GetFileName(target))?.Problem ?? "原因不明"));
+        _selectedPet = entry;
+        Raise(nameof(SelectedPet));
+        await SwitchPetAsync(entry);
+        if (_currentPet != entry) throw new InvalidDataException(PetStatus.Length > 0 ? PetStatus : "切换失败");
+        return target;
+    }
+
+    /// <summary>按动作 id 在宠物上播一次（工作台 ⑦ 用）。没有这个动作返回 false。</summary>
+    public bool PlayActionById(string id)
+    {
+        if (_director.Library.Actions.Find(id) is not { } def) return false;
+        _director.Request(new ActionRequest(def with { Enabled = true }, ActionPriority.User, "studio"));
+        return true;
     }
 
     private ActionOption[] BuildActionOptions() =>
@@ -353,15 +549,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     }
 
     // ───── 菜单 ─────
-
-    public void MoveMenuItem(MenuEntry entry, int delta)
-    {
-        var items = Settings.MenuItems;
-        var from = items.IndexOf(entry);
-        var to = from + delta;
-        if (from < 0 || to < 0 || to >= items.Count) return;
-        items.Move(from, to);
-    }
+    // 顺序由菜单页的 ReorderableList 直接在 Settings.MenuItems 上移动，这里只管恢复默认。
 
     public void ResetMenu()
     {
@@ -384,11 +572,71 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     // ───── 智能 ─────
 
-    public void ResetSystemPrompt() => Settings.SystemPrompt = PetSettings.DefaultSystemPrompt;
+    /// <summary>人设用自己写的，不用角色包里的（03 §3.3）。</summary>
+    public bool UseCustomPersona
+    {
+        get => Settings.PersonaMode == PersonaMode.Custom;
+        set
+        {
+            Settings.PersonaMode = value ? PersonaMode.Custom : PersonaMode.Pack;
+            // 第一次切到自定义时给个起点：把角色包的人设抄过来改。
+            if (value && Settings.PersonaCustom.Trim().Length == 0) CopyPackPersona();
+        }
+    }
+
+    /// <summary>角色包里的人设，给人看的几行。</summary>
+    public string PackPersonaText
+    {
+        get
+        {
+            var p = _director.Library.Persona;
+            var lines = new List<string> { $"名字：{p.Name}" };
+            if (p.Identity.Length > 0) lines.Add($"样子：{p.Identity}");
+            if (p.Personality.Length > 0) lines.Add($"性格：{p.Personality}");
+            if (p.Speech.Length > 0) lines.Add($"说话风格：{p.Speech}");
+            if (p.Likes.Count > 0) lines.Add($"喜欢：{string.Join("、", p.Likes)}");
+            if (p.Catchphrases.Count > 0) lines.Add($"口头禅：{string.Join("、", p.Catchphrases)}");
+            return string.Join("\n", lines);
+        }
+    }
+
+    public string PackPersonaSource => _director.Library.Manifest is { } m && Ai.PetPersona.Parse(m) is not null
+        ? $"来自角色包「{_currentPet.Name}」"
+        : $"「{_currentPet.Name}」的角色包没有写人设，用的是通用人设";
+
+    public void CopyPackPersona() => Settings.PersonaCustom = PackPersonaText;
+
+    /// <summary>旧版改过的提示词被搬成了自定义人设，提示一次。</summary>
+    public bool ShowPromptMigrationNotice => Settings.PromptMigrationNotice;
+
+    public void DismissPromptMigrationNotice()
+    {
+        Settings.PromptMigrationNotice = false;
+        Raise(nameof(ShowPromptMigrationNotice));
+        SettingsStore.Save(Settings);
+    }
+
+    /// <summary>当前模型能不能让宠物做动作，一行说明。</summary>
+    public string AgentActionText => Settings.ActiveProvider switch
+    {
+        null => "还没有配置模型。",
+        { UsesTools: true } => $"聊天时它可以自己选动作（{Ai.PlayActionTool.Choosable(_director.Library.Actions).Count} 个动作和 {Ai.PlayActionTool.Moods.Count} 种心情可选）。动作的描述在「动作」页改。",
+        { ToolSupport: ToolSupport.Off } => "当前模型关掉了工具调用，回复后宠物随机做一个反应。可以在模型设置里改。",
+        _ => "当前模型不支持工具调用，回复后宠物随机做一个反应。",
+    };
 
     public string PromptPreview { get => _promptPreview; private set => Set(ref _promptPreview, value); }
 
-    public void RefreshPromptPreview() => PromptPreview = _companion.Agent.BuildSystemPrompt();
+    /// <summary>完整的系统提示词；带工具时后面附上 play_action 的工具说明（动作清单在那里）。</summary>
+    public void RefreshPromptPreview()
+    {
+        var agent = _companion.Agent;
+        var text = agent.BuildSystemPrompt();
+        if (Settings.ActiveProvider is { UsesTools: true } && agent.PlayAction.Definition() is { } tool)
+            text += "\n\n──────── 工具 play_action 的说明（随请求发送）────────\n" + tool.Description;
+        PromptPreview = text;
+        Raise(nameof(AgentActionText));
+    }
 
     public string NewMemory { get => _newMemory; set => Set(ref _newMemory, value); }
 
@@ -437,6 +685,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     public void OpenChat() => _companion.RequestChat();
 
+    /// <summary>「角色」页的「打开角色工作台」。窗口由 App 建。</summary>
+    public event Action? StudioRequested;
+
+    public void OpenStudio() => StudioRequested?.Invoke();
+
     public void Exit() => _pet.Close();
 
     private void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
@@ -455,8 +708,30 @@ public sealed class ConsoleViewModel : Observable, IDisposable
             case nameof(PetSettings.MusicPlaying):
             case nameof(PetSettings.MusicDetect):
                 Raise(nameof(StatusText));
+                Raise(nameof(StatusTone));
+                break;
+            case nameof(PetSettings.Accent):
+                SyncAccent();
+                break;
+            case nameof(PetSettings.ActiveProviderId):
+            case nameof(PetSettings.ActiveProvider):
+                RaiseProvider();
+                break;
+            case nameof(PetSettings.PersonaMode):
+                Raise(nameof(UseCustomPersona));
+                break;
+            case nameof(PetSettings.ExternalPort):
+            case nameof(PetSettings.ExternalToken):
+                RaiseExternal();
                 break;
         }
+    }
+
+    private void RaiseProvider()
+    {
+        Raise(nameof(AgentActionText));
+        Raise(nameof(ActiveProviderText));
+        Raise(nameof(HasProvider));
     }
 
     /// <summary>自启时带上这次用的 ffmpeg（和开发时换掉的默认角色素材），让自启的那次和这次一样。</summary>
@@ -469,6 +744,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable
 
     private void RaisePetInfo()
     {
+        Raise(nameof(PackPersonaText));
+        Raise(nameof(PackPersonaSource));
+        Raise(nameof(AgentActionText));
+        if (PromptPreview.Length > 0) RefreshPromptPreview();
+        Raise(nameof(PetName));
         Raise(nameof(PetInfo));
         Raise(nameof(PetCredits));
         Raise(nameof(HasPetCredits));
@@ -479,11 +759,25 @@ public sealed class ConsoleViewModel : Observable, IDisposable
     {
         PomodoroStatus = _companion.Pomodoro.Status;
         Raise(nameof(PomodoroButtonText));
+        Raise(nameof(PomodoroRunning));
+        // 提供商的名字和模型在对话框里改，不走 Settings 的属性通知，顺带刷一下。
+        RaiseProvider();
     }
+
+    public bool PomodoroRunning => _companion.Pomodoro.Running;
+
+    /// <summary>有没有跑到一半的活（导入动作、安装更新）。有的话控制台不释放。</summary>
+    public bool Busy => Actions.Import.IsProcessing || Update.Busy || Market.Busy;
 
     public void Dispose()
     {
         _statusTimer.Stop();
+        Actions.Save();
         Settings.PropertyChanged -= OnSettingChanged;
+        _companion.ExternalStatusChanged -= RaiseExternal;
+        Hub.Dispose();
+        Update.Dispose();
+        Life.Dispose();
+        Market.Dispose();
     }
 }

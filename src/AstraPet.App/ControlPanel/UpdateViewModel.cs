@@ -6,7 +6,7 @@ using AstraPet.Platform;
 namespace AstraPet.ControlPanel;
 
 /// <summary>控制台「常规 → 更新」一栏：当前版本、检查更新、下载并安装新版本。</summary>
-public sealed class UpdateViewModel : Observable
+public sealed class UpdateViewModel : Observable, IDisposable
 {
     private readonly PetCompanion _companion;
     private readonly IPlatform _platform;
@@ -22,11 +22,22 @@ public sealed class UpdateViewModel : Observable
         _platform = platform;
         Settings = settings;
         Checker.PropertyChanged += OnCheckerChanged;
-        settings.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(PetSettings.UpdateChannel)) Raise(nameof(UsePreview));
-            if (e.PropertyName is nameof(PetSettings.UpdateServer)) Raise(nameof(HasServer));
-        };
+        settings.PropertyChanged += OnSettingChanged;
+    }
+
+    private void OnSettingChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PetSettings.UpdateChannel)) Raise(nameof(UsePreview));
+        if (e.PropertyName is nameof(PetSettings.UpdateServer)) Raise(nameof(HasServer));
+    }
+
+    /// <summary>正在下载、安装更新。这时不能释放控制台。</summary>
+    public bool Busy => _busy;
+
+    public void Dispose()
+    {
+        Checker.PropertyChanged -= OnCheckerChanged;
+        Settings.PropertyChanged -= OnSettingChanged;
     }
 
     public PetSettings Settings { get; }

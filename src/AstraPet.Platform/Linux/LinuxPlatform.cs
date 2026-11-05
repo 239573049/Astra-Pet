@@ -22,6 +22,10 @@ internal sealed class LinuxPlatform : PlatformBase
         if (speech is not null) Speech = speech;
         var monitor = new LinuxMonitor();
         Monitor = monitor;
+        var surfaces = X11WindowSurfaces.TryCreate();
+        if (surfaces is not null) Windows = surfaces;
+        var hotkey = X11GlobalHotkey.Supported;
+        if (hotkey) Hotkey = new X11GlobalHotkey();
 
         var fromDeb = AppContext.BaseDirectory.StartsWith(DebInstallDir, StringComparison.Ordinal);
         var notes = new Dictionary<string, string>
@@ -35,6 +39,8 @@ internal sealed class LinuxPlatform : PlatformBase
         if (!monitor.CanReadIdle) notes[nameof(PlatformCapabilities.IdleDetection)] = LinuxEnv.IsWayland
             ? "当前桌面环境读不到空闲时长，省电模式不会自动开启。"
             : "读不到空闲时长（需要 libXss），省电模式不会自动开启。";
+        if (surfaces is null) notes[nameof(PlatformCapabilities.WindowSurfaces)] = "站在其他窗口上需要 X11 会话（Wayland 下读不到别的窗口位置）。";
+        if (!hotkey) notes[nameof(PlatformCapabilities.GlobalHotkey)] = "召唤快捷键需要 X11 会话。";
         if (!fromDeb) notes[nameof(PlatformCapabilities.InAppUpdate)] = "不是通过 deb 包安装的，请到下载页手动更新。";
 
         Capabilities = new PlatformCapabilities
@@ -44,6 +50,8 @@ internal sealed class LinuxPlatform : PlatformBase
             IdleDetection = monitor.CanReadIdle,
             AudioDetection = monitor.CanDetectAudio,
             InAppUpdate = fromDeb,
+            WindowSurfaces = surfaces is not null,
+            GlobalHotkey = hotkey,
             Notes = notes,
         };
         PetLog.Write($"Linux {(LinuxEnv.IsWayland ? "Wayland" : "X11")} 会话；朗读 {speech?.Engine ?? "无"}；" +

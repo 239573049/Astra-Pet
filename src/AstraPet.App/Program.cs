@@ -12,6 +12,8 @@ class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // MCP 服务（03 §2.2）：stdio 上说 JSON-RPC，转发给正在运行的宠物。不起界面，stdout 只能写协议消息。
+        if (args.Length > 0 && args[0] == "mcp") return Mcp();
         if (args.Contains("--smoke")) return Smoke();
         if (args.Contains("--platform-report")) return PlatformReport();
 
@@ -26,6 +28,24 @@ class Program
 
         App.Composition = Composition.Create();
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
+
+    private static int Mcp()
+    {
+        // PetLog 会写 Console.Out；协议消息直接写标准输出流，其余输出改到 stderr，免得混进协议里。
+        Console.SetOut(Console.Error);
+        var paths = PlatformFactory.Create().Paths;
+        PetLog.UseDirectory(paths.LogDirectory);
+        SettingsStore.UseDirectory(paths.DataDirectory);
+        try
+        {
+            return AstraPet.External.McpCommand.RunAsync(SettingsStore.FilePath).GetAwaiter().GetResult();
+        }
+        catch (Exception e)
+        {
+            PetLog.Write($"MCP 服务出错: {e}");
+            return 1;
+        }
     }
 
     /// <summary>
@@ -88,7 +108,9 @@ class Program
             .WithArcFonts()
             .UseArc(arc => arc
                 .UseArcControls()
-                // 固定深色，主色沿用宠物的绿。
-                .WithTheme(t => t.Appearance(ArcAppearance.Dark).Accent(Color.Parse("#32AA7D"))))
+                .UseArcBlocks()
+                .UseArcSpecial()
+                // 启动时先跟随系统、用宠物的绿；设置加载后 App.ApplyTheme 再按用户的选择套一次。
+                .WithTheme(t => t.Appearance(ArcAppearance.System).Accent(Color.Parse(PetSettings.DefaultAccent))))
             .LogToTrace();
 }

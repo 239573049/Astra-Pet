@@ -50,8 +50,116 @@ public class PetPackTests : IDisposable
     [InlineData("videos/click/run.exe", false)]
     [InlineData("videos/Click/a.webm", false)]
     [InlineData("other.txt", false)]
+    [InlineData("icon.png", true)]
+    [InlineData("clips/wave/a.webm", true)]
+    [InlineData("clips/Wave/a.webm", false)]
+    [InlineData("clips/wave/a.mp4", false)]
+    [InlineData("source/sheet.png", true)]
+    [InlineData("source/studio.json", true)]
+    [InlineData("source/keyframes/nap.png", true)]
+    [InlineData("source/raw.mp4", false)]
     public void Only_known_files_inside_the_pack_are_allowed(string name, bool allowed) =>
         Assert.Equal(allowed, PetPack.IsAllowed(name));
+
+    [Fact]
+    public void Format2_pack_is_inspected_extracted_and_loaded()
+    {
+        var actions = string.Join(",", PetLibrary.Required.Select(r => $$"""{"id": "{{r}}-a", "roles": ["{{r}}"], "clips": ["clips/{{r}}-a/a.webm"]}"""));
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "shiba" + PetPack.Extension);
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+        {
+            void Add(string entry, string content)
+            {
+                using var w = new StreamWriter(zip.CreateEntry(entry).Open(), new UTF8Encoding(false));
+                w.Write(content);
+            }
+            Add("pet.json", $$"""{"format": 2, "id": "shiba", "name": "柴柴", "actions": [{{actions}}]}""");
+            foreach (var r in PetLibrary.Required) Add($"clips/{r}-a/a.webm", "");
+        }
+
+        var (manifest, problem) = PetPack.Inspect(path);
+        Assert.Null(problem);
+        Assert.Equal(2, manifest!.Format);
+        var root = PetPack.Extract(path, Path.Combine(_dir, "cache"));
+        Assert.True(File.Exists(Path.Combine(root, "pet.json")));
+        var lib = PetLibrary.Load(root, new FakeDecoder());
+        Assert.Equal(2, lib.Format);
+        Assert.Equal(PetLibrary.Required.Count(), lib.Actions.All.Count);
+    }
+
+    /// <summary>仓库里的内置角色包（tools/pets/build.sh 生成）：格式 2、带人设、Agent 有动作可选。</summary>
+    [Theory]
+    [InlineData("xiaot.astrapet", "小t", "wave")]
+    [InlineData("dafeiyu.astrapet", "大肥鱼", "hop")]
+    public void Builtin_packs_are_format2_with_persona(string file, string name, string celebrate)
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !Directory.Exists(Path.Combine(dir, "src", "Assets", "pets"))) dir = Path.GetDirectoryName(dir);
+        Assert.NotNull(dir);
+        var path = Path.Combine(dir, "src", "Assets", "pets", file);
+
+        var (manifest, problem) = PetPack.Inspect(path);
+        Assert.Null(problem);
+        Assert.Equal(2, manifest!.Format);
+        var lib = PetLibrary.Load(PetPack.Extract(path, Path.Combine(_dir, "cache")), new FakeDecoder());
+        Assert.Equal(name, lib.Persona.Name);
+        Assert.NotEmpty(lib.Persona.Personality);
+        Assert.All(lib.Actions.All, a => Assert.NotEmpty(a.Description));
+        Assert.Equal(celebrate, lib.Actions.PickByRole(Roles.Celebrate, new Random(1))!.Id);
+        Assert.NotEmpty(AstraPet.Ai.PlayActionTool.Choosable(lib.Actions));
+        Assert.Empty(lib.Actions.MissingRequired());
+        // 随机链的总权重和格式 1 一样：待机 30、点击 40、移动 20、转身 10
+        foreach (var (role, weight) in new[] { (Roles.Idle, 30.0), (Roles.Click, 40.0), (Roles.Move, 20.0), (Roles.Turn, 10.0) })
+            Assert.Equal(weight, lib.Actions.All.Where(a => a.Roles[0] == role).Sum(a => a.Ambient), 6);
+        Assert.Contains(lib.Actions.All, a => a.Gait is not null);
+    }
+
+    /// <summary>造一个完整的格式 2 包，再加几个额外条目（名字 → 字节数，内容全零，deflate 后很小）。</summary>
+    private string MakeFormat2(string id, params (string Name, long Bytes)[] extra)
+    {
+        var actions = string.Join(",", PetLibrary.Required.Select(r => $$"""{"id": "{{r}}-a", "roles": ["{{r}}"], "clips": ["clips/{{r}}-a/a.webm"]}"""));
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, id + PetPack.Extension);
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+        using (var w = new StreamWriter(zip.CreateEntry("pet.json").Open()))
+            w.Write($$"""{"format": 2, "id": "{{id}}", "actions": [{{actions}}]}""");
+        foreach (var r in PetLibrary.Required) zip.CreateEntry($"clips/{r}-a/a.webm").Open().Dispose();
+        var chunk = new byte[1024 * 1024];
+        foreach (var (name, bytes) in extra)
+        {
+            using var stream = zip.CreateEntry(name, CompressionLevel.Fastest).Open();
+            for (long left = bytes; left > 0; left -= chunk.Length) stream.Write(chunk, 0, (int)Math.Min(chunk.Length, left));
+        }
+        return path;
+    }
+
+    [Fact]
+    public void Format2_pack_with_unreferenced_clip_is_rejected()
+    {
+        var path = MakeFormat2("smuggle", ("clips/idle-a/extra.webm", 0));
+        Assert.Contains("没被任何动作引用", PetPack.Inspect(path).Problem);
+        Assert.Throws<InvalidDataException>(() => PetPack.Extract(path, Path.Combine(_dir, "cache")));
+    }
+
+    [Fact]
+    public void Oversized_files_are_rejected()
+    {
+        Assert.Contains("太大", PetPack.Inspect(MakeFormat2("bigpng", ("preview.png", PetPack.MaxPngBytes + 1))).Problem);
+        Assert.Contains("太大", PetPack.Inspect(MakeFormat2("bigjson", ("source/studio.json", PetPack.MaxOtherBytes + 1))).Problem);
+        Assert.Null(PetPack.Inspect(MakeFormat2("okpng", ("preview.png", 1024))).Problem);
+    }
+
+    [Fact]
+    public void Format2_pack_missing_a_required_role_is_rejected()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "half2" + PetPack.Extension);
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+        using (var w = new StreamWriter(zip.CreateEntry("pet.json").Open()))
+            w.Write("""{"format": 2, "id": "half2", "actions": [{"id": "a", "roles": ["idle"], "clips": ["clips/a/a.webm"]}]}""");
+        Assert.Contains("turn", PetPack.Inspect(path).Problem);
+    }
 
     [Fact]
     public void Inspect_reports_missing_categories_without_extracting()

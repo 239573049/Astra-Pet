@@ -33,9 +33,10 @@ public static class SettingsStore
     public static PetSettings Load()
     {
         PetSettings? settings = null;
+        var existed = File.Exists(FilePath);
         try
         {
-            if (File.Exists(FilePath))
+            if (existed)
                 settings = JsonSerializer.Deserialize(File.ReadAllText(FilePath), TypeInfo);
         }
         catch (Exception e)
@@ -44,8 +45,9 @@ public static class SettingsStore
             PetLog.Write($"读取设置失败，使用默认值: {e.Message}");
             try { File.Copy(FilePath, FilePath + ".bad", overwrite: true); } catch { }
         }
+        var upgraded = settings is not null;
         settings ??= new PetSettings();
-        settings.Normalize();
+        settings.Normalize(upgraded);
         return settings;
     }
 

@@ -24,6 +24,7 @@
   <ItemGroup>
     <!-- 从其他应用导入提供商：CC Switch 是 SQLite，Codex 是 TOML，DeepSeek Harness 是 YAML。 -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.0" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>

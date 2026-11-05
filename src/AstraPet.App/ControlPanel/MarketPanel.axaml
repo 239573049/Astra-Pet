@@ -1,0 +1,144 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+             xmlns:local="using:AstraPet.ControlPanel"
+             x:Class="AstraPet.ControlPanel.MarketPanel"
+             x:DataType="local:MarketViewModel">
+    <!--
+    「宠物市场」页：未登录 / 登录中（显示设备码）/ 已登录（搜索、列表、下载）。
+    文字类（note、section、title、err）和 Border.group 来自 ConsoleWindow 的样式。市场地址不在界面上出现。
+    -->
+    <UserControl.Styles>
+        <Style Selector="Border.mcard">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource Surface}" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Width" Value="232" />
+            <Setter Property="Margin" Value="0 0 12 12" />
+        </Style>
+        <Style Selector="Border.mcard:pointerover">
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource BorderStrong}" />
+        </Style>
+        <Style Selector="Border.cover">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource SurfaceMuted}" />
+            <Setter Property="Height" Value="130" />
+        </Style>
+        <Style Selector="Path.placeholder">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+        <Style Selector="TextBlock.price">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Accent}" />
+        </Style>
+        <Style Selector="TextBlock.usercode">
+            <Setter Property="FontFamily" Value="{arc:ArcDesignTokenResource MonoFontFamily}" />
+            <Setter Property="FontSize" Value="36" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="LetterSpacing" Value="4" />
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel Spacing="18">
+        <!-- 未登录 -->
+        <Border Classes="group" Padding="24 22" IsVisible="{Binding IsLoggedOut}">
+            <StackPanel Spacing="10">
+                <TextBlock Classes="title" Text="登录后浏览宠物市场" />
+                <TextBlock Classes="note"
+                           Text="市场里有其他创作者做的角色。登录后可以直接下载免费和已拥有的角色，付费角色在浏览器里购买。点「登录」会打开浏览器，在网页上确认这台电脑即可，不用在这里输入密码。" />
+                <arc:Button Variant="Primary" Content="登录" Click="OnLogin" HorizontalAlignment="Left" Margin="0 6 0 0" />
+            </StackPanel>
+        </Border>
+
+        <!-- 登录中：只显示设备码，让用户和网页上的核对 -->
+        <Border Classes="group" Padding="24 22" IsVisible="{Binding IsLoggingIn}">
+            <StackPanel Spacing="10">
+                <TextBlock Classes="title" Text="在浏览器里确认登录" />
+                <TextBlock Classes="note" Text="已经打开浏览器。请确认网页上显示的验证码和下面这串一致，再点确认。确认后这里会自动继续。" />
+                <TextBlock Classes="usercode" Text="{Binding UserCode}" Margin="0 6"
+                           IsVisible="{Binding UserCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Classes="note" Text="正在等待确认…" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0 6 0 0">
+                    <arc:Button Content="重新打开浏览器" Click="OnReopenBrowser" />
+                    <arc:Button Variant="Ghost" Content="取消" Click="OnCancelLogin" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Classes="note err" Text="{Binding Message}" IsVisible="{Binding HasMessage}" />
+
+        <!-- 已登录 -->
+        <StackPanel Spacing="14" IsVisible="{Binding IsLoggedIn}">
+            <Border Classes="group" Padding="18 10">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Text="{Binding Nickname, StringFormat=已登录：{0}}" />
+                    <arc:Button Grid.Column="1" Variant="Ghost" Content="退出登录" Click="OnLogout" />
+                </Grid>
+            </Border>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <arc:Input Text="{Binding Query, Mode=TwoWay}" PlaceholderText="搜索宠物，回车确认" KeyDown="OnSearchKeyDown"
+                           AutomationProperties.Name="搜索宠物" />
+                <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding Sort, Mode=TwoWay}" AutomationProperties.Name="排序">
+                    <arc:SegmentedOption Value="hot" Label="热门" />
+                    <arc:SegmentedOption Value="new" Label="最新" />
+                    <arc:SegmentedOption Value="downloads" Label="下载" />
+                    <arc:SegmentedOption Value="rating" Label="评分" />
+                </arc:SegmentedControl>
+                <arc:Button Grid.Column="2" Content="刷新" Click="OnRefresh" IsEnabled="{Binding CanRefresh}"
+                            ToolTip.Tip="在浏览器里买完后点这里，重新查一遍" />
+            </Grid>
+
+            <TextBlock Classes="note" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}" />
+
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:MarketPetItem">
+                        <Border Classes="mcard">
+                            <StackPanel>
+                                <Border Classes="cover">
+                                    <Grid>
+                                        <Path Classes="placeholder" IsVisible="{Binding !HasCover}"
+                                              Data="M 12,3 A 9,9 0 1 0 12,21 A 9,9 0 1 0 12,3 Z M 8,14 Q 12,18 16,14 M 9,9 L 9,10 M 15,9 L 15,10" />
+                                        <Image Source="{Binding Cover}" Stretch="Uniform" IsVisible="{Binding HasCover}" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Margin="14 10 14 14" Spacing="4">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBlock Classes="label" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="price" Text="{Binding PriceText}" />
+                                    </Grid>
+                                    <TextBlock Classes="note" Text="{Binding AuthorText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                    <TextBlock Classes="note" Text="{Binding Summary}" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                               Height="36" IsVisible="{Binding HasSummary}" />
+                                    <TextBlock Classes="note" Text="{Binding StatsText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                    <TextBlock Classes="note err" Text="{Binding Note}" IsVisible="{Binding HasNote}" />
+                                    <arc:Progress Value="{Binding Progress}" Minimum="0" Maximum="100" IsVisible="{Binding Busy}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0 6 0 0">
+                                        <arc:Button Variant="Primary" Content="{Binding ActionText}" Tag="{Binding}" Click="OnAction"
+                                                    IsVisible="{Binding ActionIsPrimary}" />
+                                        <arc:Button Content="{Binding ActionText}" IsEnabled="False" IsVisible="{Binding ActionIsSecondary}" />
+                                        <arc:Button Content="使用" Tag="{Binding}" Click="OnUse" IsVisible="{Binding CanUse}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Classes="note" Text="正在加载…" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" />
+            <arc:Button Content="加载更多" Click="OnLoadMore" IsVisible="{Binding HasMore}" HorizontalAlignment="Center" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

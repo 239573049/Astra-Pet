@@ -9,7 +9,7 @@ using Avalonia.Threading;
 namespace AstraPet.ControlPanel;
 
 /// <summary>
-/// 提供商相关的三个对话框（选择、新增 / 编辑、导入），叠在控制台窗口上。
+/// 提供商相关的三个对话框（选择、新增 / 编辑、导入），用 Arc 的 Dialog 画在控制台窗口的浮层上。
 /// 逻辑都在 <see cref="ProvidersViewModel"/>，这里只转发点击和弹系统文件选择框。
 /// </summary>
 public partial class ProviderDialogs : UserControl
@@ -41,12 +41,6 @@ public partial class ProviderDialogs : UserControl
     }
 
     private void OnClose(object? sender, RoutedEventArgs e) => Vm?.Close();
-
-    /// <summary>点遮罩关闭，但表单里可能填了一半，所以只有选择和导入两屏响应。</summary>
-    private void OnScrimPressed(object? sender, PointerPressedEventArgs e)
-    {
-        if (Vm is { IsForm: false } vm) vm.Close();
-    }
 
     // 选择
     private void OnPickPreset(object? sender, RoutedEventArgs e)

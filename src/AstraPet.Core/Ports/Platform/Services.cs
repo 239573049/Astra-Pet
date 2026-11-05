@@ -90,6 +90,34 @@ public interface ISystemMonitor
     Task<bool> IsAudioPlayingAsync();
 }
 
+/// <summary>一个可见的普通窗口：桌面坐标里的矩形（和 Avalonia 的窗口位置同一套坐标）和一个稳定的标识。只有位置，没有标题和应用名。</summary>
+public readonly record struct DesktopWindow(long Id, double X, double Y, double Width, double Height);
+
+/// <summary>
+/// 其他应用的窗口在哪（design/pet-life/04 §7）：宠物可以站在窗口顶上。只读矩形和前后顺序，不读标题、进程名、内容。
+/// 不支持的平台返回空列表，<see cref="PlatformCapabilities.WindowSurfaces"/> 为 false。
+/// </summary>
+public interface IWindowSurfaces
+{
+    /// <summary>屏幕上可见的普通窗口，从最前到最后；不含本程序自己的窗口、最小化的、隐藏的、工具窗口。</summary>
+    IReadOnlyList<DesktopWindow> VisibleWindows();
+}
+
+/// <summary>
+/// 全局快捷键（design/pet-life/03 §4.6 召唤）：程序不在前台时也能收到。默认组合是 Ctrl+Alt+P（macOS 上是 ⌃⌥P）。
+/// 回调在 UI 线程上调。不支持的平台 <see cref="Start"/> 返回 false。
+/// </summary>
+public interface IGlobalHotkey : IDisposable
+{
+    /// <summary>开始监听召唤组合键；成功返回 true。重复调用只换回调。</summary>
+    bool Start(Action pressed);
+
+    void Stop();
+
+    /// <summary>给人看的组合键写法，比如「⌃⌥P」「Ctrl+Alt+P」。</summary>
+    string Display { get; }
+}
+
 /// <summary>应用内更新的安装部分（下载在 Core 的 UpdateDownloader 里）。</summary>
 public interface IUpdateInstaller
 {
@@ -131,6 +159,21 @@ public interface INativeWindow
 }
 
 /// <summary>拿不到原生窗口时用的空实现（窗口还没打开、平台不支持）。</summary>
+public sealed class NoWindowSurfaces : IWindowSurfaces
+{
+    public static readonly NoWindowSurfaces Instance = new();
+    public IReadOnlyList<DesktopWindow> VisibleWindows() => [];
+}
+
+public sealed class NoGlobalHotkey : IGlobalHotkey
+{
+    public static readonly NoGlobalHotkey Instance = new();
+    public bool Start(Action pressed) => false;
+    public void Stop() { }
+    public string Display => "";
+    public void Dispose() { }
+}
+
 public sealed class NullNativeWindow : INativeWindow
 {
     public static readonly NullNativeWindow Instance = new();

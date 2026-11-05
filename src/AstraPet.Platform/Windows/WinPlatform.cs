@@ -16,6 +16,8 @@ internal sealed class WinPlatform : PlatformBase
         Speech = new WinSpeech();
         Monitor = new WinMonitor();
         Installer = new WinInnoInstaller();
+        Windows = new WinWindowSurfaces();
+        Hotkey = new WinGlobalHotkey();
 
         // WDA_EXCLUDEFROMCAPTURE 从 Windows 10 2004（19041）起才有。
         var captureExclusion = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041);
@@ -29,6 +31,8 @@ internal sealed class WinPlatform : PlatformBase
             IdleDetection = true,
             AudioDetection = false,
             InAppUpdate = true,
+            WindowSurfaces = true,
+            GlobalHotkey = true,
             Notes = new Dictionary<string, string>
             {
                 [nameof(PlatformCapabilities.OverFullscreen)] = "全屏隐藏暂不支持 Windows。",

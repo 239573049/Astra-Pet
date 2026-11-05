@@ -14,11 +14,18 @@ public sealed class ReminderBehavior : PetBehavior
     private int _lastChimeHour;
     private DateTimeOffset _lastDrink;
     private DateTimeOffset _sittingSince;
+    private DateTimeOffset _usingSince;
+
+    /// <summary>
+    /// 用户连续用电脑多久了（离开超过 <see cref="AwayResetsSitting"/> 重新算），给对话的情境层用（03 §3.5）。
+    /// 和久坐提醒开没开无关；平台读不到空闲时长时为 null（没法知道用户离开过）。
+    /// </summary>
+    public TimeSpan? ContinuousUse => Context is { Capabilities.IdleDetection: true } ? Now - _usingSince : null;
 
     protected override void OnStart()
     {
         _lastChimeHour = Now.Hour;
-        _lastDrink = _sittingSince = Now;
+        _lastDrink = _sittingSince = _usingSince = Now;
         Every(Interval, Tick);
     }
 
@@ -28,6 +35,7 @@ public sealed class ReminderBehavior : PetBehavior
         if (now.Hour != _lastChimeHour)
         {
             _lastChimeHour = now.Hour;
+            Context.Events.Publish(PetEvents.Hour, ("hour", now.Hour.ToString()));
             if (Settings.HourlyChime) Context.Voice.Say($"现在是 {now:HH:mm}，整点啦～");
         }
 
@@ -36,7 +44,10 @@ public sealed class ReminderBehavior : PetBehavior
         {
             _lastDrink = now;
             Context.Voice.Say(Pick(DrinkLines));
+            Context.Events.Publish(PetEvents.Drink);
         }
+
+        if (Context.Monitor.IdleTime() > AwayResetsSitting) _usingSince = now;
 
         // 读不到空闲时长的平台当作一直在用，只按时间提醒。
         if (!Settings.SitReminder || Context.Monitor.IdleTime() > AwayResetsSitting) _sittingSince = now;
@@ -44,6 +55,7 @@ public sealed class ReminderBehavior : PetBehavior
         {
             _sittingSince = now;
             Context.Voice.Say(Pick(SitLines));
+            Context.Events.Publish(PetEvents.Sit);
         }
     }
 }
@@ -67,6 +79,7 @@ public sealed class PomodoroBehavior : PetBehavior
         Resting = false;
         EndsAt = Now.AddMinutes(Settings.PomodoroWork);
         Context.Voice.Say($"开始专注 {Settings.PomodoroWork} 分钟，我陪你！");
+        Context.Events.Publish(PetEvents.PomodoroStarted, ("minutes", Settings.PomodoroWork.ToString()));
     }
 
     public void Stop()
@@ -74,6 +87,7 @@ public sealed class PomodoroBehavior : PetBehavior
         if (EndsAt is null) return;
         EndsAt = null;
         Context.Voice.Say("番茄钟停下啦");
+        Context.Events.Publish(PetEvents.PomodoroStopped);
     }
 
     private void Tick()
@@ -84,7 +98,8 @@ public sealed class PomodoroBehavior : PetBehavior
         Context.Voice.Say(Resting
             ? $"专注结束！休息 {Settings.PomodoroRest} 分钟吧"
             : $"休息好了，再专注 {Settings.PomodoroWork} 分钟！");
-        Context.Director.Play(PetLibrary.Click, fromUser: true);
+        Context.Events.Publish(Resting ? PetEvents.FocusEnded : PetEvents.RestEnded,
+            ("minutes", (Resting ? Settings.PomodoroRest : Settings.PomodoroWork).ToString()));
     }
 }
 
@@ -101,7 +116,12 @@ public sealed class PresenceBehavior : PetBehavior
     {
         // 读不到空闲时长的平台不进省电模式。
         var idle = Context.Monitor.IdleTime() ?? TimeSpan.Zero;
-        Settings.PowerSavingActive = Settings.PowerSaving && idle > TimeSpan.FromMinutes(Settings.PowerSavingMinutes);
+        var saving = Settings.PowerSaving && idle > TimeSpan.FromMinutes(Settings.PowerSavingMinutes);
+        if (saving != Settings.PowerSavingActive)
+        {
+            Settings.PowerSavingActive = saving;
+            Context.Events.Publish(saving ? PetEvents.PowerSaving : PetEvents.PowerResumed);
+        }
 
         if (!Settings.MusicDetect || !Context.Capabilities.AudioDetection)
         {
@@ -118,8 +138,7 @@ public sealed class PresenceBehavior : PetBehavior
             if (playing == Settings.MusicPlaying) return;
             Settings.MusicPlaying = playing;
             PetLog.Write(playing ? "检测到在放音乐，开始唱歌" : "音乐停了");
-            if (playing && !Settings.PowerSavingActive)
-                Context.Director.Play(PetLibrary.Sing, fromUser: false);
+            Context.Events.Publish(playing ? PetEvents.MusicStarted : PetEvents.MusicStopped);
         }), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 }
@@ -142,6 +161,7 @@ public sealed class UpdateNotifyBehavior : PetBehavior
         if (info is not null && automatic && Settings.NotifiedUpdate != info.Version)
         {
             Settings.NotifiedUpdate = info.Version;
+            Context.Events.Publish(PetEvents.UpdateFound, ("version", info.Version));
             Context.Voice.Say($"有新版本 {info.Version} 啦～去控制台「常规」里一键更新吧", speak: false);
         }
         return info;

@@ -10,6 +10,9 @@ public sealed class PetClip(string name, string category, string path, double fp
     public const int Height = 360;
     public const int FrameBytes = Width * Height * 4;
 
+    /// <summary>素材里人物的标准站姿：身高 270、脚底 y = 330、水平中心 x = 320（导入动作时按它缩放定位，见 design/pet-studio/06 §2.2）。</summary>
+    public const int BodyHeight = 270, FeetY = 330, CenterX = 320;
+
     public string Name { get; } = name;
     public string Category { get; } = category;
     public string Path { get; } = path;

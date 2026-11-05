@@ -1,0 +1,1042 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
+        xmlns:local="using:AstraPet.Studio"
+        xmlns:studio="using:AstraPet.Core.Studio"
+        xmlns:sys="using:System"
+        x:Class="AstraPet.Studio.StudioWindow"
+        x:DataType="local:StudioViewModel"
+        Icon="avares://AstraPet/Assets/icons/app.png"
+        Title="Astra Pet 角色工作台"
+        Width="1180" Height="800" MinWidth="900" MinHeight="600"
+        WindowDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent"
+        FontSize="13" Foreground="{arc:ArcDesignTokenResource Foreground}"
+        WindowStartupLocation="CenterScreen">
+    <!--
+    工作台（design/pet-studio/04）。无边框窗口，外框、标题栏和窗口按钮自己画（和控制台一样，行为在 WindowChrome）。首页是工程列表；打开工程后左边是九步，右边是当前这一步。
+    文本框直接改工程数据，ProjectViewModel 定时存盘；按钮都在 StudioWindow.axaml.cs 里转给 ViewModel。
+    -->
+    <Window.Styles>
+        <Style Selector="TextBlock.note, SelectableTextBlock.note">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="LineHeight" Value="18" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.field">
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="TextBlock.ok, SelectableTextBlock.ok">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Success}" />
+        </Style>
+        <Style Selector="TextBlock.err, SelectableTextBlock.err">
+            <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Danger}" />
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="{arc:ArcDesignTokenResource MonoFontFamily}" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="arc|Button">
+            <Setter Property="Variant" Value="Secondary" />
+            <Setter Property="Size" Value="Small" />
+        </Style>
+        <Style Selector="arc|Select">
+            <Setter Property="Size" Value="Small" />
+        </Style>
+        <Style Selector="arc|Input">
+            <Setter Property="Size" Value="Small" />
+        </Style>
+        <Style Selector="arc|Textarea">
+            <Setter Property="Size" Value="Small" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+        <Style Selector="arc|Switch">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.group">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource Surface}" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="18 16" />
+        </Style>
+        <Style Selector="StackPanel.page">
+            <Setter Property="Spacing" Value="18" />
+            <Setter Property="Margin" Value="32 24 32 40" />
+            <Setter Property="MaxWidth" Value="860" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <!-- 候选图：选中的描主色边 -->
+        <Style Selector="Button.pick">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource Border}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.pick.selected">
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource Accent}" />
+        </Style>
+        <Style Selector="Button.pick /template/ ContentPresenter">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border.checker">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource SurfaceMuted}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <!-- 外框和标题栏（和控制台窗口一致） -->
+        <Style Selector="Border#Frame">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource Background}" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource BorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+        <Style Selector="Border#Frame.maximized">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Border#TitleBar">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource Background}" />
+            <Setter Property="BorderBrush" Value="{arc:ArcDesignTokenResource BorderSubtle}" />
+            <Setter Property="BorderThickness" Value="0 0 0 1" />
+            <Setter Property="Height" Value="38" />
+        </Style>
+        <Style Selector="Button.chrome">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="37" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.chrome Path">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="StrokeThickness" Value="1" />
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="Stretch" Value="Uniform" />
+        </Style>
+        <Style Selector="Button.chrome:pointerover">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource BorderSubtle}" />
+        </Style>
+        <Style Selector="Button.chrome:pointerover Path">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource Foreground}" />
+        </Style>
+        <Style Selector="Button.chrome.close:pointerover">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource DangerSubtle}" />
+        </Style>
+        <Style Selector="Button.chrome.close:pointerover Path">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource Danger}" />
+        </Style>
+        <Style Selector="Button.traffic">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="6" BorderBrush="#1F000000" BorderThickness="0.5">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.traffic Path">
+            <Setter Property="Stroke" Value="#99000000" />
+            <Setter Property="StrokeThickness" Value="1.2" />
+            <Setter Property="Width" Value="6" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+        <Style Selector="StackPanel#TrafficLights:pointerover Button.traffic Path">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Panel#ResizeGrips > Border">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Window.Styles>
+
+    <Border x:Name="Frame">
+    <Grid RowDefinitions="Auto,*">
+    <!-- 标题栏：拖动、双击最大化。macOS 的红黄绿在左，其他系统的窗口按钮在右。 -->
+    <Border x:Name="TitleBar" PointerPressed="OnDragAreaPressed">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel x:Name="TrafficLights" Orientation="Horizontal" Spacing="8" Margin="14 0 0 0"
+                        VerticalAlignment="Center" Background="Transparent">
+                <Button Classes="traffic" Background="#FF5F57" Click="OnCloseWindow" ToolTip.Tip="关闭" AutomationProperties.Name="关闭窗口">
+                    <Path Data="M 0,0 L 6,6 M 6,0 L 0,6" />
+                </Button>
+                <Button Classes="traffic" Background="#FEBC2E" Click="OnMinimize" ToolTip.Tip="最小化" AutomationProperties.Name="最小化窗口">
+                    <Path Data="M 0,3 L 6,3" />
+                </Button>
+                <Button Classes="traffic" Background="#28C840" Click="OnToggleMaximize" ToolTip.Tip="缩放" AutomationProperties.Name="最大化或还原窗口">
+                    <Path Data="M 1,1 L 1,4.5 L 4.5,1 Z M 5,5 L 5,1.5 L 1.5,5 Z" />
+                </Button>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        IsHitTestVisible="False">
+                <Border Width="18" Height="18" CornerRadius="5" ClipToBounds="True">
+                    <Image Source="avares://AstraPet/Assets/icons/app.png" />
+                </Border>
+                <TextBlock Text="角色工作台" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Current.Title, StringFormat='· {0}', FallbackValue=''}" IsVisible="{Binding IsProject}"
+                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel x:Name="WindowButtons" Grid.Column="2" Orientation="Horizontal">
+                <Button Classes="chrome" Click="OnMinimize" ToolTip.Tip="最小化" AutomationProperties.Name="最小化窗口">
+                    <Path Data="M 0,5 L 10,5" />
+                </Button>
+                <Button Classes="chrome" Click="OnToggleMaximize" ToolTip.Tip="最大化" AutomationProperties.Name="最大化或还原窗口">
+                    <Path Data="M 0.5,0.5 L 9.5,0.5 L 9.5,9.5 L 0.5,9.5 Z" />
+                </Button>
+                <Button Classes="chrome close" Click="OnCloseWindow" ToolTip.Tip="关闭" AutomationProperties.Name="关闭窗口">
+                    <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+
+    <Panel Grid.Row="1">
+        <!-- ═════════ 首页：工程列表 ═════════ -->
+        <arc:ScrollArea IsVisible="{Binding IsHome}" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Classes="page">
+                <StackPanel Spacing="6">
+                    <TextBlock Classes="title" Text="角色工作台" />
+                    <TextBlock Classes="note" Text="从一句描述做出一只能放在桌面上的宠物：先定形象，再生成每个动作的视频，自动抠像、对齐，最后打成角色包。每一步花多少钱都会先问你。" />
+                </StackPanel>
+
+                <Border Classes="group">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <arc:Input Text="{Binding NewName, Mode=TwoWay}" PlaceholderText="新角色的名字（随时可以改）" KeyDown="OnNewNameKeyDown"
+                                   AutomationProperties.Name="新角色的名字" />
+                        <arc:Button Grid.Column="1" Variant="Primary" Content="新建角色" Click="OnCreateProject" />
+                    </Grid>
+                </Border>
+                <arc:Alert Tone="Danger" Content="{Binding HomeMessage}" IsVisible="{Binding HasHomeMessage}" />
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="section" Text="做过的角色" VerticalAlignment="Center" />
+                    <arc:Button Grid.Column="1" Variant="Ghost" Content="打开工程目录" Click="OnOpenRoot" />
+                </Grid>
+                <Border Classes="group" IsVisible="{Binding !HasProjects}" Padding="24 28">
+                    <StackPanel Spacing="6" HorizontalAlignment="Center">
+                        <TextBlock Text="还没有做过角色" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Classes="note" Text="上面起个名字，点「新建角色」开始。一只基础角色（5 个动作）的生成费大约几十元，每次花钱前都会先问你。"
+                                   TextAlignment="Center" MaxWidth="420" />
+                    </StackPanel>
+                </Border>
+                <ItemsControl ItemsSource="{Binding Projects}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="12" LineSpacing="12" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="local:ProjectCard">
+                            <arc:Card Width="240" Title="{Binding Name}" Description="{Binding Summary}" Status="{Binding Updated}"
+                                      Cursor="Hand" Tag="{Binding}" DoubleTapped="OnProjectCardDoubleTapped">
+                                <arc:Card.Media>
+                                    <Border Height="150" Classes="checker" CornerRadius="0">
+                                        <Panel>
+                                            <Image Source="{Binding Thumb}" Stretch="Uniform" Margin="10" IsVisible="{Binding HasThumb}" />
+                                            <TextBlock Text="还没有形象" Classes="note" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding !HasThumb}" />
+                                        </Panel>
+                                    </Border>
+                                </arc:Card.Media>
+                                <arc:Card.Action>
+                                    <arc:Button Variant="Primary" Content="打开" Tag="{Binding}" Click="OnOpenProject" />
+                                </arc:Card.Action>
+                            </arc:Card>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </arc:ScrollArea>
+
+        <!-- ═════════ 一个工程 ═════════ -->
+        <Grid IsVisible="{Binding $parent[Window].((local:StudioViewModel)DataContext).IsProject}" ColumnDefinitions="Auto,*" DataContext="{Binding Current}" x:DataType="local:ProjectViewModel">
+            <!-- 左侧：九步。和控制台一样用 Arc 的 Sidebar，条目由代码按 Steps 建（Sidebar 没有 ItemsSource）：
+                 图标是步骤编号，状态放在条目末尾的标记里，没解锁的步骤禁用。 -->
+            <arc:Sidebar x:Name="StepNav" IsCollapseButtonVisible="False" Label="工作台步骤">
+                <arc:Sidebar.Header>
+                    <StackPanel Spacing="4" Margin="4 4 4 10">
+                        <arc:Button Variant="Ghost" Content="← 所有角色" HorizontalAlignment="Left" Margin="-8 0 0 6" Click="OnBackHome" />
+                        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SpentText}" Classes="note" ToolTip.Tip="按你填的单价估算，以服务商账单为准；明细在工程目录的 ledger.jsonl" />
+                    </StackPanel>
+                </arc:Sidebar.Header>
+            </arc:Sidebar>
+
+            <!-- 右侧：当前这一步 -->
+            <arc:ScrollArea Grid.Column="1" HorizontalScrollBarVisibility="Disabled" Name="StepScroll">
+                <StackPanel Classes="page">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Classes="title" Text="{Binding Step.Number}" Foreground="{arc:ArcDesignTokenResource AccentStrong}" />
+                            <TextBlock Classes="title" Text="{Binding Step.Title}" />
+                            <Panel VerticalAlignment="Center" Margin="4 2 0 0">
+                                <arc:Badge Size="Small" Tone="Success" Content="完成" IsVisible="{Binding Step.IsDone}" />
+                                <arc:Badge Size="Small" Tone="Warning" Content="需更新" IsVisible="{Binding Step.IsStale}" />
+                                <arc:Badge Size="Small" Tone="Info" Content="进行中" IsVisible="{Binding Step.IsRunning}" />
+                            </Panel>
+                        </StackPanel>
+                        <TextBlock Classes="note" Text="{Binding Step.Hint}" />
+                    </StackPanel>
+                    <arc:Alert Tone="{Binding MessageTone}" Content="{Binding Message}" IsVisible="{Binding HasMessage}" />
+
+                    <!-- ───── ⓪ 绑定模型：暂时固定用 NextCoWork，只填 Key ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsBind}">
+                        <TextBlock Classes="note" Text="设定图、站姿和动作视频都通过 NextCoWork 生成（和「智能」页里的 NextCoWork 是同一个 Key）。Key 只存在本机设置里，不会写进工程、日志和账本。" />
+                        <Border Classes="group">
+                            <StackPanel Spacing="12">
+                                <arc:PasswordField Label="NextCoWork API Key" Text="{Binding Owner.ApiKey, Mode=TwoWay}" Placeholder="sk-…" />
+                                <WrapPanel ItemSpacing="8" LineSpacing="8">
+                                    <arc:Button Variant="Primary" Content="测试连接" IsLoading="{Binding Owner.Testing}" Click="OnTestKey"
+                                                ToolTip.Tip="图片和视频各发一个不计费的请求，检查 Key 能不能用" />
+                                    <arc:Button Content="用「智能」页里的 Key" IsVisible="{Binding Owner.CanUseChatKey}" Click="OnUseChatKey" />
+                                    <arc:Button Variant="Ghost" Content="获取 Key ↗" Click="OnOpenKeyPage" />
+                                </WrapPanel>
+                                <arc:Alert Tone="{Binding Owner.TestTone}" Content="{Binding Owner.TestText}" IsVisible="{Binding Owner.HasTestText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="group">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="field" Text="视频模型" />
+                                <arc:SegmentedControl SelectedValue="{Binding Owner.VideoModelId, Mode=TwoWay}" AutomationProperties.Name="视频模型">
+                                    <arc:SegmentedOption Value="doubao-seedance-2-5-260628" Label="Seedance 2.5" />
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-260128" Label="2.0" />
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-fast-260128" Label="2.0 Fast" />
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-mini-260615" Label="2.0 Mini" />
+                                </arc:SegmentedControl>
+                                <TextBlock Classes="note" Text="{Binding Owner.VideoModelNote}" />
+                                <TextBlock Classes="note" Text="换模型后，打开的工程分辨率会换成这个模型能出的最高一档（Fast、Mini 是 720p，2.0、2.5 是 1080p），在 ④ 还能改低。" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="field" Text="用的模型" />
+                            <TextBlock Classes="note" Text="{Binding Owner.ModelsText}" />
+                            <TextBlock Classes="note" Text="{Binding Owner.PricesText}" />
+                        </StackPanel>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ① 描述 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsDescribe}">
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="field" Text="一句话描述" />
+                            <arc:Textarea Text="{Binding Description, Mode=TwoWay}" FrameMinHeight="80" FrameHeight="80"
+                                          AutomationProperties.Name="一句话描述" />
+                            <TextBlock Classes="note" Text="比如：一只戴着蓝色围巾的橘色小柴犬，圆脸，总是笑眯眯的。描述和参考图至少要有一样。" />
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="field" Text="参考图（可选）" />
+                            <arc:FileDropzone x:Name="ReferenceDrop" Accept=".png,.jpg,.jpeg,.webp" MaxFiles="8"
+                                              Label="添加参考图" Description="把图片拖到这里，或点一下选择；也可以直接粘贴截图"
+                                              Note="PNG、JPG、WebP。画的、拍的、别的角色的设定图都行" FilesChanged="OnReferencesDropped" />
+                            <ItemsControl ItemsSource="{Binding References}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="local:ImageItem">
+                                        <StackPanel Spacing="4">
+                                            <Border Classes="checker" Width="120" Height="120">
+                                                <Image Source="{Binding Thumb}" Stretch="Uniform" Margin="4" />
+                                            </Border>
+                                            <arc:Button Variant="Ghost" Content="移除" Tag="{Binding}" Click="OnRemoveReference" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <StackPanel Spacing="6">
+                                <TextBlock Classes="field" Text="风格" />
+                                <arc:Select ItemsSource="{Binding Styles}" SelectedItem="{Binding Style, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                                            AutomationProperties.Name="风格" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="6">
+                                <TextBlock Classes="field" Text="头身比" />
+                                <arc:Select ItemsSource="{Binding HeadRatios}" SelectedItem="{Binding HeadRatio, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                                            AutomationProperties.Name="头身比" />
+                            </StackPanel>
+                        </Grid>
+                        <arc:Input Label="伙伴（可选）" Text="{Binding Companion, Mode=TwoWay}" PlaceholderText="比如：肩上站着一只小黄鸟。没有就留空" />
+
+                        <TextBlock Classes="section" Text="设定卡（可选，写了画得更准，也会成为宠物的人设）" Margin="0 8 0 0" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
+                            <arc:Input Label="名字" Text="{Binding CardName, Mode=TwoWay}" />
+                            <arc:Input Grid.Column="1" Label="物种" Text="{Binding Species, Mode=TwoWay}" PlaceholderText="柴犬、猫娘、机器人…" />
+                            <arc:Input Grid.Row="1" Grid.ColumnSpan="2" Label="外貌" Text="{Binding Appearance, Mode=TwoWay}" PlaceholderText="发型、衣服、身上的标志" />
+                            <arc:Input Grid.Row="2" Label="主色" Text="{Binding Palette, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="橘色、白色、蓝色（顿号分隔）" />
+                            <arc:Input Grid.Row="2" Grid.Column="1" Label="道具" Text="{Binding Props, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="围巾、铃铛" />
+                            <arc:Input Grid.Row="3" Label="性格" Text="{Binding Personality, Mode=TwoWay}" />
+                            <arc:Input Grid.Row="3" Grid.Column="1" Label="说话风格" Text="{Binding Speech, Mode=TwoWay}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <arc:Input Label="喜欢" Text="{Binding Likes, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="晒太阳、小鱼干" />
+                            <arc:Input Grid.Column="1" Label="打招呼" Text="{Binding Greeting, Mode=TwoWay}" PlaceholderText="主人回来啦！" />
+                        </Grid>
+
+                        <!-- 性格与口味（design/pet-life/05 §1 ①）：写进 pet.json 的 profile，影响它多爱走动、多黏人、饿得多快 -->
+                        <TextBlock Classes="section" Text="性格与口味（影响它在桌面上怎么动、饿得多快、爱吃什么）" Margin="0 8 0 0" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <TextBlock Classes="field" Text="体型" VerticalAlignment="Center" />
+                            <arc:SegmentedControl Grid.Column="1" HorizontalAlignment="Left" SelectedValue="{Binding ProfileSpecies, Mode=TwoWay}" AutomationProperties.Name="体型">
+                                <arc:SegmentedOption Value="humanoid" Label="人形" />
+                                <arc:SegmentedOption Value="quadruped" Label="四足" />
+                                <arc:SegmentedOption Value="flying" Label="会飞" />
+                                <arc:SegmentedOption Value="blob" Label="软体" />
+                                <arc:SegmentedOption Value="other" Label="其他" />
+                            </arc:SegmentedControl>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding TraitRows}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:StudioTrait">
+                                    <Grid ColumnDefinitions="56,*,32" ColumnSpacing="8" Margin="0 0 16 6">
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                        <arc:Slider Grid.Column="1" Minimum="0" Maximum="100" SmallChange="5" IsValueVisible="False"
+                                                    Value="{Binding Value, Mode=TwoWay}" AutomationProperties.Name="{Binding Label}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding ValueText}" Classes="note" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ItemsControl ItemsSource="{Binding FoodRows}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="16" LineSpacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:StudioFood">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" MinWidth="64" />
+                                        <arc:SegmentedControl SelectedValue="{Binding Taste, Mode=TwoWay}" AutomationProperties.Name="{Binding Label}">
+                                            <arc:SegmentedOption Value="normal" Label="一般" />
+                                            <arc:SegmentedOption Value="like" Label="喜欢" />
+                                            <arc:SegmentedOption Value="dislike" Label="讨厌" />
+                                        </arc:SegmentedControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ② 设定图 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsSheet}">
+                        <TextBlock Classes="note" Text="设定图是角色的「标准长相」：正面、侧面、背面和几个表情画在一张图上。后面的站姿和所有动作都照着它画，所以挑一张你最满意的。也可以上传自己画的。" />
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="field" Text="提示词（留空按描述自动写）" VerticalAlignment="Center" />
+                                <arc:Button Grid.Column="1" Variant="Ghost" Content="填入自动写的" Click="OnFillSheetPrompt" />
+                            </Grid>
+                            <arc:Textarea Text="{Binding SheetPrompt, Mode=TwoWay}" FrameMinHeight="90" FrameHeight="90" AutomationProperties.Name="设定图提示词" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                            <TextBlock Text="一次生成" VerticalAlignment="Center" />
+                            <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding ImageCountValue, Mode=TwoWay}" AutomationProperties.Name="生成张数">
+                                <arc:SegmentedOption Value="1" Label="1 张" />
+                                <arc:SegmentedOption Value="2" Label="2 张" />
+                                <arc:SegmentedOption Value="3" Label="3 张" />
+                                <arc:SegmentedOption Value="4" Label="4 张" />
+                            </arc:SegmentedControl>
+                            <TextBlock Grid.Column="2" Text="{Binding ImageEstimate}" Classes="note" VerticalAlignment="Center" Margin="6 0" />
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8">
+                                <arc:Button Content="上传…" Tag="sheet" Click="OnImportCandidates" />
+                                <arc:Button Variant="Primary" Content="生成" IsLoading="{Binding SheetBusy}" Click="OnGenerateSheets" />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Spacing="12" IsVisible="{Binding SheetBusy}">
+                            <arc:TextShimmer Text="{Binding WaitText}" IsActive="{Binding SheetBusy}" FontSize="13" />
+                            <ItemsControl ItemsSource="{Binding SheetPending}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="12" LineSpacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="local:PendingImage">
+                                        <arc:ImageReveal Width="{Binding Width}" Height="{Binding Height}" AspectRatio="{Binding AspectRatio}"
+                                                         Status="Generating" Progress="{Binding Progress}" Steps="100" Seed="{Binding Seed}"
+                                                         Size="Small" Labels="{x:Static local:RevealLabels.Chinese}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding SheetCandidates}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="12" LineSpacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:ImageItem">
+                                    <Button Classes="pick" Classes.selected="{Binding IsSelected}" Tag="{Binding}" Click="OnSelectSheet"
+                                            ToolTip.Tip="点一下选定">
+                                        <Border Classes="checker" Width="300" Height="200">
+                                            <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="note" Text="点一下上面的图片选定（选中的会描边），选定后才能进行下一步" IsVisible="{Binding SheetNeedsPick}" />
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ③ 站姿与首尾帧 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsFigure}">
+                        <TextBlock Classes="note" Text="站姿是一张纯色背景上的全身正面像。选定后程序自动抠出来，放到 1280×720 画面里头顶 20%、脚底 85% 的位置，做成每段视频的第一帧和最后一帧（这样动作能无缝循环）。不花钱。" />
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10" Margin="0 0 0 6">
+                                <TextBlock Classes="field" Text="背景色" VerticalAlignment="Center" />
+                                <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding KeyColorId, Mode=TwoWay}" AutomationProperties.Name="背景色">
+                                    <arc:SegmentedOption Value="green" Label="绿色" />
+                                    <arc:SegmentedOption Value="blue" Label="蓝色" />
+                                    <arc:SegmentedOption Value="magenta" Label="品红" />
+                                </arc:SegmentedControl>
+                                <TextBlock Grid.Column="2" Classes="note" VerticalAlignment="Center"
+                                           Text="抠像用。选设定图时按角色的颜色自动选好，避开角色身上的颜色；改了会重新合成首尾帧" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBlock Classes="field" Text="提示词（留空自动写）" VerticalAlignment="Center" />
+                                <arc:Button Grid.Column="1" Variant="Ghost" Content="填入自动写的" Click="OnFillFigurePrompt" />
+                            </Grid>
+                            <arc:Textarea Text="{Binding FigurePrompt, Mode=TwoWay}" FrameMinHeight="90" FrameHeight="90" AutomationProperties.Name="站姿提示词" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                            <TextBlock Text="一次生成" VerticalAlignment="Center" />
+                            <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding ImageCountValue, Mode=TwoWay}" AutomationProperties.Name="生成张数">
+                                <arc:SegmentedOption Value="1" Label="1 张" />
+                                <arc:SegmentedOption Value="2" Label="2 张" />
+                                <arc:SegmentedOption Value="3" Label="3 张" />
+                                <arc:SegmentedOption Value="4" Label="4 张" />
+                            </arc:SegmentedControl>
+                            <TextBlock Grid.Column="2" Text="{Binding ImageEstimate}" Classes="note" VerticalAlignment="Center" Margin="6 0" />
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8">
+                                <arc:Button Content="上传…" Tag="figure" Click="OnImportCandidates" ToolTip.Tip="纯色背景或透明背景的 PNG" />
+                                <arc:Button Variant="Primary" Content="生成" IsLoading="{Binding FigureBusy}" Click="OnGenerateFigures" />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Spacing="12" IsVisible="{Binding FigureBusy}">
+                            <arc:TextShimmer Text="{Binding WaitText}" IsActive="{Binding FigureBusy}" FontSize="13" />
+                            <ItemsControl ItemsSource="{Binding FigurePending}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="12" LineSpacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="local:PendingImage">
+                                        <arc:ImageReveal Width="{Binding Width}" Height="{Binding Height}" AspectRatio="{Binding AspectRatio}"
+                                                         Status="Generating" Progress="{Binding Progress}" Steps="100" Seed="{Binding Seed}"
+                                                         Size="Small" Labels="{x:Static local:RevealLabels.Chinese}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding FigureCandidates}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="12" LineSpacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:ImageItem">
+                                    <Button Classes="pick" Classes.selected="{Binding IsSelected}" Tag="{Binding}" Click="OnSelectFigure"
+                                            ToolTip.Tip="点一下选定并做首尾帧">
+                                        <Border Classes="checker" Width="140" Height="210">
+                                            <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="note" Text="点一下上面的图片选定（选中的会描边），选定后才能进行下一步" IsVisible="{Binding FigureNeedsPick}" />
+                        <StackPanel Spacing="8" IsVisible="{Binding HasFirstFrame}">
+                            <TextBlock Classes="section" Text="首尾帧" />
+                            <Border CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Left" Width="640" Height="360">
+                                <Panel>
+                                    <Image Source="{Binding FirstFrame}" Stretch="Uniform" />
+                                    <!-- 头顶 20%、脚底 85% 的参考线 -->
+                                    <Border Height="1" VerticalAlignment="Top" Margin="0 72 0 0" Background="#80FFFFFF" />
+                                    <Border Height="1" VerticalAlignment="Top" Margin="0 306 0 0" Background="#80FFFFFF" />
+                                </Panel>
+                            </Border>
+                            <TextBlock Classes="note err" Text="{Binding FigureProblems}" IsVisible="{Binding HasFigureProblems}" />
+                        </StackPanel>
+
+                        <!-- 选装姿态（design/pet-life/05 §1 ③）：勾了才生成，以站姿为参考做图片编辑 -->
+                        <StackPanel Spacing="10" IsVisible="{Binding HasFirstFrame}">
+                            <TextBlock Classes="section" Text="其他姿态（贴墙必需；坐下、睡觉、倒挂可选）" />
+                            <TextBlock Classes="note" Text="每个姿态一张关键帧，以上面的站姿为参考生成，所以和站姿像同一个角色。有了关键帧才能在 ④ 加这一组动作。" />
+                            <ItemsControl ItemsSource="{Binding KeyframeRows}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="local:KeyframeRow">
+                                        <Border Classes="group">
+                                            <StackPanel Spacing="10">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <StackPanel Spacing="2">
+                                                        <TextBlock Classes="field" Text="{Binding Name}" />
+                                                        <TextBlock Classes="note" Text="{Binding Hint}" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+                                                        <arc:Button Content="上传…" Tag="{Binding}" Click="OnImportKeyframe" />
+                                                        <arc:Button Variant="Primary" Content="{Binding GenerateText}" Tag="{Binding}" IsLoading="{Binding Busy}" Click="OnGenerateKeyframe" />
+                                                    </StackPanel>
+                                                </Grid>
+                                                <ItemsControl ItemsSource="{Binding Candidates}">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="local:ImageItem">
+                                                            <Button Classes="pick" Classes.selected="{Binding IsSelected}" Tag="{Binding}" Click="OnSelectKeyframe"
+                                                                    ToolTip.Tip="点一下选定并合成这个姿态的首尾帧">
+                                                                <Border Classes="checker" Width="100" Height="150">
+                                                                    <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                                                                </Border>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Classes="note err" Text="点一下上面的一张图选定，选定后才会合成这个姿态的首尾帧" IsVisible="{Binding NeedsPick}" />
+                                                <Border CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Left" Width="320" Height="180" IsVisible="{Binding HasFrame}">
+                                                    <Image Source="{Binding Frame}" Stretch="Uniform" />
+                                                </Border>
+                                                <TextBlock Classes="note err" Text="{Binding Problems}" IsVisible="{Binding HasProblems}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ④ 规划动作 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsPlan}">
+                        <TextBlock Classes="note" Text="每个动作一段视频。必需的已经加好了：待机、拖拽、打招呼、走路、转身，吃东西、饿了、打哈欠、晕乎乎、下落、落地，以及墙组（贴墙待机、攀爬、上墙、下墙、松手，要先在 ③ 生成贴墙关键帧），其余按喜欢加。提示词按时间轴写，最后要回到第一帧的姿势；前面会自动拼上公共前缀（背景色、镜头固定之类）。" />
+                        <arc:Button HorizontalAlignment="Left" Content="补上必需动作" Click="OnAddRequired" ToolTip.Tip="老工程升级后，把缺的必需动作一次加上（已经有的不重复加）" />
+                        <ItemsControl ItemsSource="{Binding PlanItems}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="12" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:PlanItem">
+                                    <Border Classes="group">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                                                <arc:Input Label="名称" Text="{Binding Name, Mode=TwoWay}" />
+                                                <arc:Input Grid.Column="1" Label="id" Text="{Binding Id, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                <arc:Input Grid.Column="2" Label="角色" Text="{Binding RolesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                           ToolTip.Tip="空格分隔：idle click drag move turn greet happy sing…" />
+                                            </Grid>
+                                            <arc:Input Label="想让它做什么" Text="{Binding Description, Mode=TwoWay}" IsVisible="{Binding IsCustom}"
+                                                       ToolTip.Tip="改了以后点「按描述和时长重写」更新提示词" />
+                                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+                                                <TextBlock Classes="field" Text="时长" VerticalAlignment="Center" />
+                                                <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding DurationValue, Mode=TwoWay}" AutomationProperties.Name="时长">
+                                                    <arc:SegmentedOption Value="4" Label="4 秒" />
+                                                    <arc:SegmentedOption Value="5" Label="5 秒" />
+                                                    <arc:SegmentedOption Value="6" Label="6 秒" />
+                                                    <arc:SegmentedOption Value="8" Label="8 秒" />
+                                                    <arc:SegmentedOption Value="10" Label="10 秒" />
+                                                    <arc:SegmentedOption Value="12" Label="12 秒" />
+                                                </arc:SegmentedControl>
+                                            </Grid>
+                                            <StackPanel Spacing="6">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Classes="field" Text="提示词" VerticalAlignment="Center" />
+                                                    <arc:Button Grid.Column="1" Variant="Ghost" Content="{Binding ResetText}" Tag="{Binding}" Click="OnResetPlanPrompt"
+                                                                IsVisible="{Binding HasTemplate}" />
+                                                </Grid>
+                                                <arc:Textarea Text="{Binding Prompt, Mode=TwoWay}" FrameMinHeight="76" FrameHeight="76" AutomationProperties.Name="提示词" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Classes="field" Text="台词（一行一句，可选）" />
+                                                <arc:Textarea Text="{Binding LinesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" FrameMinHeight="50" FrameHeight="50" AutomationProperties.Name="台词" />
+                                            </StackPanel>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{Binding TemplateNote}" Classes="note" VerticalAlignment="Center" />
+                                                <arc:Button Grid.Column="1" Variant="Ghost" Content="移除" Tag="{Binding}" Click="OnRemovePlanItem" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="field" Text="加动作" />
+                            <ItemsControl ItemsSource="{Binding TemplateChoices}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="8" LineSpacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="studio:ActionTemplate">
+                                        <arc:Button Content="{Binding Name, StringFormat='+ {0}'}" ToolTip.Tip="{Binding Description}" Tag="{Binding}" Click="OnAddTemplate" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <!-- 宠物体系的动作（design/pet-life/05 §1 ④）：墙组、坐、睡要整组加，缺一个这一组就用不了 -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="field" Text="宠物体系的动作" />
+                            <TextBlock Classes="note" Text="地面常用和墙组是必需的（基础套装里已经有）；坐、睡、倒挂可选，要先在 ③ 生成对应姿态的关键帧，而且要整组做完才能用。" />
+                            <WrapPanel ItemSpacing="8" LineSpacing="8">
+                                <arc:Button Content="+ 地面常用（吃、下落、落地、晕、饿、哈欠）" Tag="ground" Click="OnAddLifeGroup" />
+                                <arc:Button Content="+ 墙组（爬墙）" Tag="wall" Click="OnAddLifeGroup" />
+                                <arc:Button Content="+ 坐" Tag="sit" Click="OnAddLifeGroup" />
+                                <arc:Button Content="+ 睡（含坐）" Tag="sleep" Click="OnAddLifeGroup" />
+                                <arc:Button Content="+ 倒挂（要先有墙组）" Tag="ceiling" Click="OnAddLifeGroup" />
+                            </WrapPanel>
+                            <ItemsControl ItemsSource="{Binding LifeTemplateChoices}">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="8" LineSpacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="studio:ActionTemplate">
+                                        <arc:Button Variant="Ghost" Content="{Binding Name, StringFormat='+ {0}'}" ToolTip.Tip="{Binding Description}" Tag="{Binding}" Click="OnAddTemplate" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding PlanWarnings}" Classes="note err" IsVisible="{Binding HasPlanWarnings}" />
+                        </StackPanel>
+                        <!-- 自定义动作：用户用一句话说想让角色做什么，选触发时机，提示词按时间轴自动生成。 -->
+                        <Border Classes="group">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="section" Text="自定义动作" />
+                                <TextBlock Classes="note" Text="模板里没有的动作自己加：写一句想让它做什么（比如「拿出一个甜甜圈，开心地咬几口」），选什么时候播。提示词会自动补上准备和回到首帧姿势，加进去以后还能改。" />
+                                <Grid ColumnDefinitions="*,2*" ColumnSpacing="10">
+                                    <arc:Input Label="名称" PlaceholderText="吃甜甜圈" Text="{Binding CustomName, Mode=TwoWay}" />
+                                    <arc:Input Grid.Column="1" Label="想让它做什么" PlaceholderText="拿出一个甜甜圈，开心地咬了几口，满足地拍拍肚子"
+                                               Text="{Binding CustomDescription, Mode=TwoWay}" />
+                                </Grid>
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="field" Text="什么时候播（可多选）" />
+                                    <arc:ChipGroup x:Name="CustomRoleChips" Label="触发时机" ItemsSource="{x:Static local:ProjectViewModel.RoleChoices}"
+                                                   SelectionChanged="OnCustomRolesChanged" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                                    <TextBlock Classes="field" Text="时长" VerticalAlignment="Center" />
+                                    <arc:SegmentedControl Grid.Column="1" SelectedValue="{Binding CustomDuration, Mode=TwoWay}" AutomationProperties.Name="自定义动作时长">
+                                        <arc:SegmentedOption Value="4" Label="4 秒" />
+                                        <arc:SegmentedOption Value="5" Label="5 秒" />
+                                        <arc:SegmentedOption Value="6" Label="6 秒" />
+                                        <arc:SegmentedOption Value="8" Label="8 秒" />
+                                        <arc:SegmentedOption Value="10" Label="10 秒" />
+                                        <arc:SegmentedOption Value="12" Label="12 秒" />
+                                    </arc:SegmentedControl>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <arc:Button Variant="Primary" Content="加入规划" IsEnabled="{Binding CanAddCustom}" Click="OnAddCustom" />
+                                    <arc:Button Variant="Ghost" Content="空白动作（全部自己写）" Click="OnAddBlank" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Classes="field" Text="公共前缀（拼在每段提示词前面）" VerticalAlignment="Center" />
+                                <arc:Button Grid.Column="1" Variant="Ghost" Content="恢复默认" Click="OnResetPrefix" />
+                            </Grid>
+                            <arc:Textarea Text="{Binding Prefix, Mode=TwoWay}" FrameMinHeight="110" FrameHeight="110" AutomationProperties.Name="公共前缀" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                            <TextBlock Text="分辨率" VerticalAlignment="Center" />
+                            <arc:SegmentedControl x:Name="ResolutionPicker" Grid.Column="1" SelectedValue="{Binding Resolution, Mode=TwoWay}" AutomationProperties.Name="分辨率">
+                                <arc:SegmentedOption Value="480p" Label="480p" />
+                                <arc:SegmentedOption Value="720p" Label="720p" />
+                                <arc:SegmentedOption Value="1080p" Label="1080p" />
+                            </arc:SegmentedControl>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6 0" Spacing="2">
+                                <TextBlock Text="{Binding PlanEstimate}" Classes="note" />
+                                <TextBlock Text="{Binding ResolutionNote}" Classes="note" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding PlanProblem}" Classes="note err" IsVisible="{Binding HasPlanProblem}" />
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="确认规划" Click="OnConfirmPlan" />
+                    </StackPanel>
+
+                    <!-- ───── ⑤ 生成视频 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsGenerate}">
+                        <TextBlock Classes="note" Text="{Binding VideoNote}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <arc:Button Content="先试一段待机" Click="OnGenerateIdle" IsEnabled="{Binding CanGenerateVideos}"
+                                        ToolTip.Tip="先花一段的钱看看效果，满意了再生成其余的" />
+                            <arc:Button Variant="Primary" Content="生成还缺的" Click="OnGenerateMissing" IsEnabled="{Binding CanGenerateVideos}" />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Rows}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:ActionRow">
+                                    <Border Classes="group">
+                                        <StackPanel Spacing="8">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <StackPanel Spacing="2">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding RolesText}" Classes="mono" VerticalAlignment="Center"
+                                                                   Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Summary}" Classes="note" />
+                                                </StackPanel>
+                                                <arc:Button Grid.Column="1" Content="再来一段" Tag="{Binding}" Click="OnGenerateRow" VerticalAlignment="Center"
+                                                            IsEnabled="{Binding $parent[ItemsControl].((local:ProjectViewModel)DataContext).CanGenerateVideos}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Note}" Classes="note err" IsVisible="{Binding HasNote}" />
+                                            <WrapPanel ItemSpacing="10" LineSpacing="10">
+                                                <!-- 还在本地排队、没提交的段 -->
+                                                <ItemsControl ItemsSource="{Binding WaitingSlots}">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="sys:Int32">
+                                                            <StackPanel Width="224" Spacing="6">
+                                                                <arc:ImageReveal Width="224" Height="126" AspectRatio="1.7778" Size="Small"
+                                                                                 Status="Queued" QueueLabel="等待提交" Labels="{x:Static local:RevealLabels.Chinese}" />
+                                                                <TextBlock Text="等待提交" Classes="note" FontSize="12" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <ItemsControl ItemsSource="{Binding Takes}">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="local:TakeItem">
+                                                            <StackPanel Width="224" Spacing="6">
+                                                                <Panel Width="224" Height="126">
+                                                                    <!-- 生成中：首帧从模糊变清楚；做完：清楚的首帧；处理好：抠完的缩略图 -->
+                                                                    <arc:ImageReveal Width="224" Height="126" AspectRatio="1.7778" Size="Small"
+                                                                                     Source="{Binding FirstFrame}" Status="{Binding RevealStatus}"
+                                                                                     Progress="{Binding RevealProgress}" Steps="100" Seed="{Binding Take}"
+                                                                                     QueueLabel="排队中" ErrorMessage="{Binding RevealError}"
+                                                                                     Labels="{x:Static local:RevealLabels.Chinese}" IsVisible="{Binding !HasThumb}" />
+                                                                    <Button Classes="pick" Width="224" Height="126" BorderThickness="0" IsVisible="{Binding HasThumb}"
+                                                                            ToolTip.Tip="悬停循环播放；点一下放大看">
+                                                                        <Button.Flyout>
+                                                                            <Flyout Placement="Bottom">
+                                                                                <Border Classes="checker" Width="640" Height="360" ClipToBounds="True">
+                                                                                    <local:ClipPreview Path="{Binding ClipPath}" IsPlaying="True" />
+                                                                                </Border>
+                                                                            </Flyout>
+                                                                        </Button.Flyout>
+                                                                        <Border Classes="checker" Width="224" Height="126" ClipToBounds="True">
+                                                                            <Panel>
+                                                                                <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                                                                                <local:ClipPreview Path="{Binding ClipPath}"
+                                                                                                   IsPlaying="{Binding $parent[Button].IsPointerOver}" />
+                                                                                <Border Background="#99000000" CornerRadius="10" Padding="7 2" Margin="6"
+                                                                                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                                                        IsVisible="{Binding !$parent[Button].IsPointerOver}">
+                                                                                    <TextBlock Text="▶ 预览" FontSize="11" Foreground="White" />
+                                                                                </Border>
+                                                                            </Panel>
+                                                                        </Border>
+                                                                    </Button>
+                                                                </Panel>
+                                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                                        <TextBlock Text="{Binding Title}" FontWeight="Medium" FontSize="12" />
+                                                                        <TextBlock Text="{Binding StatusText}" Classes="note" FontSize="12" TextWrapping="Wrap" />
+                                                                    </StackPanel>
+                                                                    <arc:Button Grid.Column="1" Variant="Ghost" Content="取消" Tag="{Binding}" Click="OnCancelTake" VerticalAlignment="Top"
+                                                                                IsVisible="{Binding !Record.IsFinished}" ToolTip.Tip="排队中的任务可以取消；已经开始生成的服务商可能不让取消" />
+                                                                </Grid>
+                                                                <TextBlock Text="{Binding Meta}" Classes="note" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Meta}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ⑥ 处理与挑选 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsProcess}">
+                        <TextBlock Classes="note" Text="视频下载好就自动抠像、对齐脚底、编码成带透明的 webm，在本机做，不花钱。每个动作挑一段采用（默认是第一段处理好的）。质检会提示首尾接不上、角色漂移、背景没抠干净之类的问题。" />
+                        <ItemsControl ItemsSource="{Binding Rows}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:ActionRow">
+                                    <Border Classes="group">
+                                        <StackPanel Spacing="8">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Summary}" Classes="note" />
+                                                </StackPanel>
+                                                <arc:Button Grid.Column="1" Variant="Ghost" Content="打开原始视频目录" Tag="{Binding}" Click="OnOpenRaw" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Note}" Classes="note err" IsVisible="{Binding HasNote}" />
+                                            <ItemsControl ItemsSource="{Binding Takes}">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="local:TakeItem">
+                                                        <Border Classes="group" Padding="8" Width="250"
+                                                                BorderBrush="{arc:ArcDesignTokenResource Border}">
+                                                            <StackPanel Spacing="6">
+                                                                <Panel Height="130">
+                                                                    <Button Classes="pick" Width="232" Height="130" BorderThickness="0" IsVisible="{Binding HasThumb}"
+                                                                            ToolTip.Tip="悬停循环播放；点一下放大看">
+                                                                        <Button.Flyout>
+                                                                            <Flyout Placement="Bottom">
+                                                                                <Border Classes="checker" Width="640" Height="360" ClipToBounds="True">
+                                                                                    <local:ClipPreview Path="{Binding ClipPath}" IsPlaying="True" />
+                                                                                </Border>
+                                                                            </Flyout>
+                                                                        </Button.Flyout>
+                                                                        <Border Classes="checker" Width="232" Height="130" ClipToBounds="True">
+                                                                            <Panel>
+                                                                                <Image Source="{Binding Thumb}" Stretch="Uniform" />
+                                                                                <local:ClipPreview Path="{Binding ClipPath}"
+                                                                                                   IsPlaying="{Binding $parent[Button].IsPointerOver}" />
+                                                                                <Border Background="#99000000" CornerRadius="10" Padding="7 2" Margin="6"
+                                                                                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                                                        IsVisible="{Binding !$parent[Button].IsPointerOver}">
+                                                                                    <TextBlock Text="▶ 预览" FontSize="11" Foreground="White" />
+                                                                                </Border>
+                                                                            </Panel>
+                                                                        </Border>
+                                                                    </Button>
+                                                                    <Border Classes="checker" IsVisible="{Binding !HasThumb}">
+                                                                        <TextBlock Text="{Binding StatusText}" Classes="note" Margin="8" TextWrapping="Wrap"
+                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                </Panel>
+                                                                <Grid ColumnDefinitions="*,Auto">
+                                                                    <TextBlock Text="{Binding Title}" FontWeight="Medium" VerticalAlignment="Center" />
+                                                                    <arc:Badge Grid.Column="1" Size="Small" Tone="Success" Content="已采用" IsVisible="{Binding IsAdopted}" />
+                                                                </Grid>
+                                                                <arc:Progress Value="{Binding Percent}" Minimum="0" Maximum="100" IsVisible="{Binding IsProcessing}"
+                                                                              AutomationProperties.Name="处理进度" />
+                                                                <TextBlock Text="{Binding QaText}" Classes="note" FontSize="11" />
+                                                                <TextBlock Text="{Binding Warnings}" Classes="note" Foreground="{arc:ArcDesignTokenResource Warning}"
+                                                                           FontSize="11" IsVisible="{Binding HasWarnings}" />
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <arc:Button Variant="Primary" Content="采用" Tag="{Binding}" Click="OnAdopt" IsVisible="{Binding CanAdopt}" />
+                                                                    <arc:Button Content="重新处理" Tag="{Binding}" Click="OnReprocess" IsEnabled="{Binding CanProcess}"
+                                                                                IsLoading="{Binding IsProcessing}" />
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ⑦ 试用 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsTryout}">
+                        <TextBlock Classes="note" Text="把现在采用的片段临时打个包，直接换到桌面上的宠物身上看效果（不改设置，退出程序就恢复）。走路的步幅不对（脚在地上打滑）就调一下，调完再放一次。" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <arc:Button Variant="Primary" Content="放到桌面上试" IsLoading="{Binding TryoutBusy}" Click="OnTryout" />
+                            <arc:Button Content="换回原来的角色" Click="OnEndTryout" IsVisible="{Binding IsTryingOut}" />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Rows}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Spacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:ActionRow">
+                                    <Border Classes="group">
+                                        <Grid ColumnDefinitions="160,*" ColumnSpacing="14">
+                                            <Border Classes="checker" Height="90">
+                                                <Image Source="{Binding AdoptedThumb}" Stretch="Uniform" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                    <arc:Button Grid.Column="1" Content="▶ 播一次" Tag="{Binding}" Click="OnPlayRow" />
+                                                </Grid>
+                                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="转身时镜像" VerticalAlignment="Center" FontSize="12" />
+                                                        <arc:Switch IsChecked="{Binding Mirror, Mode=TwoWay}" AutomationProperties.Name="镜像" />
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsMove}">
+                                                        <TextBlock Text="步幅" VerticalAlignment="Center" FontSize="12" />
+                                                        <arc:NumberField Value="{Binding Stride, Mode=TwoWay}" Minimum="20" Maximum="640" Step="5" LargeStep="50"
+                                                                         ToolTip.Tip="每走一圈前进多少像素（640×360 画面里）。脚往后滑就调小，往前滑就调大" AutomationProperties.Name="步幅" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <arc:Textarea Text="{Binding LinesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" FrameMinHeight="46" FrameHeight="46"
+                                                              AutomationProperties.Name="台词" ToolTip.Tip="播这个动作时随机说一句，一行一句" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <arc:Button Variant="Primary" HorizontalAlignment="Left" Content="下一步" Click="OnNext" />
+                    </StackPanel>
+
+                    <!-- ───── ⑧ 导出 ───── -->
+                    <StackPanel Spacing="14" IsVisible="{Binding IsExport}">
+                        <TextBlock Classes="note" Text="打成 .astrapet 角色包。导出后会按程序加载角色的同一套检查验一遍，验不过不会留下坏文件。别人拿到包放进角色目录就能用，Windows、macOS、Linux 都行。" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                            <arc:Input Label="显示名" Text="{Binding ExportName, Mode=TwoWay}" PlaceholderText="{Binding ExportNameHint}" />
+                            <arc:Input Grid.Column="1" Label="包 id" Text="{Binding ExportId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="{Binding ExportIdHint}"
+                                       ToolTip.Tip="小写字母、数字和短横线。同 id 的包会互相覆盖（用来升级）" />
+                            <arc:Input Grid.Row="1" Label="作者" Text="{Binding Author, Mode=TwoWay}" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+                                <TextBlock Classes="field" Text="许可" />
+                                <arc:Select ItemsSource="{Binding Licenses}" SelectedItem="{Binding License, Mode=TwoWay}" HorizontalAlignment="Stretch"
+                                            AutomationProperties.Name="许可" />
+                            </StackPanel>
+                            <arc:Input Grid.Row="2" Label="许可链接（可选）" Text="{Binding LicenseUrl, Mode=TwoWay}" />
+                            <arc:Input Grid.Row="2" Grid.Column="1" Label="主页（可选）" Text="{Binding Homepage, Mode=TwoWay}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="field" Text="附带源文件" />
+                                <TextBlock Classes="note" Text="设定图、站姿、首尾帧和提示词（不含接口地址、Key 和账本），方便别人在你的基础上改。" />
+                            </StackPanel>
+                            <arc:Switch Grid.Column="1" IsChecked="{Binding IncludeSource, Mode=TwoWay}" AutomationProperties.Name="附带源文件" />
+                        </Grid>
+                        <TextBlock Text="{Binding ExportNote}" Classes="note" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <arc:Button Variant="Primary" Content="安装到我的角色并使用" IsLoading="{Binding ExportBusy}" Click="OnInstall" />
+                            <arc:Button Content="导出到…" IsEnabled="{Binding !ExportBusy}" Click="OnExport" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </arc:ScrollArea>
+        </Grid>
+
+        <!-- ═════════ 费用确认 ═════════ -->
+        <arc:Dialog IsOpen="{Binding IsCostOpen, Mode=TwoWay}" CloseOnOutsidePress="False"
+                    Title="{Binding CostTitle}" Description="{Binding CostProvider}" CloseButtonName="取消">
+            <StackPanel Spacing="10" MinWidth="380">
+                <ItemsControl ItemsSource="{Binding CostLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="sys:String">
+                            <TextBlock Text="{Binding}" FontSize="12" Margin="0 2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding CostTotal}" FontSize="15" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding CostNote}" Classes="note" />
+            </StackPanel>
+            <arc:Dialog.Actions>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <arc:Button Content="取消" Click="OnCostCancel" />
+                    <arc:Button Variant="Primary" Content="确认并提交" Click="OnCostConfirm" IsDefault="True" />
+                </StackPanel>
+            </arc:Dialog.Actions>
+        </arc:Dialog>
+    </Panel>
+
+    <!-- 改大小：四边 6px、四角 12px 的透明拖拽条，最大化时隐藏 -->
+    <Panel x:Name="ResizeGrips" Grid.RowSpan="2">
+        <Border Tag="West" Width="6" HorizontalAlignment="Left" Cursor="LeftSide" />
+        <Border Tag="East" Width="6" HorizontalAlignment="Right" Cursor="RightSide" />
+        <Border Tag="North" Height="5" VerticalAlignment="Top" Cursor="TopSide" />
+        <Border Tag="South" Height="6" VerticalAlignment="Bottom" Cursor="BottomSide" />
+        <Border Tag="NorthWest" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Top" Cursor="TopLeftCorner" />
+        <Border Tag="NorthEast" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="TopRightCorner" />
+        <Border Tag="SouthWest" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="BottomLeftCorner" />
+        <Border Tag="SouthEast" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="BottomRightCorner" />
+    </Panel>
+    </Grid>
+    </Border>
+</Window>
