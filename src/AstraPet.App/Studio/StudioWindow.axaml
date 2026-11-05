@@ -263,7 +263,10 @@
                                     </Border>
                                 </arc:Card.Media>
                                 <arc:Card.Action>
-                                    <arc:Button Variant="Primary" Content="打开" Tag="{Binding}" Click="OnOpenProject" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <arc:Button Variant="Ghost" Content="删除" Tag="{Binding}" Click="OnDeleteProject" />
+                                        <arc:Button Variant="Primary" Content="打开" Tag="{Binding}" Click="OnOpenProject" />
+                                    </StackPanel>
                                 </arc:Card.Action>
                             </arc:Card>
                         </DataTemplate>
@@ -322,10 +325,26 @@
                             <StackPanel Spacing="10">
                                 <TextBlock Classes="field" Text="视频模型" />
                                 <arc:SegmentedControl SelectedValue="{Binding Owner.VideoModelId, Mode=TwoWay}" AutomationProperties.Name="视频模型">
-                                    <arc:SegmentedOption Value="doubao-seedance-2-5-260628" Label="Seedance 2.5" />
-                                    <arc:SegmentedOption Value="doubao-seedance-2-0-260128" Label="2.0" />
-                                    <arc:SegmentedOption Value="doubao-seedance-2-0-fast-260128" Label="2.0 Fast" />
-                                    <arc:SegmentedOption Value="doubao-seedance-2-0-mini-260615" Label="2.0 Mini" />
+                                    <arc:SegmentedOption Value="doubao-seedance-2-5-260628" Label="Seedance 2.5">
+                                        <arc:SegmentedOption.Accessory>
+                                            <arc:Badge Size="Small" Tone="Success" Content="8折" />
+                                        </arc:SegmentedOption.Accessory>
+                                    </arc:SegmentedOption>
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-260128" Label="2.0">
+                                        <arc:SegmentedOption.Accessory>
+                                            <arc:Badge Size="Small" Tone="Success" Content="8折" />
+                                        </arc:SegmentedOption.Accessory>
+                                    </arc:SegmentedOption>
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-fast-260128" Label="2.0 Fast">
+                                        <arc:SegmentedOption.Accessory>
+                                            <arc:Badge Size="Small" Tone="Success" Content="6折" />
+                                        </arc:SegmentedOption.Accessory>
+                                    </arc:SegmentedOption>
+                                    <arc:SegmentedOption Value="doubao-seedance-2-0-mini-260615" Label="2.0 Mini">
+                                        <arc:SegmentedOption.Accessory>
+                                            <arc:Badge Size="Small" Tone="Success" Content="6折" />
+                                        </arc:SegmentedOption.Accessory>
+                                    </arc:SegmentedOption>
                                 </arc:SegmentedControl>
                                 <TextBlock Classes="note" Text="{Binding Owner.VideoModelNote}" />
                                 <TextBlock Classes="note" Text="换模型后，打开的工程分辨率会换成这个模型能出的最高一档（Fast、Mini 是 720p，2.0、2.5 是 1080p），在 ④ 还能改低。" />
@@ -1009,6 +1028,19 @@
                 </StackPanel>
             </arc:ScrollArea>
         </Grid>
+
+        <!-- ═════════ 删除工程确认 ═════════ -->
+        <arc:Dialog IsOpen="{Binding IsDeleteOpen, Mode=TwoWay}" CloseOnOutsidePress="False"
+                    Title="{Binding DeleteTitle}" Description="删除后无法恢复" CloseButtonName="取消">
+            <TextBlock Classes="note" MinWidth="340" TextWrapping="Wrap"
+                       Text="工程文件夹会整个删掉：设定图、站姿、动作视频、导出的文件和花费账本都会一起消失。" />
+            <arc:Dialog.Actions>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <arc:Button Content="取消" Click="OnDeleteCancel" />
+                    <arc:Button Variant="Danger" Content="确认删除" Click="OnDeleteConfirm" />
+                </StackPanel>
+            </arc:Dialog.Actions>
+        </arc:Dialog>
 
         <!-- ═════════ 费用确认 ═════════ -->
         <arc:Dialog IsOpen="{Binding IsCostOpen, Mode=TwoWay}" CloseOnOutsidePress="False"
