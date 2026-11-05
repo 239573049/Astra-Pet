@@ -1,0 +1,64 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:AstraPet.Pet"
+        x:Class="AstraPet.Pet.ChatInputWindow"
+        x:DataType="local:ChatInputModel"
+        Title="和宠物说话"
+        Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" CanResize="False"
+        SizeToContent="WidthAndHeight">
+    <Window.Resources>
+        <!-- 去掉主题的边框、背景和焦点框，只留文字和光标：外观由外面那层和气泡一样的卡片负责。 -->
+        <ControlTheme x:Key="BareTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#2B2F2E" />
+            <Setter Property="CaretBrush" Value="#2B2F2E" />
+            <Setter Property="SelectionBrush" Value="#553D7CF6" />
+            <Setter Property="SelectionForegroundBrush" Value="#2B2F2E" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <TextPresenter Name="PART_TextPresenter"
+                                   Text="{TemplateBinding Text, Mode=TwoWay}"
+                                   CaretIndex="{TemplateBinding CaretIndex, Mode=TwoWay}"
+                                   SelectionStart="{TemplateBinding SelectionStart, Mode=TwoWay}"
+                                   SelectionEnd="{TemplateBinding SelectionEnd, Mode=TwoWay}"
+                                   TextWrapping="{TemplateBinding TextWrapping}"
+                                   TextAlignment="{TemplateBinding TextAlignment}"
+                                   SelectionBrush="{TemplateBinding SelectionBrush}"
+                                   SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                   CaretBrush="{TemplateBinding CaretBrush}" />
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </Window.Resources>
+
+    <!-- 宠物旁边的小输入卡片，和头顶气泡一个样式：回车发送，回复在气泡里流式出现；Esc 或点别处收起。 -->
+    <Border Margin="10" Padding="13 8 8 8" CornerRadius="18"
+            Background="#F7FFFFFF" BorderBrush="#22000000" BorderThickness="1"
+            BoxShadow="0 3 12 0 #2A000000">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Panel Width="210" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Placeholder}" Foreground="#9AA0A6" FontSize="13"
+                           IsHitTestVisible="False" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                           IsVisible="{Binding #Box.Text, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
+                <TextBox x:Name="Box" Theme="{StaticResource BareTextBox}" FontSize="13"
+                         TextWrapping="Wrap" AcceptsReturn="False" MaxHeight="80" MaxLength="500"
+                         VerticalAlignment="Center" AutomationProperties.Name="和宠物说话" />
+            </Panel>
+            <!-- 发送：有字时亮起；在等回复时显示三个点。 -->
+            <Border Grid.Column="1" x:Name="Send" Width="26" Height="26" CornerRadius="13"
+                    VerticalAlignment="Bottom" Cursor="Hand" Background="#FF8A5B"
+                    Opacity="{Binding SendOpacity}" PointerPressed="OnSendPressed">
+                <Panel>
+                    <Path Data="M 6.5,12.5 L 12,7 L 17.5,12.5 M 12,7 L 12,18" Stroke="White" StrokeThickness="2.2"
+                          StrokeLineCap="Round" StrokeJoin="Round" Width="24" Height="24" Stretch="None"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1 1 0 0"
+                          IsVisible="{Binding !Busy}" />
+                    <TextBlock Text="…" Foreground="White" FontWeight="Bold" FontSize="13"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0 0 0 4"
+                               IsVisible="{Binding Busy}" />
+                </Panel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

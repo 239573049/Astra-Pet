@@ -72,11 +72,8 @@ public class PetWindow : Window
     /// <summary>右键菜单点了某项，参数是 <see cref="MenuEntry"/> 的 Id。</summary>
     public event Action<string>? MenuCommand;
 
-    /// <summary>菜单项的显示文字，可以带状态（比如「继续动画」）。不设就用默认名字。</summary>
-    public Func<string, string>? MenuLabel { get; set; }
-
-    /// <summary>开关类菜单项是否打开（打开的画勾）；不是开关的返回 null。</summary>
-    public Func<string, bool?>? MenuChecked { get; set; }
+    /// <summary>右键菜单的内容（文字、勾、分隔线、子菜单），由 Core 的 MenuBehavior 算，和控制台预览同一份。</summary>
+    public Func<IReadOnlyList<MenuRow>>? MenuRows { get; set; }
 
     /// <summary>位置与物理（design/pet-life/04）。</summary>
     public PetBody Body => _body;
@@ -88,11 +85,6 @@ public class PetWindow : Window
     public event Action? HoverStill;
     public event Action? HoverEnded;
 
-    /// <summary>喂食子菜单的食物：id、显示文字、能不能点。</summary>
-    public Func<IReadOnlyList<(string Id, string Label, bool Enabled)>>? FoodOptions { get; set; }
-
-    /// <summary>菜单项现在要不要显示（比如没有睡觉动作时不显示「哄睡」）；null 都显示。</summary>
-    public Func<string, bool>? MenuAvailable { get; set; }
 
     /// <summary>画完一帧。控制台概览页的实时预览用它刷新。</summary>
     public event Action? FrameShown;
@@ -249,6 +241,7 @@ public class PetWindow : Window
 
     /// <summary>角色头顶中间的桌面坐标：气泡和状态浮层对齐到这里。</summary>
     public (double CenterX, double Top) HeadAnchor => _body.BodyPosition;
+    public (double Left, double Top, double Right, double Bottom) BodyBounds => _body.BodyBounds;
 
     /// <summary>从外部（控制台）指定播哪段，按用户操作处理：播完回待机。</summary>
     public void Play(PetClip clip) => _director.Play(clip, fromUser: true);
@@ -256,7 +249,7 @@ public class PetWindow : Window
     public void Play(string category) => _director.Play(category, fromUser: true);
 
     // 菜单项的图标（24x24 线稿）和分组：相邻两项分组不同时中间画一条分隔线。
-    private static readonly Dictionary<string, (string Group, Geometry Icon)> MenuStyle = new()
+    private static readonly Dictionary<string, (string Group, Geometry Icon)> MenuIcons = new()
     {
         [MenuEntry.Chat] = ("open", Geometry.Parse("M 4,5 L 20,5 L 20,16 L 10,16 L 6,20 L 6,16 L 4,16 Z")),
         [MenuEntry.Console] = ("open", Geometry.Parse("M 4,6 L 20,6 M 4,12 L 20,12 M 4,18 L 20,18 M 9,4 L 9,8 M 15,10 L 15,14 M 8,16 L 8,20")),
@@ -267,35 +260,36 @@ public class PetWindow : Window
         [MenuEntry.Center] = ("place", Geometry.Parse("M 12,5 A 7,7 0 1 0 12,19 A 7,7 0 1 0 12,5 Z M 12,2 L 12,6 M 12,18 L 12,22 M 2,12 L 6,12 M 18,12 L 22,12")),
         [MenuEntry.Hide] = ("place", Geometry.Parse("M 3,12 Q 12,4 21,12 Q 12,20 3,12 Z M 4,4 L 20,20")),
         [MenuEntry.Exit] = ("exit", Geometry.Parse("M 14,4 L 19,4 L 19,20 L 14,20 M 10,8 L 6,12 L 10,16 M 6,12 L 15,12")),
+        [MenuEntry.Actions] = ("pet", Geometry.Parse("M 12,3 A 2,2 0 1 0 12,7 A 2,2 0 1 0 12,3 Z M 5,10 L 12,9 L 19,10 M 12,9 L 12,15 L 8,21 M 12,15 L 16,21")),
+        [MenuEntry.Feed] = ("pet", Geometry.Parse("M 6,4 L 6,10 Q 6,12 8,12 L 8,20 M 8,4 L 8,9 M 10,4 L 10,10 Q 10,12 8,12 M 16,4 Q 19,6 19,11 L 16,11 L 16,20")),
+        [MenuEntry.Play] = ("pet", Geometry.Parse("M 12,4 A 8,8 0 1 0 12,20 A 8,8 0 1 0 12,4 Z M 4.5,9 Q 12,13 19.5,9 M 4.5,15 Q 12,11 19.5,15")),
+        [MenuEntry.Sleep] = ("pet", Geometry.Parse("M 19,14.5 A 8,8 0 1 1 9.5,5 A 6.5,6.5 0 0 0 19,14.5 Z")),
+        [MenuEntry.Status] = ("pet", Geometry.Parse("M 12,20 L 4.5,12.5 A 4.2,4.2 0 0 1 12,7 A 4.2,4.2 0 0 1 19.5,12.5 Z")),
     };
 
     private void BuildMenu(ContextMenu menu)
     {
         menu.Items.Clear();
-        string? group = null;
-        foreach (var entry in _settings.MenuItems.Where(m => m.Visible && (MenuAvailable?.Invoke(m.Id) ?? true)))
+        foreach (var row in MenuRows?.Invoke() ?? [])
         {
-            var id = entry.Id;
-            var (itemGroup, icon) = MenuStyle.TryGetValue(id, out var style) ? style : ("", null);
-            if (group is not null && itemGroup != group) menu.Items.Add(new Separator());
-            group = itemGroup;
-
-            var item = new MenuItem { Header = MenuLabel?.Invoke(id) ?? entry.Label };
-            if (icon is not null)
-                item.Icon = new Avalonia.Controls.Shapes.Path { Data = icon, Classes = { "menu-icon" } };
-            if (MenuChecked?.Invoke(id) is { } on) item.IsChecked = on;
+            if (!row.Shown) continue;
+            if (row.SeparatorBefore) menu.Items.Add(new Separator());
+            var id = row.Id;
+            var item = new MenuItem { Header = row.Label };
+            if (MenuIcons.TryGetValue(id, out var style))
+                item.Icon = new Avalonia.Controls.Shapes.Path { Data = style.Icon, Classes = { "menu-icon" } };
+            if (row.Checked is { } on) item.IsChecked = on;
             if (id == MenuEntry.Exit) item.Classes.Add("danger");
-            if (id == MenuEntry.Feed)
+            if (row.HasChildren)
             {
-                // 喂食是子菜单：每个食物一项，冷却中 / 没有零食的置灰（design/pet-life/03 §2.1）。
-                foreach (var (foodId, label, enabled) in FoodOptions?.Invoke() ?? [])
+                // 子菜单（喂食的食物、做个动作）：置灰的是冷却中 / 没解锁 / 现在做不了的。
+                foreach (var child in row.Children)
                 {
-                    var food = new MenuItem { Header = label, IsEnabled = enabled };
-                    var command = MenuEntry.FeedPrefix + foodId;
-                    food.Click += (_, _) => MenuCommand?.Invoke(command);
-                    item.Items.Add(food);
+                    var sub = new MenuItem { Header = child.Label, IsEnabled = child.Enabled };
+                    var command = child.Command;
+                    sub.Click += (_, _) => MenuCommand?.Invoke(command);
+                    item.Items.Add(sub);
                 }
-                if (item.Items.Count == 0) continue;
                 menu.Items.Add(item);
                 continue;
             }

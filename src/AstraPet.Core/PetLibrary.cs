@@ -70,6 +70,29 @@ public sealed class PetLibrary
     /// <summary>格式 2 的 pet.json 根元素（人设等以后用），格式 1 为 null。</summary>
     public JsonElement? Manifest { get; private init; }
 
+    /// <summary>角色包的自定义提示词（pet.json 的 prompt 指向的 .md 文件内容）；没有或读不出来为 null。</summary>
+    public string? Prompt { get; private init; }
+
+    /// <summary>读 pet.json 的 prompt 指向的 .md；文件名不合法、不存在、读失败都只记日志，回退到结构化人设。</summary>
+    private static string? ReadPrompt(JsonElement root, string packRoot, Action<string>? log)
+    {
+        var name = ActionManifest.Str(root, "prompt").Trim();
+        if (name.Length == 0) return null;
+        if (!PetPack.IsPromptFile(name)) { log?.Invoke($"跳过提示词：「{name}」不是包根目录下的 .md 文件"); return null; }
+        var file = Path.Combine(packRoot, name);
+        try
+        {
+            if (!File.Exists(file)) { log?.Invoke($"跳过提示词：包里没有 {name}"); return null; }
+            var text = File.ReadAllText(file).Trim();
+            return text.Length == 0 ? null : text;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            log?.Invoke($"跳过提示词 {name}：{e.Message}");
+            return null;
+        }
+    }
+
     public int ClipCount => Actions.All.Sum(a => a.Clips.Count);
 
     /// <summary>角色的显示名（目录里的名字），由 <see cref="PetCatalog"/> 设置。</summary>
@@ -168,17 +191,17 @@ public sealed class PetLibrary
             var root = doc.RootElement;
             var actions = ActionManifest.Parse(
                 root.TryGetProperty("actions", out var a) ? a : default, found.Root, decoder, log);
-            return Build(decoder, actions, 2, root.Clone());
+            return Build(decoder, actions, 2, root.Clone(), ReadPrompt(root, found.Root, log));
         }
         return Build(decoder, LoadFormat1(dir, decoder, log), 1, null);
     }
 
-    private static PetLibrary Build(IClipDecoder decoder, List<ActionDef> actions, int format, JsonElement? manifest)
+    private static PetLibrary Build(IClipDecoder decoder, List<ActionDef> actions, int format, JsonElement? manifest, string? prompt = null)
     {
         actions = StanceGraph.Prune(actions, PetLog.Write);
         if (new ActionSet(actions).MissingRequired() is { Count: > 0 } missing)
             throw new InvalidOperationException($"缺少 {string.Join("、", missing)} 的动作");
-        return new PetLibrary(decoder, actions, format) { Manifest = manifest };
+        return new PetLibrary(decoder, actions, format) { Manifest = manifest, Prompt = prompt };
     }
 
     /// <summary>dir 或它的上一级有 format ≥ 2 的 pet.json 时返回它。</summary>

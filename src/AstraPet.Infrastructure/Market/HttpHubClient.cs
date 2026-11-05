@@ -69,7 +69,8 @@ public sealed class HttpHubClient : IHubClient
     public async Task<HubUser> GetMeAsync(string token, CancellationToken ct)
     {
         var dto = Read(await SendAsync(HttpMethod.Get, "api/client/me", token, null, ct), HubJsonContext.Default.MeDto);
-        return new HubUser(dto.Id ?? "", dto.Nickname is { Length: > 0 } n ? n : "已登录用户", dto.AvatarUrl);
+        return new HubUser(dto.Id ?? "", dto.Nickname is { Length: > 0 } n ? n : "已登录用户", dto.AvatarUrl,
+            dto.Email is { Length: > 0 } email ? email : null);
     }
 
     public async Task LogoutAsync(string token, CancellationToken ct) =>
@@ -283,6 +284,7 @@ internal sealed class MeDto
     public string? Id { get; set; }
     public string? Nickname { get; set; }
     public string? AvatarUrl { get; set; }
+    public string? Email { get; set; }
 }
 
 internal sealed class PetsPageDto

@@ -407,9 +407,11 @@ public sealed class StudioEngine(
             License = export.License.Trim(),
             LicenseUrl = export.LicenseUrl.Trim(),
             Homepage = export.Homepage.Trim(),
+            Version = export.Version.Trim() is { Length: > 0 } ver ? ver : "1.0.0",
             Credits = ["用 Astra Pet 工作台制作" + (videoModel is null ? "" : $"；视频由 {videoModel} 生成")],
             MinAppVersion = AppVersion.Current.Split('-')[0],
             Persona = persona,
+            PromptMarkdown = data.Prompt.Trim() is { Length: > 0 } prompt ? prompt : null,
             Profile = Profile(project),
             Actions = actions,
             Preview = PreviewGrid(project),
@@ -534,11 +536,23 @@ public sealed class StudioEngine(
     /// ⑧ 导出 .astrapet，并用和程序加载角色完全一样的路径校验一遍（<see cref="PetPack.Inspect"/> + <see cref="PetLibrary.Load"/>）。
     /// 校验不过删掉产物并抛 <see cref="InvalidDataException"/>。
     /// </summary>
+    public static bool IsValidVersion(string v) => System.Text.RegularExpressions.Regex.IsMatch(v, @"^\d{1,5}\.\d{1,5}\.\d{1,5}$");
+
+    /// <summary>补丁号加一：1.0.3 → 1.0.4。</summary>
+    public static string NextVersion(string v)
+    {
+        var p = v.Split('.');
+        return $"{p[0]}.{p[1]}.{int.Parse(p[2]) + 1}";
+    }
+
     public void Export(StudioProject project, string path, IClipDecoder decoder, string cacheRoot)
     {
         if (project.PlanProblem() is { } planProblem) throw new InvalidDataException(planProblem);
         var spec = BuildSpec(project);
+        if (!IsValidVersion(spec.Version)) throw new InvalidDataException($"版本号「{spec.Version}」不合法：要写成 1.0.0 这样的三段数字");
         if (!ActionDef.IsValidId(spec.Id)) throw new InvalidDataException($"包 id「{spec.Id}」不合法：只能用小写字母、数字和短横线，最长 32 个字符");
+        if (spec.PromptMarkdown is { } md && System.Text.Encoding.UTF8.GetByteCount(md) > PetPack.MaxPromptBytes)
+            throw new InvalidDataException($"自定义提示词太长了（上限 {PetPack.MaxPromptBytes / 1024 / 1024} MB）");
         PetPackWriter.Write(spec, path);
         try
         {
@@ -557,6 +571,7 @@ public sealed class StudioEngine(
             throw;
         }
         project.Data.Export.Id = spec.Id;
+        project.Data.Export.Version = NextVersion(spec.Version);
         project.Data.Export.Basis = project.ExportBasis();
         project.Data.Export.LastPath = path;
         project.Save();

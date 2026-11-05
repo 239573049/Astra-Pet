@@ -61,7 +61,7 @@ class Program
             Console.WriteLine($"platform: {composition.Platform.Identity}（详细结果用 --platform-report）");
             BuildAvaloniaApp().SetupWithoutStarting();
             _ = new ControlPanel.ConsoleWindow();
-            _ = new ControlPanel.ChatWindow();
+            _ = new Pet.ChatInputWindow();
             Console.WriteLine("smoke ok");
             return 0;
         }

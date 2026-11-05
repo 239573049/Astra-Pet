@@ -9,16 +9,22 @@ public sealed record PromptInputs
     public required PetPersona Persona { get; init; }
     /// <summary>用户整段自定义的人设；非空时替换角色包的人设。</summary>
     public string? CustomPersona { get; init; }
+    /// <summary>角色包自带的提示词（.md 全文，可能很长）；有它时替换结构化人设，但用户自定义人设优先。</summary>
+    public string? PackPrompt { get; init; }
     public string Notes { get; init; } = "";
     /// <summary>要写进提示词的记忆（没开记忆时传空）。</summary>
     public IReadOnlyList<string> Memories { get; init; } = [];
     /// <summary>这次请求带了 play_action 工具：有【做动作】一段。</summary>
     public bool CanAct { get; init; }
+    /// <summary>这次请求带了 remember 工具：有【记东西】一段。</summary>
+    public bool CanRemember { get; init; }
     /// <summary>示例里用的庆祝动作 id 或心情。</summary>
     public string ActionExample { get; init; } = "happy";
     public DateTime Now { get; init; }
     /// <summary>【现在】里时间之后的几行：番茄钟、听歌、刚才的交互……</summary>
     public IReadOnlyList<string> Situation { get; init; } = [];
+    /// <summary>压缩掉的较早对话的摘要；null 表示没有。</summary>
+    public string? Summary { get; init; }
     /// <summary>平时一次回复的字数上限，跟着气泡大小。</summary>
     public int ShortLimit { get; init; } = 60;
 }
@@ -31,11 +37,14 @@ public static class SystemPrompt
 {
     public const int MaxNotes = 500;
     public const int MaxCustomPersona = 1500;
+    /// <summary>角色包提示词的上限（字符）。包里的文件最大 4 MB，进提示词前再截一次。</summary>
+    public const int MaxPackPrompt = 60_000;
 
     public static string Build(PromptInputs input)
     {
         var sb = new StringBuilder();
-        var custom = input.CustomPersona?.Trim() is { Length: > 0 } c ? Clip(c, MaxCustomPersona) : null;
+        var custom = input.CustomPersona?.Trim() is { Length: > 0 } c ? Clip(c, MaxCustomPersona)
+            : input.PackPrompt?.Trim() is { Length: > 0 } pp ? Clip(pp, MaxPackPrompt) : null;
 
         sb.AppendLine("【你是谁】");
         sb.AppendLine(custom is null
@@ -88,11 +97,28 @@ public static class SystemPrompt
             sb.AppendLine();
         }
 
+        if (input.CanRemember)
+        {
+            sb.AppendLine("【记东西】");
+            sb.AppendLine("你有一个 remember 工具，可以把关于用户的事记进长期记忆，下次聊天还记得。");
+            sb.AppendLine("- 用户说「记住…」「别忘了…」时一定调用它；说「忘掉…」「别记…」时删掉，只忘一部分就把那条改写成剩下的。怎么拆、怎么写由你决定。");
+            sb.AppendLine("- 你自己听到用户重要又长期有效的事（喜好、习惯、身份、重要的人和日子、目标、计划）也可以主动记，像朋友那样留心；闲聊和一次性的事不用记，别每轮都记。");
+            sb.AppendLine("- 记完照常回复，想说的话可以顺口提一句「记住啦」，不用每次都说。");
+            sb.AppendLine();
+        }
+
         if (input.Memories.Count > 0)
         {
             sb.AppendLine("【关于用户，你记得】（之前聊天时记下的，可能已经过时。自然地用上，不要一次全说出来，也不要逐条复述）");
             foreach (var m in input.Memories)
                 sb.Append("- ").AppendLine(m);
+            sb.AppendLine();
+        }
+
+        if (input.Summary?.Trim() is { Length: > 0 } summary)
+        {
+            sb.AppendLine("【之前聊过的】（较早的对话已经压缩成下面的摘要，最近的几轮在消息里）");
+            sb.AppendLine(summary);
             sb.AppendLine();
         }
 

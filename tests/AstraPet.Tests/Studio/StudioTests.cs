@@ -673,6 +673,36 @@ public class FigureAndPackTests : IDisposable
     }
 
     [Fact]
+    public void Prompt_markdown_is_written_as_prompt_md_and_referenced_from_pet_json()
+    {
+        var path = Path.Combine(_root, "p.astrapet");
+        var text = "# 柴柴\n\n" + new string('长', 20000);
+        PetPackWriter.Write(Spec() with { PromptMarkdown = text }, path);
+        var (manifest, problem) = PetPack.Inspect(path);
+        Assert.Null(problem);
+        Assert.Equal("prompt.md", manifest!.Prompt);
+        using var zip = ZipFile.OpenRead(path);
+        using var reader = new StreamReader(zip.GetEntry("prompt.md")!.Open());
+        Assert.Equal(text, reader.ReadToEnd());
+        Assert.Contains("prompt", PetPack.Inspect(WriteWithoutPromptFile(path)).Problem);
+    }
+
+    /// <summary>pet.json 指向的 prompt 文件不在包里：Inspect 要报出来。</summary>
+    private string WriteWithoutPromptFile(string source)
+    {
+        var path = Path.Combine(_root, "broken.astrapet");
+        using (var from = ZipFile.OpenRead(source))
+        using (var to = ZipFile.Open(path, ZipArchiveMode.Create))
+            foreach (var e in from.Entries.Where(e => e.FullName != "prompt.md"))
+            {
+                using var src = e.Open();
+                using var dst = to.CreateEntry(e.FullName).Open();
+                src.CopyTo(dst);
+            }
+        return path;
+    }
+
+    [Fact]
     public void Writes_a_format_2_pack_that_passes_inspection_and_is_reproducible()
     {
         var a = Path.Combine(_root, "a.astrapet");

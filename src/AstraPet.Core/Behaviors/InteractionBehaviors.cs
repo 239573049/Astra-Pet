@@ -69,10 +69,106 @@ public sealed class InteractionBehavior : PetBehavior
     }
 }
 
-/// <summary>右键菜单：每项的文字（带状态）和点了之后做什么。「退出」由窗口自己处理。</summary>
+/// <summary>右键菜单里的一行。<see cref="Shown"/> 为假时真实菜单里不出现，<see cref="HiddenReason"/> 说明为什么（控制台预览用）。</summary>
+public sealed record MenuRow(
+    string Id,
+    string Label,
+    string Group,
+    bool? Checked,
+    bool Shown,
+    string? HiddenReason,
+    IReadOnlyList<MenuSubItem> Children)
+{
+    /// <summary>和上一个出现的项分组不同：真实菜单在它前面画分隔线。</summary>
+    public bool SeparatorBefore { get; init; }
+    public bool HasChildren => Children.Count > 0;
+    /// <summary>开关类、而且现在是打开的（画勾）。</summary>
+    public bool IsOn => Checked == true;
+}
+
+/// <summary>子菜单的一项：点了发 <see cref="Command"/>。</summary>
+public sealed record MenuSubItem(string Command, string Label, bool Enabled);
+
+/// <summary>
+/// 右键菜单：每项的文字（带状态）、能不能出现、子菜单，以及点了之后做什么。「退出」由窗口自己处理。
+/// 真实菜单和控制台的预览都用 <see cref="Rows"/>，两边永远一致。
+/// </summary>
 public sealed class MenuBehavior(PomodoroBehavior pomodoro, PlayBehavior play) : PetBehavior
 {
     protected override void OnStart() => Context.Input.MenuCommand += OnCommand;
+
+    /// <summary>分组：相邻两项分组不同时中间画分隔线。</summary>
+    public static string GroupOf(string id) => id switch
+    {
+        MenuEntry.Chat or MenuEntry.Console => "open",
+        MenuEntry.Actions or MenuEntry.Feed or MenuEntry.Play or MenuEntry.Sleep or MenuEntry.Status => "pet",
+        MenuEntry.Pause or MenuEntry.StayStill or MenuEntry.Pomodoro or MenuEntry.Mute => "state",
+        MenuEntry.Center or MenuEntry.Hide => "place",
+        MenuEntry.Exit => "exit",
+        _ => "",
+    };
+
+    /// <summary>按设置里的顺序列出打开了的项（含现在出现不了的，带原因）。分隔线只算真正出现的项。</summary>
+    public IReadOnlyList<MenuRow> Rows()
+    {
+        var rows = new List<MenuRow>();
+        string? group = null;
+        foreach (var entry in Settings.MenuItems.Where(m => m.Visible))
+        {
+            var id = entry.Id;
+            var children = id switch
+            {
+                MenuEntry.Feed => FoodItems(),
+                MenuEntry.Actions => ActionItems(),
+                _ => (IReadOnlyList<MenuSubItem>)[],
+            };
+            var reason = HiddenReason(id, children);
+            var row = new MenuRow(id, LabelOf(id), GroupOf(id), IsChecked(id), reason is null, reason, children);
+            if (row.Shown)
+            {
+                row = row with { SeparatorBefore = group is not null && row.Group != group };
+                group = row.Group;
+            }
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    /// <summary>这项现在为什么不出现在菜单里；能出现返回 null。</summary>
+    private string? HiddenReason(string id, IReadOnlyList<MenuSubItem> children) => id switch
+    {
+        MenuEntry.Feed or MenuEntry.Status when Context.Life is not { Enabled: true } => "宠物体系（状态页）没打开",
+        MenuEntry.Feed when children.Count == 0 => "没有可以喂的食物",
+        MenuEntry.Sleep when !Context.Director.Library.Actions.All.Any(a => a.Enabled && a.HasRole(Roles.Sleep)) => "这只宠物没有睡觉动作",
+        MenuEntry.Actions when children.Count == 0 => "这只宠物没有可以点播的动作",
+        _ => null,
+    };
+
+    /// <summary>「喂食」子菜单：每个食物一项，标出喜欢的、冷却和零食数量（design/pet-life/03 §2.1）。</summary>
+    private IReadOnlyList<MenuSubItem> FoodItems()
+    {
+        if (Context.Life is not { Enabled: true } life) return [];
+        var diet = life.Profile.Diet;
+        return Foods.All.Select(f =>
+        {
+            var (available, note) = life.FoodStatus(f);
+            var star = diet.Likes.Contains(f.Id) ? " ★" : "";
+            return new MenuSubItem(MenuEntry.FeedPrefix + f.Id, $"{f.Icon} {f.Name}{star}" + (note.Length > 0 ? $"（{note}）" : ""), available);
+        }).ToList();
+    }
+
+    /// <summary>
+    /// 「做个动作」子菜单：和 Agent 能选的同一批（不含待机、移动、拖拽这些系统控制的）。
+    /// 还没解锁、现在的姿势够不着的置灰。
+    /// </summary>
+    private IReadOnlyList<MenuSubItem> ActionItems()
+    {
+        var director = Context.Director;
+        return AstraPet.Ai.PlayActionTool.Choosable(director.Library.Actions, _ => true)
+            .Select(a => new MenuSubItem(MenuEntry.ActionPrefix + a.Id, a.DisplayName,
+                (director.Usable?.Invoke(a) ?? true) && director.CanReach(a)))
+            .ToList();
+    }
 
     public string LabelOf(string id) => id switch
     {
@@ -116,8 +212,19 @@ public sealed class MenuBehavior(PomodoroBehavior pomodoro, PlayBehavior play) :
             default:
                 if (id.StartsWith(MenuEntry.FeedPrefix, StringComparison.Ordinal) && Context.Life is { } life)
                     Context.Commands.Feed(life, id[MenuEntry.FeedPrefix.Length..]);
+                else if (id.StartsWith(MenuEntry.ActionPrefix, StringComparison.Ordinal))
+                    PlayAction(id[MenuEntry.ActionPrefix.Length..]);
                 break;
         }
+    }
+
+    /// <summary>菜单点播一个动作：按用户操作的优先级播，播完回待机；动作带台词的随口说一句。</summary>
+    private void PlayAction(string actionId)
+    {
+        var director = Context.Director;
+        if (director.Library.Actions.All.FirstOrDefault(a => a.Id == actionId && a.Enabled) is not { } action) return;
+        director.Request(new ActionRequest(action, ActionPriority.User, "menu"));
+        if (action.Lines.Count > 0) Context.Voice.React(Pick(action.Lines));
     }
 
     public override void Dispose()
@@ -130,6 +237,8 @@ public sealed class MenuBehavior(PomodoroBehavior pomodoro, PlayBehavior play) :
 /// <summary>启动时按时段打个招呼。</summary>
 public sealed class GreetingBehavior : PetBehavior
 {
+    private string SystemPromptTime() => AstraPet.Ai.SystemPrompt.When(Now.DateTime);
+
     protected override void OnStart()
     {
         if (!Settings.DailyGreeting) return;
@@ -144,7 +253,7 @@ public sealed class GreetingBehavior : PetBehavior
         // 等窗口和气泡都摆好再说。
         Context.Ui.Post(() =>
         {
-            Context.Voice.Say(text);
+            SayInCharacter($"你刚被用户打开（今天第一次见面或者刚重启），按现在的时间（{SystemPromptTime()}）跟用户打个招呼", text);
             Context.Events.Publish(PetEvents.AppStarted, ("hour", Now.Hour.ToString()));
         });
     }

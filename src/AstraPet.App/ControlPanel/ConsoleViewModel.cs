@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using AstraPet.Ai;
 using AstraPet.Core;
+using AstraPet.Core.Behaviors;
 using AstraPet.Pet;
 using AstraPet.Platform;
 using Avalonia;
@@ -92,6 +93,8 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         Market = new MarketViewModel(App.Composition!.Market, App.Composition.HubClient, platform.Shell,
             RefreshPets, UseInstalledPet, () => IsMarket);
         companion.ExternalStatusChanged += RaiseExternal;
+        // 菜单预览和真实菜单是同一份数据（MenuBehavior.Rows）；设置一变（勾选、排序、宠物体系开关）就重算。
+        settings.Changed += () => { if (IsMenu) RaiseMenuPreview(); };
 
         Pages =
         [
@@ -207,6 +210,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
                      nameof(IsLife), nameof(IsPlace), nameof(IsMarket), nameof(CurrentKey) })
             Raise(name);
         if (IsMarket) Market.Activate();
+        if (IsMenu) RaiseMenuPreview();
     }
 
     // ───── 概览 ─────
@@ -400,6 +404,16 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         RefreshPets();
         if (Pets.FirstOrDefault(p => p.Id == id) is { } entry)
         {
+            // 更新的正是正在用的角色：RefreshPets 已经把它当成当前角色，SelectedPet 的 setter 会认为没变而跳过，
+            // 桌面上还是旧包加载好的动作。同 id 时强制重新加载。
+            if (entry == _currentPet)
+            {
+                _tryoutReturn = null;
+                _selectedPet = entry;
+                Raise(nameof(SelectedPet));
+                _ = SwitchPetAsync(entry);
+                return null;
+            }
             SelectedPet = entry;
             return null;
         }
@@ -551,6 +565,11 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
     // ───── 菜单 ─────
     // 顺序由菜单页的 ReorderableList 直接在 Settings.MenuItems 上移动，这里只管恢复默认。
 
+    /// <summary>预览：和右键宠物时弹出的菜单一模一样（文字、勾、分隔线、子菜单），出现不了的项置灰并说明原因。</summary>
+    public IReadOnlyList<MenuRow> MenuPreview => _companion.Menu.Rows();
+
+    public void RaiseMenuPreview() => Raise(nameof(MenuPreview));
+
     public void ResetMenu()
     {
         Settings.MenuItems.Clear();
@@ -589,6 +608,8 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
     {
         get
         {
+            if (_director.Library.Prompt is { } prompt)
+                return prompt.Length <= PackPromptPreview ? prompt : prompt[..PackPromptPreview] + $"\n……（共 {prompt.Length:N0} 字，只显示开头）";
             var p = _director.Library.Persona;
             var lines = new List<string> { $"名字：{p.Name}" };
             if (p.Identity.Length > 0) lines.Add($"样子：{p.Identity}");
@@ -600,11 +621,15 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         }
     }
 
-    public string PackPersonaSource => _director.Library.Manifest is { } m && Ai.PetPersona.Parse(m) is not null
+    private const int PackPromptPreview = 1200;
+
+    public string PackPersonaSource => _director.Library.Prompt is not null
+        ? $"来自角色包「{_currentPet.Name}」自带的提示词（.md）"
+        : _director.Library.Manifest is { } m && Ai.PetPersona.Parse(m) is not null
         ? $"来自角色包「{_currentPet.Name}」"
         : $"「{_currentPet.Name}」的角色包没有写人设，用的是通用人设";
 
-    public void CopyPackPersona() => Settings.PersonaCustom = PackPersonaText;
+    public void CopyPackPersona() => Settings.PersonaCustom = _director.Library.Prompt ?? PackPersonaText;
 
     /// <summary>旧版改过的提示词被搬成了自定义人设，提示一次。</summary>
     public bool ShowPromptMigrationNotice => Settings.PromptMigrationNotice;

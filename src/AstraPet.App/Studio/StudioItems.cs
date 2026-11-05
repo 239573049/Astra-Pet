@@ -332,19 +332,27 @@ public sealed class ActionRow(PlannedAction action) : Observable
             else Takes.Insert(i, takes[i]);
         }
         Raise(nameof(Summary));
+        Raise(nameof(Busy));
+        Raise(nameof(CanGenerateAgain));
         Raise(nameof(HasTakes));
         Raise(nameof(AdoptedThumb));
         Raise(nameof(HasAdopted));
     }
 
     public bool HasTakes => Takes.Count > 0;
+    public bool HasWaiting => _waiting > 0;
     public int Waiting
     {
         get => _waiting;
-        set { if (Set(ref _waiting, value)) { Raise(nameof(Summary)); Raise(nameof(WaitingSlots)); } }
+        set { if (Set(ref _waiting, value)) { Raise(nameof(Summary)); Raise(nameof(WaitingSlots)); Raise(nameof(Busy)); Raise(nameof(CanGenerateAgain)); Raise(nameof(HasWaiting)); } }
     }
 
-    /// <summary>还在本地排队、没提交的段数，⑤ 里给每段放一张「等待提交」的卡。</summary>
+    /// <summary>这一行有段在排队或生成：再点「再来一段」会重复提交、多花钱，先等它结束。</summary>
+    public bool Busy => _waiting > 0 || Takes.Any(t => !t.Record.IsFinished);
+
+    public bool CanGenerateAgain => !Busy;
+
+    /// <summary>还在本地排队、没提交的段数，⑤ 里合成一条「等待提交」的提示。</summary>
     public IReadOnlyList<int> WaitingSlots => Enumerable.Range(1, _waiting).ToList();
 
     /// <summary>这一行的一句话说明（提交失败之类）。</summary>

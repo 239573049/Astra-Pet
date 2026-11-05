@@ -243,6 +243,44 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
     public string Likes { get => string.Join("、", Data.Card.Likes); set => Data.Card.Likes = PlanItem.Split(value, '、', ',', '，'); }
     public string Greeting { get => Data.Card.Greeting; set => Data.Card.Greeting = value ?? ""; }
 
+    /// <summary>自定义提示词（Markdown，可以很长）：导出成包里的 prompt.md。留空就用设定卡生成的人设。</summary>
+    public string Prompt
+    {
+        get => Data.Prompt;
+        set { Data.Prompt = value ?? ""; Raise(nameof(PromptNote)); }
+    }
+
+    public string PromptNote => Data.Prompt.Trim().Length == 0
+        ? "留空时，宠物的人设由上面的设定卡生成。"
+        : $"{Data.Prompt.Trim().Length:N0} 字；导出时写成包里的 prompt.md，对话时代替设定卡人设。";
+
+    /// <summary>从 .md 文件读进来；不是 .md、太大、读不出来都给出原因。</summary>
+    public async Task ImportPromptAsync(string path)
+    {
+        try
+        {
+            if (!PetPack.IsPromptFile(Path.GetFileName(path))) { Say("提示词必须是 .md 文件", error: true); return; }
+            if (new FileInfo(path).Length > PetPack.MaxPromptBytes)
+            {
+                Say($"「{Path.GetFileName(path)}」太大了（上限 {PetPack.MaxPromptBytes / 1024 / 1024} MB）", error: true);
+                return;
+            }
+            Prompt = (await File.ReadAllTextAsync(path)).Trim();
+            Raise(nameof(Prompt));
+            Say($"已导入「{Path.GetFileName(path)}」");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Say($"「{Path.GetFileName(path)}」读不出来：{e.Message}", error: true);
+        }
+    }
+
+    public void ClearPrompt()
+    {
+        Prompt = "";
+        Raise(nameof(Prompt));
+    }
+
     public ObservableCollection<ImageItem> References { get; } = [];
 
     public async Task AddReferencesAsync(IReadOnlyList<string> paths)
@@ -775,6 +813,25 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
     {
         foreach (var row in Rows) RefreshRow(row);
         RefreshStates();
+        Raise(nameof(GenerateOverview));
+    }
+
+    /// <summary>⑤ 顶部一行总览：几个动作已经有视频、几个在生成、几个在等提交、几个还缺。</summary>
+    public string GenerateOverview
+    {
+        get
+        {
+            var total = Rows.Count;
+            var generating = Rows.Count(r => r.Takes.Any(t => !t.Record.IsFinished));
+            var waiting = Rows.Count(r => r.Waiting > 0 && !r.Takes.Any(t => !t.Record.IsFinished));
+            var done = Rows.Count(r => r.Takes.Any(t => t.HasVideo && !t.IsStale));
+            var missing = Math.Max(0, total - done - generating - waiting);
+            var parts = new List<string> { $"共 {total} 个动作", $"{done} 个已有视频" };
+            if (generating > 0) parts.Add($"{generating} 个生成中");
+            if (waiting > 0) parts.Add($"{waiting} 个等待提交");
+            if (missing > 0) parts.Add($"{missing} 个还缺");
+            return string.Join(" · ", parts);
+        }
     }
 
     // ───── ⑥ 处理与挑选 ─────
@@ -908,6 +965,7 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
     public string Author { get => Data.Export.Author; set => Data.Export.Author = value ?? ""; }
     public string License { get => Data.Export.License; set => Data.Export.License = value ?? ""; }
     public string LicenseUrl { get => Data.Export.LicenseUrl; set => Data.Export.LicenseUrl = value ?? ""; }
+    public string ExportVersion { get => Data.Export.Version; set => Data.Export.Version = (value ?? "").Trim(); }
     public string Homepage { get => Data.Export.Homepage; set => Data.Export.Homepage = value ?? ""; }
     public bool IncludeSource { get => Data.Export.IncludeSource; set => Data.Export.IncludeSource = value; }
 
@@ -937,6 +995,7 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
         {
             RaiseBusy();
             Raise(nameof(ExportNote));
+            Raise(nameof(ExportVersion));
         }
     }
 

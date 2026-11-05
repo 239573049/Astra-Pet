@@ -351,6 +351,25 @@ public sealed class MarketTests : IDisposable
         Assert.Equal("柴柴", entry.Name);
     }
 
+    [Theory]
+    [InlineData("1.0.1", "1.0.1", MarketInstallState.Installed)]   // 同版本：哈希不同也不提示更新
+    [InlineData("1.0.2", "1.0.1", MarketInstallState.Outdated)]    // 市场更新
+    [InlineData("1.0.0", "1.0.1", MarketInstallState.Installed)]   // 本机比市场还新（自己导出的）
+    [InlineData("1.0.10", "1.0.9", MarketInstallState.Outdated)]   // 按数值比，不是字符串
+    public void Update_is_offered_only_when_market_version_is_newer(string marketVersion, string localVersion, MarketInstallState expected)
+    {
+        Directory.CreateDirectory(UserDir);
+        var path = Path.Combine(UserDir, "shiba.astrapet");
+        using (var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create))
+        using (var w = new StreamWriter(zip.CreateEntry("pet.json").Open()))
+            w.Write($$"""{ "format": 2, "id": "shiba", "version": "{{localVersion}}", "actions": [] }""");
+        var service = CreateService();
+
+        var pet = Pet("shiba", new string('f', 64), 1) with { Version = marketVersion };
+
+        Assert.Equal(expected, service.InstallStateOf(pet));
+    }
+
     [Fact]
     public async Task Install_replaces_an_older_version()
     {

@@ -50,6 +50,7 @@ public partial class ConsoleWindow : Window
     private PixelPoint _resizeOrigin;
     private Size _resizeSize;
     private bool _resizing;
+    private Popover? _account;
 
     public ConsoleWindow() : this(null!) { }   // 设计器和冒烟测试用
 
@@ -60,6 +61,8 @@ public partial class ConsoleWindow : Window
         AvaloniaXamlLoader.Load(this);
 
         _frame = this.FindControl<Border>("Frame");
+        _account = this.FindControl<Popover>("Account");
+        if (_account is not null) _account.DataContext = vm?.Market;   // 左上角账号按钮和市场页共用 MarketViewModel
         _resizeGrips = this.FindControl<Panel>("ResizeGrips");
         InitMotion();
         InitPreview();
@@ -427,6 +430,24 @@ public partial class ConsoleWindow : Window
     private void OnNavigate(object? sender, RoutedEventArgs e) { if (TagOf<string>(sender) is { } key) _vm.Navigate(key); }
     private void OnOpenGitHub(object? sender, RoutedEventArgs e) => _vm.OpenRepository();
     private void OnExit(object? sender, RoutedEventArgs e) => _vm.Exit();
+
+    // ───── 账号（左上角） ─────
+
+    /// <summary>打开左上角的账号面板。市场页未登录时的「登录」引导也走这里。</summary>
+    public void OpenAccount()
+    {
+        if (_account is not null) _account.IsOpen = true;
+    }
+
+    private async void OnAccountLogin(object? sender, RoutedEventArgs e) => await _vm.Market.LoginAsync();
+    private void OnAccountReopenBrowser(object? sender, RoutedEventArgs e) => _vm.Market.ReopenBrowser();
+    private void OnAccountCancelLogin(object? sender, RoutedEventArgs e) => _vm.Market.CancelLogin();
+
+    private async void OnAccountLogout(object? sender, RoutedEventArgs e)
+    {
+        if (_account is not null) _account.IsOpen = false;
+        await _vm.Market.LogoutAsync();
+    }
 
     // 常规
     private void OnOpenSettingsFolder(object? sender, RoutedEventArgs e) => _vm.OpenSettingsFolder();

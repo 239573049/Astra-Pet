@@ -35,6 +35,8 @@ public sealed record PackSpec
     public IReadOnlyList<string> Credits { get; init; } = [];
     public string MinAppVersion { get; init; } = "";
     public JsonObject? Persona { get; init; }
+    /// <summary>自定义提示词（Markdown 全文）；非空时写成包根目录的 <see cref="PromptFile"/>，pet.json 的 prompt 指向它。</summary>
+    public string? PromptMarkdown { get; init; }
     /// <summary>档案（design/pet-life/01）：性格、身体、物理、口味。</summary>
     public JsonObject? Profile { get; init; }
     public required IReadOnlyList<PackAction> Actions { get; init; }
@@ -51,6 +53,8 @@ public sealed record PackSpec
 /// </summary>
 public static class PetPackWriter
 {
+    public const string PromptFile = "prompt.md";
+
     private static readonly DateTimeOffset FixedTime = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     private static readonly JsonSerializerOptions Pretty = new()
@@ -106,6 +110,7 @@ public static class PetPackWriter
         };
         if (spec.MinAppVersion.Length > 0) manifest["minAppVersion"] = spec.MinAppVersion;
         if (spec.Persona is { } persona) manifest["persona"] = persona.DeepClone();
+        if (spec.PromptMarkdown is { Length: > 0 }) manifest["prompt"] = PromptFile;
         if (spec.Profile is { } profile) manifest["profile"] = profile.DeepClone();
         manifest["actions"] = actions;
         return manifest;
@@ -119,6 +124,7 @@ public static class PetPackWriter
         {
             ["pet.json"] = (Encoding.UTF8.GetBytes(Manifest(spec).ToJsonString(Pretty) + "\n"), true),
         };
+        if (spec.PromptMarkdown is { Length: > 0 } prompt) files[PromptFile] = (Encoding.UTF8.GetBytes(prompt), true);
         foreach (var a in spec.Actions) files[ClipEntry(a)] = (File.ReadAllBytes(a.ClipFile), false);
         if (spec.Preview is { } preview) files["preview.png"] = (preview, false);
         if (spec.Icon is { } icon) files["icon.png"] = (icon, false);

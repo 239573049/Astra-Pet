@@ -14,7 +14,9 @@ public sealed record PetPackManifest(
     string License,
     string LicenseUrl,
     string Homepage,
-    IReadOnlyList<string> Credits);
+    IReadOnlyList<string> Credits,
+    string Prompt = "",
+    string Version = "");
 
 /// <summary>
 /// 角色包（.astrapet）：一个 zip，里面是 pet.json、videos/&lt;分类&gt;/*.webm、可选的步幅和镜像配置、预览图、许可说明。
@@ -31,6 +33,8 @@ public static class PetPack
     internal const long MaxWebmBytes = 64L * 1024 * 1024;
     internal const long MaxPngBytes = 16L * 1024 * 1024;
     internal const long MaxOtherBytes = 1024L * 1024;
+    /// <summary>自定义提示词（.md）可以很长，单独给个宽一点的上限。</summary>
+    public const long MaxPromptBytes = 4L * 1024 * 1024;
 
     private const string CompleteMarker = ".complete";
 
@@ -44,6 +48,8 @@ public static class PetPack
             if (manifest.Format > SupportedFormat)
                 return (manifest, $"角色包格式 {manifest.Format} 太新，请升级 Astra Pet");
             CheckEntries(zip, manifest.Format);
+            if (manifest.Prompt.Length > 0 && zip.GetEntry(manifest.Prompt) is null)
+                return (manifest, $"pet.json 的 prompt 指向的文件不在包里：{manifest.Prompt}");
             var categories = manifest.Format >= 2
                 ? ManifestRoles(zip)
                 : zip.Entries
@@ -57,6 +63,20 @@ public static class PetPack
         catch (Exception e) when (e is InvalidDataException or IOException or JsonException or UnauthorizedAccessException)
         {
             return (null, $"不是有效的角色包：{e.Message}");
+        }
+    }
+
+    /// <summary>已装角色包的版本号（pet.json 的 version）；读不出来或没写返回 null。只读 pet.json，不检查其他内容。</summary>
+    public static string? ReadVersion(string path)
+    {
+        try
+        {
+            using var zip = ZipFile.OpenRead(path);
+            return ReadManifest(zip).Version is { Length: > 0 } v ? v : null;
+        }
+        catch (Exception e) when (e is InvalidDataException or IOException or JsonException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
@@ -133,8 +153,23 @@ public static class PetPack
             Str("name") is { Length: > 0 } name ? name : id,
             root.TryGetProperty("default", out var d) && d.ValueKind == JsonValueKind.True,
             Str("author"), Str("license"), Str("licenseUrl"), Str("homepage"),
-            credits);
+            credits,
+            PromptName(Str("prompt")),
+            Str("version"));
     }
+
+    /// <summary>pet.json 的 prompt：包根目录下的一个 .md 文件名。不是 .md 或带路径就拒绝。</summary>
+    private static string PromptName(string name)
+    {
+        if (name.Length == 0) return "";
+        if (!IsPromptFile(name))
+            throw new InvalidDataException($"pet.json 的 prompt 必须是包根目录下的 .md 文件：「{name}」");
+        return name;
+    }
+
+    public static bool IsPromptFile(string name) =>
+        name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) && name.Length > 3
+        && !name.Contains('/') && !name.Contains('\\') && name is not ("." or "..");
 
     /// <summary>只放行认识的文件，路径必须落在目标目录里。</summary>
     private static void ExtractSafely(string path, string destination)
@@ -169,6 +204,7 @@ public static class PetPack
             if (!IsAllowed(name))
                 throw new InvalidDataException($"角色包里有不认识的文件：{name}");
             var limit = name.EndsWith(".webm", StringComparison.OrdinalIgnoreCase) ? MaxWebmBytes
+                : IsPromptFile(name) ? MaxPromptBytes
                 : name.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? MaxPngBytes
                 : MaxOtherBytes;
             if (entry.Length > limit)
@@ -200,7 +236,7 @@ public static class PetPack
     }
 
     /// <summary>
-    /// pet.json、preview.png、icon.png、LICENSE.txt；格式 1 的 videos/*.json、videos/&lt;分类&gt;/*.webm；
+    /// pet.json、preview.png、icon.png、LICENSE.txt、根目录下的 .md 提示词（pet.json 的 prompt 指定）；格式 1 的 videos/*.json、videos/&lt;分类&gt;/*.webm；
     /// 格式 2 的 clips/&lt;动作 id&gt;/*.webm、source/ 下的 png 和 studio.json。
     /// </summary>
     internal static bool IsAllowed(string name)
@@ -210,6 +246,7 @@ public static class PetPack
         return name.Split('/') switch
         {
             ["pet.json"] or ["preview.png"] or ["icon.png"] or ["LICENSE.txt"] => true,
+            [var md] when IsPromptFile(md) => true,
             ["clips", var action, var file] => ActionDef.IsValidId(action)
                                                && file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase),
             ["source", "studio.json"] => true,

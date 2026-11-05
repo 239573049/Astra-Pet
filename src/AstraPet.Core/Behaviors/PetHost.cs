@@ -22,6 +22,7 @@ public sealed class PetHost : IDisposable
         UpdateNotifier = new UpdateNotifyBehavior();
         Reminders = new ReminderBehavior();
         Triggers = new TriggerEngine();
+        Proactive = new ProactiveChatBehavior(Pomodoro);
         _behaviors =
         [
             Triggers,   // 最先启动：其他行为启动时就可能发事件（打招呼）
@@ -36,6 +37,7 @@ public sealed class PetHost : IDisposable
             Play,
             new CursorBehavior(),
             Summon,
+            Proactive,
         ];
     }
 
@@ -47,6 +49,7 @@ public sealed class PetHost : IDisposable
     public ReminderBehavior Reminders { get; }
     public MenuBehavior Menu { get; }
     public UpdateNotifyBehavior UpdateNotifier { get; }
+    public ProactiveChatBehavior Proactive { get; }
 
     /// <summary>宠物窗口打开后调一次。</summary>
     public void Start()

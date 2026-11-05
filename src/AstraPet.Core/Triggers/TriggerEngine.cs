@@ -57,7 +57,7 @@ public sealed class TriggerEngine : PetBehavior
 
         var lines = rule.Say is { Count: > 0 } ? ExpandLines(rule.Say, e) : action?.LinesFor(BondLevel) ?? [];
         lines = lines.Select(Personalize).Where(l => l is not null).Select(l => l!).ToList();
-        if (lines.Count > 0) Context.Voice.Say(Pick(lines), rule.Speak);
+        if (lines.Count > 0) Context.Voice.React(Pick(lines), rule.Speak);
     }
 
     /// <summary>{user} 换成设置里的称呼（亲密度 5 级起才用；没设或不够就去掉这句），{name} 换成食物等事件数据里的名字。</summary>

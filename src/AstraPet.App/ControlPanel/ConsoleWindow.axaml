@@ -3,6 +3,7 @@
         xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
         xmlns:local="using:AstraPet.ControlPanel"
         xmlns:core="using:AstraPet.Core"
+        xmlns:beh="using:AstraPet.Core.Behaviors"
         x:Class="AstraPet.ControlPanel.ConsoleWindow"
         x:DataType="local:ConsoleViewModel"
         Icon="avares://AstraPet/Assets/icons/app.png"
@@ -169,6 +170,37 @@
         </Style>
 
         <!-- 窗口按钮（Windows / Linux）：右上角，关闭键悬停变红 -->
+        <!-- 侧栏顶部的账号按钮：平时透明，悬停时浮一层底色 -->
+        <Style Selector="Button.account">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="4 6 8 6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.account:pointerover">
+            <Setter Property="Background" Value="{arc:ArcDesignTokenResource SurfaceMuted}" />
+        </Style>
+        <Style Selector="Button.account Path.chevron">
+            <Setter Property="Stroke" Value="{arc:ArcDesignTokenResource TextSecondary}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.usercode">
+            <Setter Property="FontFamily" Value="{arc:ArcDesignTokenResource MonoFontFamily}" />
+            <Setter Property="FontSize" Value="28" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="LetterSpacing" Value="3" />
+        </Style>
+
         <Style Selector="Button.chrome">
             <Setter Property="Width" Value="46" />
             <Setter Property="Height" Value="34" />
@@ -280,16 +312,83 @@
                                     </Button>
                                 </StackPanel>
                             </Border>
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="4 8 0 0">
-                                <Border Width="30" Height="30" CornerRadius="8" ClipToBounds="True">
-                                    <Image Source="avares://AstraPet/Assets/icons/app.png" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                                    <TextBlock Text="Astra Pet" FontSize="14" FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Update.CurrentVersion}" FontSize="11"
-                                               Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                            <!-- 账号：未登录显示「社区版本」，登录后显示用户；点开是登录 / 设备码 / 退出登录的小面板 -->
+                            <arc:Popover x:Name="Account" x:DataType="local:MarketViewModel"
+                                         Placement="Bottom" Alignment="Start" Margin="0 6 0 0">
+                                <arc:Popover.Trigger>
+                                    <Button Classes="account" AutomationProperties.Name="账号"
+                                            ToolTip.Tip="{Binding AccountTip}">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                            <Border Width="30" Height="30" CornerRadius="8" ClipToBounds="True"
+                                                    IsVisible="{Binding !IsLoggedIn}">
+                                                <Image Source="avares://AstraPet/Assets/icons/app.png" />
+                                            </Border>
+                                            <arc:Avatar Size="Small" DisplayName="{Binding Nickname}" Source="{Binding Avatar}"
+                                                        Status="Online" VerticalAlignment="Center" IsVisible="{Binding IsLoggedIn}" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{Binding AccountTitle}" FontSize="14" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding AccountSubtitle}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{arc:ArcDesignTokenResource TextSecondary}" />
+                                            </StackPanel>
+                                            <Path Grid.Column="2" Classes="chevron" Data="M 0,0 L 4,4 L 8,0" />
+                                        </Grid>
+                                    </Button>
+                                </arc:Popover.Trigger>
+
+                                <StackPanel Width="264" Margin="4">
+                                    <!-- 未登录 -->
+                                    <StackPanel Spacing="8" IsVisible="{Binding IsLoggedOut}">
+                                        <TextBlock Classes="label" Text="社区版本" />
+                                        <TextBlock Classes="note"
+                                                   Text="登录后可以在宠物市场下载免费和已拥有的角色。点「登录」会打开浏览器，在网页上确认这台电脑即可，不用在这里输入密码。" />
+                                        <TextBlock Classes="note err" Text="{Binding Message}" IsVisible="{Binding HasMessage}" />
+                                        <arc:Button Variant="Primary" Content="登录" Click="OnAccountLogin"
+                                                    HorizontalAlignment="Stretch" Margin="0 4 0 0" />
+                                    </StackPanel>
+
+                                    <!-- 登录中：只显示设备码，让用户和网页上的核对 -->
+                                    <StackPanel Spacing="8" IsVisible="{Binding IsLoggingIn}">
+                                        <TextBlock Classes="label" Text="在浏览器里确认登录" />
+                                        <TextBlock Classes="note" Text="请确认网页上显示的验证码和下面这串一致，再点确认。确认后这里会自动继续。" />
+                                        <TextBlock Classes="usercode" Text="{Binding UserCode}" Margin="0 4"
+                                                   IsVisible="{Binding UserCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        <TextBlock Classes="note" Text="正在等待确认…" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0 4 0 0">
+                                            <arc:Button Content="重新打开浏览器" Click="OnAccountReopenBrowser" />
+                                            <arc:Button Variant="Ghost" Content="取消" Click="OnAccountCancelLogin" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- 已登录 -->
+                                    <StackPanel Spacing="12" IsVisible="{Binding IsLoggedIn}">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                            <arc:Avatar Size="Large" DisplayName="{Binding Nickname}" Source="{Binding Avatar}"
+                                                        VerticalAlignment="Center" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                <TextBlock Classes="label" Text="{Binding Nickname}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="note" Text="{Binding Email}" TextWrapping="NoWrap"
+                                                           TextTrimming="CharacterEllipsis" IsVisible="{Binding HasEmail}"
+                                                           ToolTip.Tip="{Binding Email}" />
+                                                <TextBlock Classes="note" Text="已登录" IsVisible="{Binding !HasEmail}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <arc:Button Content="退出登录" Click="OnAccountLogout" HorizontalAlignment="Stretch" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </Grid>
+                            </arc:Popover>
+
+                            <!-- 角色工作台：独立入口，任何页面都能直接打开 -->
+                            <arc:Button Variant="Primary" Click="OnOpenStudio" HorizontalAlignment="Stretch" Margin="0 10 0 0"
+                                        AutomationProperties.Name="打开角色工作台"
+                                        ToolTip.Tip="从一句描述开始做一个自己的角色：定形象、生成动作视频、自动抠像，最后装到桌面上。需要图片和视频生成模型的 API Key，会按用量计费。">
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <Path Width="14" Height="14" Stretch="Uniform" StrokeThickness="1.6"
+                                          Stroke="{Binding $parent[arc:Button].Foreground}"
+                                          Data="M 12,2 L 14.5,9.5 L 22,12 L 14.5,14.5 L 12,22 L 9.5,14.5 L 2,12 L 9.5,9.5 Z" />
+                                    <TextBlock Text="角色工作台" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </arc:Button>
                         </StackPanel>
                     </arc:Sidebar.Header>
 
@@ -467,9 +566,6 @@
                         <TextBlock Text="{Binding PetCredits}" Classes="note" IsVisible="{Binding HasPetCredits}" />
                         <arc:Button Content="查看许可" HorizontalAlignment="Left" Click="OnOpenPetLicense" IsVisible="{Binding HasPetLicenseUrl}" />
                     </StackPanel>
-                </local:SettingRow>
-                <local:SettingRow Title="做一个自己的角色" Description="在角色工作台里从一句描述开始：定形象、生成动作视频、自动抠像，最后装到桌面上。需要图片和视频生成模型的 API Key，会按用量计费。">
-                    <arc:Button Variant="Primary" Content="打开角色工作台" Click="OnOpenStudio" />
                 </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="角色目录" Description="{Binding PetsDirectory}">
                     <StackPanel Spacing="8">
@@ -699,7 +795,7 @@
                 <local:SettingRow Classes="stack" Title="台词" Description="一行一句。由单击、绑定的触发播放这个动作时随机说一句（会盖过点击台词）。">
                     <StackPanel Spacing="10">
                         <arc:Textarea Text="{Binding Selected.LinesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True"
-                                      TextWrapping="Wrap" Height="90" VerticalContentAlignment="Top" AutomationProperties.Name="台词" />
+                                      TextWrapping="Wrap" FrameMinHeight="90" FrameHeight="90" VerticalContentAlignment="Top" AutomationProperties.Name="台词" />
                         <arc:Button HorizontalAlignment="Right" Content="说一句试试" Tag="{Binding Selected}" Click="OnSayActionLine" />
                     </StackPanel>
                 </local:SettingRow>
@@ -747,8 +843,16 @@
                 <local:SettingRow Title="单击说话" Description="单击时从下面的台词里随机说一句。">
                     <arc:Switch IsChecked="{Binding Settings.ClickBubble, Mode=TwoWay}" AutomationProperties.Name="单击说话" />
                 </local:SettingRow>
-                <local:SettingRow Title="双击聊天" Description="双击角色打开对话框，和智能体聊天。">
+                <local:SettingRow Title="双击聊天" Description="双击角色，在它旁边弹出输入框和它说话；回复出现在头顶气泡里。">
                     <arc:Switch IsChecked="{Binding Settings.DoubleClickChat, Mode=TwoWay}" AutomationProperties.Name="双击聊天" />
+                </local:SettingRow>
+                <local:SettingRow Title="主动搭话" Description="你在电脑前、一阵子没理它时，它会按自己的性格找你说句话；离开回来也会打招呼。需要先在「智能」页配好模型。">
+                    <arc:Switch IsChecked="{Binding Settings.ProactiveChat, Mode=TwoWay}" AutomationProperties.Name="主动搭话" />
+                </local:SettingRow>
+                <local:SettingRow Classes="stack" Title="搭话间隔" Description="平均多久主动说一次，实际时间会随机浮动；性格冷淡的宠物有时会选择不说。"
+                                  Value="{Binding Settings.ProactiveMinutes, StringFormat={}约 {0} 分钟}">
+                    <arc:Slider Minimum="5" Maximum="180" SmallChange="5" IsValueVisible="False" IsEnabled="{Binding Settings.ProactiveChat}"
+                                Value="{Binding Settings.ProactiveMinutes, Mode=TwoWay}" AutomationProperties.Name="搭话间隔" />
                 </local:SettingRow>
                 <local:SettingRow Title="拖拽移动" Description="按住角色拖动，它会悬空挣扎。">
                     <arc:Switch IsChecked="{Binding Settings.DragEnabled, Mode=TwoWay}" AutomationProperties.Name="拖拽移动" />
@@ -766,7 +870,7 @@
             <local:SettingRow Classes="stack" Title="台词" Description="一行一句，单击时随机挑一句。">
                 <StackPanel Spacing="10">
                     <arc:Textarea Text="{Binding Settings.ClickLines, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
-                                  Height="130" VerticalContentAlignment="Top" AutomationProperties.Name="点击台词" />
+                                  FrameMinHeight="130" FrameHeight="130" VerticalContentAlignment="Top" AutomationProperties.Name="点击台词" />
                     <arc:Button HorizontalAlignment="Right" Content="说一句试试" Click="OnSayLine" />
                 </StackPanel>
             </local:SettingRow>
@@ -982,17 +1086,30 @@
         <StackPanel Grid.Column="1">
             <TextBlock Classes="section" Text="预览" />
             <Border Classes="menu-preview">
-                <ItemsControl ItemsSource="{Binding Settings.MenuItems}">
+                <ItemsControl ItemsSource="{Binding MenuPreview}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="core:MenuEntry">
-                            <Border Height="32" Padding="8 0 10 0" IsVisible="{Binding Visible}">
-                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Margin="26 0 0 0" />
-                            </Border>
+                        <DataTemplate x:DataType="beh:MenuRow">
+                            <StackPanel>
+                                <Border Height="1" Margin="8 4" Background="{arc:ArcDesignTokenResource BorderSubtle}"
+                                        IsVisible="{Binding SeparatorBefore}" />
+                                <Grid ColumnDefinitions="22,*,Auto" MinHeight="32" Margin="8 0 10 0"
+                                      Opacity="{Binding Shown, Converter={x:Static local:MenuPreviewOpacity.Instance}}">
+                                    <TextBlock Text="✓" VerticalAlignment="Center" FontWeight="SemiBold"
+                                               IsVisible="{Binding IsOn}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4 6">
+                                        <TextBlock Text="{Binding Label}" />
+                                        <TextBlock Text="{Binding HiddenReason, StringFormat={}现在不显示：{0}}" Classes="note" FontSize="11"
+                                                   TextWrapping="Wrap" IsVisible="{Binding !Shown}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="›" VerticalAlignment="Center" IsVisible="{Binding HasChildren}" />
+                                </Grid>
+                            </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </Border>
-            <TextBlock Classes="note" Margin="4 10 0 0" Text="真实菜单还会按类别加分隔线，开关类的项打开时右侧有勾。" />
+            <TextBlock Classes="note" Margin="4 10 0 0" TextWrapping="Wrap"
+                       Text="和右键宠物时看到的一样：文字跟着状态变（比如「开始番茄钟」），开关打开时有勾，带 › 的有子菜单。置灰的项现在不会出现，下面写了原因。" />
         </StackPanel>
     </Grid>
 </StackPanel>
@@ -1074,20 +1191,9 @@
         <TextBlock Classes="section" Text="对话参数" />
         <Border Classes="group">
             <StackPanel>
-                <local:SettingRow Classes="stack" Title="温度" Description="越高回答越随性，越低越稳定。"
-                                  Value="{Binding Settings.Temperature, StringFormat={}{0:0.0}}">
-                    <arc:Slider Minimum="0" Maximum="2" SmallChange="0.1" IsValueVisible="False"
-                                Value="{Binding Settings.Temperature, Mode=TwoWay}" AutomationProperties.Name="温度" />
-                </local:SettingRow>
-                <local:SettingRow Classes="stack" Title="最大回复长度" Description="单次回复最多的 token 数。"
-                                  Value="{Binding Settings.MaxTokens, StringFormat={}{0} tokens}">
-                    <arc:Slider Minimum="64" Maximum="4096" SmallChange="64" IsValueVisible="False"
-                                Value="{Binding Settings.MaxTokens, Mode=TwoWay}" AutomationProperties.Name="最大回复长度" />
-                </local:SettingRow>
-                <local:SettingRow Classes="stack" Title="上下文轮数" Description="每次请求带上最近几轮对话，0 表示不带。"
-                                  Value="{Binding Settings.ContextTurns, StringFormat={}{0} 轮}">
-                    <arc:Slider Minimum="0" Maximum="30" SmallChange="1" IsValueVisible="False"
-                                Value="{Binding Settings.ContextTurns, Mode=TwoWay}" AutomationProperties.Name="上下文轮数" />
+                <local:SettingRow Title="上下文" Description="自动管理：对话快占满模型的上下文窗口时，把较早的部分压缩成摘要继续带着，而不是直接忘掉（压缩时多一次请求）。窗口大小来自模型库，查不到按 32K 估。温度、回复长度由模型自己决定。" />
+                <local:SettingRow Title="保存聊天记录" Description="把最近的对话和摘要存在本机，重启后接着之前的话题聊；每只宠物分开存。关掉会删除已保存的记录。">
+                    <arc:Switch IsChecked="{Binding Settings.PersistChat, Mode=TwoWay}" AutomationProperties.Name="保存聊天记录" />
                 </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="超时时间"
                                   Value="{Binding Settings.TimeoutSeconds, StringFormat={}{0} 秒}">
@@ -1124,13 +1230,13 @@
                                   IsVisible="{Binding UseCustomPersona}">
                     <StackPanel Spacing="10">
                         <arc:Textarea Text="{Binding Settings.PersonaCustom, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
-                                      Height="140" VerticalContentAlignment="Top" AutomationProperties.Name="自定义人设" />
+                                      FrameMinHeight="140" FrameHeight="140" VerticalContentAlignment="Top" AutomationProperties.Name="自定义人设" />
                         <arc:Button HorizontalAlignment="Right" Content="用角色包的人设重写" Click="OnCopyPackPersona" />
                     </StackPanel>
                 </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="额外要求" Description="你对它的其他要求，两种人设下都生效。">
                     <arc:Textarea Text="{Binding Settings.PersonaNotes, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap"
-                                  Height="80" VerticalContentAlignment="Top" PlaceholderText="例如：叫我老板；多用颜文字"
+                                  FrameMinHeight="80" FrameHeight="80" VerticalContentAlignment="Top" PlaceholderText="例如：叫我老板；多用颜文字"
                                   AutomationProperties.Name="额外要求" />
                 </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="做动作" Description="{Binding AgentActionText}">
@@ -1157,6 +1263,16 @@
                 <local:SettingRow Title="自动记忆" Description="每轮对话后让模型提取兴趣爱好、习惯等值得记住的信息（会多一次请求）。">
                     <arc:Switch IsChecked="{Binding Settings.AutoMemory, Mode=TwoWay}" IsEnabled="{Binding Settings.MemoryEnabled}"
                                 AutomationProperties.Name="自动记忆" />
+                </local:SettingRow>
+                <local:SettingRow Title="压缩时提取记忆" Description="压缩上下文时，顺带从那段对话里提取你的关键信息记下来，不额外请求。">
+                    <arc:Switch IsChecked="{Binding Settings.CompactMemory, Mode=TwoWay}" AutomationProperties.Name="压缩时提取记忆">
+                        <arc:Switch.IsEnabled>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="Settings.MemoryEnabled" />
+                                <Binding Path="Settings.CompactContext" />
+                            </MultiBinding>
+                        </arc:Switch.IsEnabled>
+                    </arc:Switch>
                 </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="手动添加">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

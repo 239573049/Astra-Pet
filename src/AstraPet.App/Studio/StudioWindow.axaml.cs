@@ -185,6 +185,20 @@ public partial class StudioWindow : Window
         await p.AddReferencesAsync(paths);
     }
 
+    private async void OnImportPrompt(object? sender, RoutedEventArgs e)
+    {
+        if (P is not { } p) return;
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "选择提示词文件（.md）",
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("Markdown") { Patterns = ["*.md"] }],
+        });
+        if (files.Count > 0 && files[0].TryGetLocalPath() is { } path) await p.ImportPromptAsync(path);
+    }
+
+    private void OnClearPrompt(object? sender, RoutedEventArgs e) => P?.ClearPrompt();
+
     private void OnRemoveReference(object? sender, RoutedEventArgs e) { if (TagOf<ImageItem>(sender) is { } i) P?.RemoveReference(i); }
 
     // ───── ② ③ ─────

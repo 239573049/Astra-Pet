@@ -19,10 +19,8 @@ public partial class MarketPanel : UserControl
 
     private static MarketPetItem? ItemOf(object? sender) => (sender as Control)?.Tag as MarketPetItem;
 
-    private async void OnLogin(object? sender, RoutedEventArgs e) { if (Vm is { } vm) await vm.LoginAsync(); }
-    private void OnReopenBrowser(object? sender, RoutedEventArgs e) => Vm?.ReopenBrowser();
-    private void OnCancelLogin(object? sender, RoutedEventArgs e) => Vm?.CancelLogin();
-    private async void OnLogout(object? sender, RoutedEventArgs e) { if (Vm is { } vm) await vm.LogoutAsync(); }
+    /// <summary>登录不在市场页做：打开控制台左上角的账号面板。</summary>
+    private void OnGoLogin(object? sender, RoutedEventArgs e) => (TopLevel.GetTopLevel(this) as ConsoleWindow)?.OpenAccount();
     private async void OnRefresh(object? sender, RoutedEventArgs e) { if (Vm is { } vm) await vm.RefreshAsync(); }
     private async void OnLoadMore(object? sender, RoutedEventArgs e) { if (Vm is { } vm) await vm.LoadMoreAsync(); }
 

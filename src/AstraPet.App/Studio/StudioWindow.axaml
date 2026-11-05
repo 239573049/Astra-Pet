@@ -395,6 +395,17 @@
                             <arc:Input Grid.Column="1" Label="打招呼" Text="{Binding Greeting, Mode=TwoWay}" PlaceholderText="主人回来啦！" />
                         </Grid>
 
+                        <!-- 自定义提示词：导出成包里的 prompt.md -->
+                        <TextBlock Classes="section" Text="自定义提示词（可选，Markdown，可以很长）" Margin="0 8 0 0" />
+                        <TextBlock Classes="note" TextWrapping="Wrap" Text="{Binding PromptNote}" />
+                        <arc:Textarea Text="{Binding Prompt, Mode=TwoWay}" AcceptsReturn="True" TextWrapping="Wrap" FrameMinHeight="220" FrameHeight="220"
+                                      VerticalContentAlignment="Top" PlaceholderText="写它是谁、什么性格、怎么说话、背景故事……会导出成包里的 prompt.md"
+                                      AutomationProperties.Name="自定义提示词" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <arc:Button Variant="Ghost" Content="清空" Click="OnClearPrompt" />
+                            <arc:Button Content="从 .md 文件导入" Click="OnImportPrompt" />
+                        </StackPanel>
+
                         <!-- 性格与口味（design/pet-life/05 §1 ①）：写进 pet.json 的 profile，影响它多爱走动、多黏人、饿得多快 -->
                         <TextBlock Classes="section" Text="性格与口味（影响它在桌面上怎么动、饿得多快、爱吃什么）" Margin="0 8 0 0" />
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
@@ -753,6 +764,7 @@
                     <!-- ───── ⑤ 生成视频 ───── -->
                     <StackPanel Spacing="14" IsVisible="{Binding IsGenerate}">
                         <TextBlock Classes="note" Text="{Binding VideoNote}" />
+                        <TextBlock Text="{Binding GenerateOverview}" FontWeight="Medium" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <arc:Button Content="先试一段待机" Click="OnGenerateIdle" IsEnabled="{Binding CanGenerateVideos}"
                                         ToolTip.Tip="先花一段的钱看看效果，满意了再生成其余的" />
@@ -774,23 +786,16 @@
                                                     <TextBlock Text="{Binding Summary}" Classes="note" />
                                                 </StackPanel>
                                                 <arc:Button Grid.Column="1" Content="再来一段" Tag="{Binding}" Click="OnGenerateRow" VerticalAlignment="Center"
-                                                            IsEnabled="{Binding $parent[ItemsControl].((local:ProjectViewModel)DataContext).CanGenerateVideos}" />
+                                                            IsEnabled="{Binding CanGenerateAgain}"
+                                                            ToolTip.Tip="这一行还有段在排队或生成，等它结束再来一段，免得重复花钱" />
                                             </Grid>
                                             <TextBlock Text="{Binding Note}" Classes="note err" IsVisible="{Binding HasNote}" />
                                             <WrapPanel ItemSpacing="10" LineSpacing="10">
-                                                <!-- 还在本地排队、没提交的段 -->
-                                                <ItemsControl ItemsSource="{Binding WaitingSlots}">
-                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate x:DataType="sys:Int32">
-                                                            <StackPanel Width="224" Spacing="6">
-                                                                <arc:ImageReveal Width="224" Height="126" AspectRatio="1.7778" Size="Small"
-                                                                                 Status="Queued" QueueLabel="等待提交" Labels="{x:Static local:RevealLabels.Chinese}" />
-                                                                <TextBlock Text="等待提交" Classes="note" FontSize="12" />
-                                                            </StackPanel>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
+                                                <!-- 还在本地排队、没提交的段：一条小提示，不占一整张卡 -->
+                                                <Border Classes="note" CornerRadius="10" Padding="10 4" VerticalAlignment="Center"
+                                                        Background="{arc:ArcDesignTokenResource SurfaceMuted}" IsVisible="{Binding HasWaiting}">
+                                                    <TextBlock Text="{Binding Waiting, StringFormat='{}{0} 段等待提交'}" Classes="note" FontSize="12" />
+                                                </Border>
                                                 <ItemsControl ItemsSource="{Binding Takes}">
                                                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel ItemSpacing="10" LineSpacing="10" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
@@ -973,7 +978,7 @@
                     <!-- ───── ⑧ 导出 ───── -->
                     <StackPanel Spacing="14" IsVisible="{Binding IsExport}">
                         <TextBlock Classes="note" Text="打成 .astrapet 角色包。导出后会按程序加载角色的同一套检查验一遍，验不过不会留下坏文件。别人拿到包放进角色目录就能用，Windows、macOS、Linux 都行。" />
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
                             <arc:Input Label="显示名" Text="{Binding ExportName, Mode=TwoWay}" PlaceholderText="{Binding ExportNameHint}" />
                             <arc:Input Grid.Column="1" Label="包 id" Text="{Binding ExportId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="{Binding ExportIdHint}"
                                        ToolTip.Tip="小写字母、数字和短横线。同 id 的包会互相覆盖（用来升级）" />
@@ -985,6 +990,8 @@
                             </StackPanel>
                             <arc:Input Grid.Row="2" Label="许可链接（可选）" Text="{Binding LicenseUrl, Mode=TwoWay}" />
                             <arc:Input Grid.Row="2" Grid.Column="1" Label="主页（可选）" Text="{Binding Homepage, Mode=TwoWay}" />
+                            <arc:Input Grid.Row="3" Label="版本（本次导出用，导出后自动 +1）" Text="{Binding ExportVersion, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" PlaceholderText="1.0.0"
+                                       ToolTip.Tip="三段数字，如 1.0.0。导出成功后补丁号自动加一；想升大版本就手动改" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">

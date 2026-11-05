@@ -406,6 +406,10 @@ public sealed class PetBody
     /// <summary>身体中心的桌面 X、头顶的桌面 Y。</summary>
     public (double CenterX, double Top) BodyPosition => (CenterX, Y + Body.Y0 * Scale);
 
+    /// <summary>身体的桌面包围盒（左、上、右、脚底），按当前朝向算。</summary>
+    public (double Left, double Top, double Right, double Bottom) BodyBounds =>
+        (X + BodyLeft(_director.Direction), Y + Body.Y0 * Scale, X + BodyRight(_director.Direction), Feet);
+
     // ───── 内部 ─────
 
     private double FloorAt(double x, double y) =>

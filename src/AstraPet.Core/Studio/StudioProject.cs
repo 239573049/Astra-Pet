@@ -84,6 +84,8 @@ public sealed class ExportInfo
     public string License { get; set; } = "保留所有权利";
     public string LicenseUrl { get; set; } = "";
     public string Homepage { get; set; } = "";
+    /// <summary>下次导出写进包里的版本号（x.y.z）；导出成功后补丁号自动加一。</summary>
+    public string Version { get; set; } = "1.0.0";
     public bool IncludeSource { get; set; } = true;
     /// <summary>上次导出时的成品哈希；和现在一样说明导出步骤已完成。</summary>
     public string Basis { get; set; } = "";
@@ -111,6 +113,8 @@ public sealed class ProjectData
     public string Companion { get; set; } = "";
     public CharacterCard Card { get; set; } = new();
     public StudioProfile Profile { get; set; } = new();
+    /// <summary>自定义提示词（Markdown，可以很长）：导出时写成包里的 prompt.md，pet.json 的 prompt 指向它。空表示用设定卡生成的人设。</summary>
+    public string Prompt { get; set; } = "";
 
     // ② ③
     public ImageStep Sheet { get; set; } = new();
@@ -381,7 +385,8 @@ public sealed class StudioProject
     /// <summary>导出的成品由什么决定：采用的片段和动作定义。</summary>
     public string ExportBasis() => Hash(Data.Actions.Select(a =>
         $"{a.Id}|{a.Name}|{a.Description}|{string.Join(",", a.Roles)}|{string.Join("/", a.Lines)}|{a.Stride}|{a.Mirror}|{a.Adopted}|{a.Stance}|{a.To}").ToArray()
-        .Append(System.Text.Json.JsonSerializer.Serialize(Data.Profile, StudioJsonContext.Default.StudioProfile)).ToArray());
+        .Append(System.Text.Json.JsonSerializer.Serialize(Data.Profile, StudioJsonContext.Default.StudioProfile))
+        .Append(Data.Prompt.Trim()).ToArray());
 
     /// <summary>④ 的问题：缺必需角色、id 重复、没写提示词。null 表示没问题。</summary>
     public string? PlanProblem()

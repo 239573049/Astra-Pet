@@ -17,6 +17,16 @@ internal sealed class FakeCommands : IPetCommands
     public void OpenChat() => Calls.Add(nameof(OpenChat));
     public void OpenConsole(string? page = null) => Calls.Add(nameof(OpenConsole));
     public void ResetPosition() => Calls.Add(nameof(ResetPosition));
+    /// <summary>为真时假装智能体接下了主动开口（记下起因）；默认为假，提醒和问候走固定台词。</summary>
+    public bool AgentAvailable { get; set; }
+    public List<string> Cues { get; } = new();
+    public List<string> Reminders { get; } = new();
+    public bool SpeakUp(string cue, string? fallback = null)
+    {
+        if (!AgentAvailable) return false;
+        (fallback is null ? Cues : Reminders).Add(cue);
+        return true;
+    }
 }
 
 internal sealed class FakeMonitor : ISystemMonitor
@@ -322,6 +332,60 @@ public class InteractionTests
         Assert.False(rig.Settings.Visible);
     }
 
+    [Fact]
+    public void Menu_rows_match_what_the_real_menu_shows()
+    {
+        using var rig = new HostRig();
+        rig.Settings.Normalize();   // 菜单项由 Normalize 补齐（真实设置加载时都会走）
+        rig.Settings.LifeEnabled = false;
+        rig.Host.Start();
+
+        var rows = rig.Host.Menu.Rows();
+        // 打开了的项都在、按设置顺序；出现不了的带原因
+        Assert.Equal(rig.Settings.MenuItems.Where(m => m.Visible).Select(m => m.Id), rows.Select(r => r.Id));
+        Assert.Contains("宠物体系", rows.Single(r => r.Id == MenuEntry.Feed).HiddenReason);
+        Assert.False(rows.Single(r => r.Id == MenuEntry.Status).Shown);
+        Assert.Contains("睡觉动作", rows.Single(r => r.Id == MenuEntry.Sleep).HiddenReason);
+        Assert.Equal("开始番茄钟", rows.Single(r => r.Id == MenuEntry.Pomodoro).Label);
+        Assert.False(rows.Single(r => r.Id == MenuEntry.StayStill).IsOn);
+
+        // 分隔线只在出现的项之间、分组变化处
+        var shown = rows.Where(r => r.Shown).ToList();
+        Assert.False(shown[0].SeparatorBefore);
+        for (var i = 1; i < shown.Count; i++)
+            Assert.Equal(shown[i].Group != shown[i - 1].Group, shown[i].SeparatorBefore);
+        Assert.Equal(MenuEntry.Exit, shown[^1].Id);
+    }
+
+    [Fact]
+    public void Action_submenu_plays_the_chosen_action()
+    {
+        using var rig = new HostRig();
+        rig.Settings.Normalize();
+        rig.Host.Start();
+
+        var row = rig.Host.Menu.Rows().Single(r => r.Id == MenuEntry.Actions);
+        Assert.True(row.Shown);
+        Assert.NotEmpty(row.Children);
+        Assert.All(row.Children, c => Assert.StartsWith(MenuEntry.ActionPrefix, c.Command));
+        Assert.DoesNotContain(row.Children, c => c.Command.EndsWith(":idle"));   // 系统控制的动作不列
+
+        var pick = row.Children.First(c => c.Enabled);
+        rig.Input.RaiseMenuCommand(pick.Command);
+        Assert.Equal(pick.Command[MenuEntry.ActionPrefix.Length..], rig.Director.CurrentAction.Id);
+    }
+
+    [Fact]
+    public void New_menu_entries_are_inserted_before_exit()
+    {
+        var settings = new PetSettings();
+        settings.MenuItems.Clear();
+        foreach (var id in new[] { MenuEntry.Chat, MenuEntry.Exit }) settings.MenuItems.Add(new MenuEntry { Id = id });
+        settings.Normalize();
+        Assert.Equal(MenuEntry.Exit, settings.MenuItems[^1].Id);
+        Assert.Contains(settings.MenuItems, m => m.Id == MenuEntry.Actions);
+    }
+
     [Theory]
     [InlineData(8, "早上好")]
     [InlineData(12, "中午好")]
@@ -333,5 +397,82 @@ public class InteractionTests
         rig.Settings.DailyGreeting = true;
         rig.Host.Start();
         Assert.StartsWith(expected, Assert.Single(rig.Voice.Said));
+    }
+}
+
+public class ProactiveChatTests
+{
+    [Fact]
+    public void Speaks_up_after_the_interval_when_left_alone()
+    {
+        using var rig = new HostRig();
+        rig.Commands.AgentAvailable = true;
+        rig.Settings.ProactiveMinutes = 20;
+        rig.Host.Start();
+
+        rig.Advance(TimeSpan.FromMinutes(13));   // 最短 0.7 倍
+        Assert.Empty(rig.Commands.Cues);
+        rig.Advance(TimeSpan.FromMinutes(18));   // 最长 1.5 倍
+        Assert.Single(rig.Commands.Cues);
+        Assert.Contains(rig.Commands.Cues[0], ProactiveChatBehavior.IdleCues);
+    }
+
+    [Fact]
+    public void Stays_quiet_when_disabled_focusing_or_just_interacted()
+    {
+        using var rig = new HostRig();
+        rig.Commands.AgentAvailable = true;
+        rig.Settings.ProactiveMinutes = 10;
+        rig.Settings.ProactiveChat = false;
+        rig.Host.Start();
+        rig.Advance(TimeSpan.FromMinutes(40));
+        Assert.Empty(rig.Commands.Cues);
+
+        rig.Settings.ProactiveChat = true;
+        rig.Host.Pomodoro.Start();               // 专注 25 分钟
+        rig.Advance(TimeSpan.FromMinutes(24));
+        Assert.Empty(rig.Commands.Cues);
+
+        rig.Host.Pomodoro.Stop();
+        rig.Events.Publish(PetEvents.Clicked);
+        rig.Advance(TimeSpan.FromMinutes(2));    // 刚点过，不插话
+        Assert.Empty(rig.Commands.Cues);
+        rig.Advance(TimeSpan.FromMinutes(20));
+        Assert.NotEmpty(rig.Commands.Cues);
+    }
+
+    [Fact]
+    public void Greets_when_user_comes_back()
+    {
+        using var rig = new HostRig();
+        rig.Commands.AgentAvailable = true;
+        rig.Settings.ProactiveMinutes = 180;
+        rig.Host.Start();
+
+        rig.Monitor.Idle = TimeSpan.FromMinutes(15);
+        rig.Advance(TimeSpan.FromMinutes(1));
+        Assert.Empty(rig.Commands.Cues);
+        rig.Monitor.Idle = TimeSpan.FromSeconds(3);
+        rig.Advance(TimeSpan.FromMinutes(1));
+        Assert.Single(rig.Commands.Cues);
+        Assert.Contains("刚刚回来", rig.Commands.Cues[0]);
+    }
+}
+
+public class InCharacterReminderTests
+{
+    [Fact]
+    public void Reminders_go_through_the_agent_when_available()
+    {
+        using var rig = new HostRig();
+        rig.Commands.AgentAvailable = true;
+        rig.Settings.ProactiveChat = false;
+        rig.Settings.DrinkReminder = true;
+        rig.Settings.DrinkMinutes = 30;
+        rig.Host.Start();
+
+        rig.Advance(TimeSpan.FromMinutes(31));
+        Assert.Contains(rig.Commands.Reminders, c => c.StartsWith("喝水提醒"));
+        Assert.DoesNotContain(rig.Voice.Said, ReminderBehavior.DrinkLines.Contains);
     }
 }

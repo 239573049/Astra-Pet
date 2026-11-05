@@ -24,10 +24,11 @@ public sealed record HubDeviceCode(
 public sealed record HubToken(string AccessToken, string TokenType, string Scope, int ExpiresIn);
 
 /// <summary>GET /api/client/me。</summary>
-public sealed record HubUser(string Id, string Nickname, string? AvatarUrl);
+public sealed record HubUser(string Id, string Nickname, string? AvatarUrl, string? Email = null);
 
-/// <summary>本机保存的登录状态（hub-session.json）。</summary>
-public sealed record HubSession(string AccessToken, string Nickname, string UserId, DateTimeOffset LoggedInAt);
+/// <summary>本机保存的登录状态（hub-session.json）。邮箱和头像是后加的，旧文件里没有，读出来是 null，下次刷新资料时补上。</summary>
+public sealed record HubSession(string AccessToken, string Nickname, string UserId, DateTimeOffset LoggedInAt,
+    string? Email = null, string? AvatarUrl = null);
 
 /// <summary>市场列表里的一只宠物（ClientMarketPet）。价格单位是分（人民币），0 是免费。</summary>
 public sealed record MarketPet(

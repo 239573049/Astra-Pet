@@ -5,6 +5,7 @@ using AstraPet.Core.Market;
 using AstraPet.Platform;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using TKCode.Arc;
 
 namespace AstraPet.ControlPanel;
 
@@ -86,7 +87,8 @@ public sealed class MarketPetItem(MarketPet pet, string? versionProblem) : Obser
 }
 
 /// <summary>
-/// 控制台「宠物市场」页：未登录 → 设备码登录中 → 已登录（列表、搜索、下载安装）。
+/// 控制台「宠物市场」页和左上角账号按钮共用的状态：未登录 → 设备码登录中 → 已登录（列表、搜索、下载安装）。
+/// 登录 / 退出只在左上角账号面板里做，市场页未登录时只给引导。
 /// 业务逻辑在 Core 的 <see cref="MarketService"/>；这里管界面状态、封面图和「装好后换上」。
 /// 市场地址是构建时写死的（<see cref="MarketHub"/>），界面上哪里都不显示。
 /// </summary>
@@ -109,6 +111,8 @@ public sealed class MarketViewModel : Observable, IDisposable
     private bool _loaded;
     private bool _disposed;
     private int _installing;
+    private ImageSource? _avatar;
+    private string? _avatarUrl;
 
     /// <param name="refreshPets">重新扫描角色目录（装好后让新角色出现在「角色」页）。</param>
     /// <param name="usePet">按角色列表里的 id（文件名）切过去；失败返回原因。</param>
@@ -122,6 +126,11 @@ public sealed class MarketViewModel : Observable, IDisposable
         _refreshPets = refreshPets;
         _usePet = usePet;
         _isShown = isShown;
+        if (_service.IsLoggedIn)
+        {
+            LoadAvatar();
+            _ = RefreshProfileAsync();
+        }
     }
 
     // ───── 状态 ─────
@@ -131,6 +140,17 @@ public sealed class MarketViewModel : Observable, IDisposable
     public bool IsLoggedOut => !IsLoggingIn && !_service.IsLoggedIn;
 
     public string Nickname => _service.Session?.Nickname ?? "";
+
+    /// <summary>控制台左上角账号按钮的两行字：未登录是「Astra Pet / 社区版本」，登录后是用户昵称。</summary>
+    public string AccountTitle => IsLoggedIn && Nickname.Length > 0 ? Nickname : "Astra Pet";
+    public string AccountSubtitle => IsLoggingIn ? "等待浏览器确认…" : IsLoggedIn ? (Email.Length > 0 ? Email : "已登录") : "社区版本";
+    public string AccountTip => IsLoggedIn ? "账号" : "登录";
+
+    public string Email => _service.Session?.Email ?? "";
+    public bool HasEmail => IsLoggedIn && Email.Length > 0;
+
+    /// <summary>用户头像，没有或还没下好是 null，头像控件显示昵称首字母。</summary>
+    public ImageSource? Avatar { get => _avatar; private set => Set(ref _avatar, value); }
 
     /// <summary>设备码 ABCD-EFGH，给用户和网页上的核对。只显示码，不显示网址。</summary>
     public string UserCode => _code?.UserCode ?? "";
@@ -165,8 +185,47 @@ public sealed class MarketViewModel : Observable, IDisposable
 
     private void RaiseStage()
     {
-        foreach (var name in new[] { nameof(IsLoggingIn), nameof(IsLoggedIn), nameof(IsLoggedOut), nameof(Nickname), nameof(UserCode) })
+        foreach (var name in new[] { nameof(IsLoggingIn), nameof(IsLoggedIn), nameof(IsLoggedOut), nameof(Nickname), nameof(UserCode),
+                     nameof(AccountTitle), nameof(AccountSubtitle), nameof(AccountTip), nameof(Email), nameof(HasEmail) })
             Raise(name);
+        LoadAvatar();
+    }
+
+    // ───── 账号资料 ─────
+
+    /// <summary>打开控制台时补一次资料（邮箱、头像、改过的昵称）。没网就算了，下次再说。</summary>
+    private async Task RefreshProfileAsync()
+    {
+        try
+        {
+            if (await _service.RefreshProfileAsync(CancellationToken.None)) RaiseStage();
+        }
+        catch (HubUnauthorizedException)
+        {
+            ResetList();
+            RaiseStage();
+        }
+        catch (Exception e)
+        {
+            PetLog.Write($"刷新市场账号资料失败: {e.Message}");
+        }
+    }
+
+    /// <summary>头像地址变了就重新下（走和封面一样的缓存），退出登录就清掉。</summary>
+    private void LoadAvatar()
+    {
+        var url = _service.IsLoggedIn ? _service.Session?.AvatarUrl : null;
+        if (url == _avatarUrl) return;
+        _avatarUrl = url;
+        Avatar = null;
+        if (url is null) return;
+        _ = Load();
+
+        async Task Load()
+        {
+            var bitmap = await MarketImages.LoadAsync(_client, url, CancellationToken.None);
+            if (bitmap is not null && !_disposed && _avatarUrl == url) Avatar = ImageSource.FromBitmap(bitmap);
+        }
     }
 
     private void RaiseList()

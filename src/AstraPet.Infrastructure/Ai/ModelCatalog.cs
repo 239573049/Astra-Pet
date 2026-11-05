@@ -147,6 +147,22 @@ public sealed class ModelCatalog
 
     public ModelInfo? Find(LlmProvider provider) => ProviderFor(provider)?.Find(provider.Model);
 
+    /// <summary>
+    /// 先按提供商找；对不上（自建网关、聚合平台）再按模型 id 在整个库里找，「厂商/模型」只看斜杠后面那段。
+    /// 同名模型在不同家的窗口可能不同，取最小的，宁可早点压缩。
+    /// </summary>
+    public ModelInfo? FindAnywhere(LlmProvider provider)
+    {
+        if (Find(provider) is { } exact) return exact;
+        var id = provider.Model?.Trim() ?? "";
+        if (id.Length == 0) return null;
+        var bare = id[(id.LastIndexOf('/') + 1)..];
+        return _providers.Values
+            .Select(p => p.Find(id) ?? p.Find(bare))
+            .Where(m => m is { Context: > 0 })
+            .MinBy(m => m!.Context);
+    }
+
     /// <summary>可以推荐给用户的模型：对话用、没弃用，按发布日期从新到旧。</summary>
     public IReadOnlyList<ModelInfo> Suggest(CatalogProvider provider) =>
         provider.Models.Where(m => !m.Deprecated)

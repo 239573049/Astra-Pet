@@ -8,10 +8,18 @@ public interface IUiDispatcher
     void Post(Action action);
 }
 
-/// <summary>宠物说话：头顶冒气泡，<paramref name="speak"/> 为真且开了朗读提醒时同时念出来。</summary>
+/// <summary>
+/// 宠物说话：头顶冒气泡，<paramref name="speak"/> 为真且开了朗读提醒时同时念出来。
+/// 三种说法的区别只在「用户正在和宠物聊天」时：<see cref="Say"/> 照说（用户自己点的事）；
+/// <see cref="SayLater"/> 先攒着，聊完再说（提醒、报时、记住了）；<see cref="React"/> 不说（规则台词这类随口反应）。
+/// </summary>
 public interface IPetVoice
 {
     void Say(string text, bool speak = true);
+    /// <summary>自己冒出来的话：正在聊天时不打断，聊完再说。</summary>
+    void SayLater(string text, bool speak = true) => Say(text, speak);
+    /// <summary>对事件的随口反应：正在聊天时不说。</summary>
+    void React(string text, bool speak = true) => Say(text, speak);
 }
 
 /// <summary>行为需要界面替它做的事。</summary>
@@ -24,6 +32,15 @@ public interface IPetCommands
 
     /// <summary>喂一个食物：界面先播食物飞到嘴边，再交给 <see cref="PetLife.Feed"/>。默认直接喂（测试、没有界面时）。</summary>
     void Feed(PetLife life, string foodId) => life.Feed(foodId);
+
+    /// <summary>
+    /// 让宠物（智能体）主动开口：<paramref name="cue"/> 是给模型看的起因，模型按当前角色的性格决定怎么说，
+    /// 说的话和用户的聊天在同一个上下文里。
+    /// <paramref name="fallback"/> 为 null 时模型可以选择不说；不为 null 时这句一定要说到（提醒、问候），
+    /// 模型没说或出错时说 <paramref name="fallback"/>。
+    /// 返回是否接手了（没配模型时返回 false，调用方自己说 fallback）。用户正在聊天时，界面会把一定要说的攒到聊完，随口搭话直接不说。默认不支持。
+    /// </summary>
+    bool SpeakUp(string cue, string? fallback = null) => false;
 }
 
 /// <summary>宠物窗口上的输入事件，由界面层转发进来。行为只订阅这里，不认识窗口。</summary>
@@ -122,6 +139,14 @@ public abstract class PetBehavior : IPetBehavior
         _timers.Add(Context.Time.CreateTimer(_ => Context.Ui.Post(tick), null, first ?? period, period));
 
     protected string Pick(IReadOnlyList<string> lines) => lines[Context.Random.Next(lines.Count)];
+
+    /// <summary>
+    /// 一定要说的一句（问候、提醒）：交给智能体按性格说，说的话进对话上下文；智能体用不了时直接说 <paramref name="fallback"/>。
+    /// </summary>
+    protected void SayInCharacter(string cue, string fallback)
+    {
+        if (!Context.Commands.SpeakUp(cue, fallback)) Context.Voice.SayLater(fallback);
+    }
 
     public virtual void Dispose()
     {

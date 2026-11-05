@@ -33,7 +33,7 @@ public partial class App : Application
     /// <summary>控制台收起这么久之后释放（见 <see cref="ConsoleWindow.Release"/>）。</summary>
     private static readonly TimeSpan ConsoleReleaseDelay = TimeSpan.FromMinutes(2);
     private readonly DispatcherTimer _consoleReleaseTimer = new() { Interval = ConsoleReleaseDelay };
-    private ChatWindow? _chat;
+    private ChatInputWindow? _chat;
     private StudioWindow? _studio;
     private VideoTaskQueue? _videoQueue;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
@@ -242,8 +242,7 @@ public partial class App : Application
 
     private void ShowChat()
     {
-        _chat ??= new ChatWindow(new ChatViewModel(_companion!, _settings!));
-        _chat.Show();
-        _chat.Activate();
+        _chat ??= new ChatInputWindow(_pet!, _companion!, _settings!, _companion!.Platform);
+        _chat.Present();
     }
 }

@@ -5,7 +5,7 @@
              x:Class="AstraPet.ControlPanel.MarketPanel"
              x:DataType="local:MarketViewModel">
     <!--
-    「宠物市场」页：未登录 / 登录中（显示设备码）/ 已登录（搜索、列表、下载）。
+    「宠物市场」页：未登录 / 登录中只给引导（登录在控制台左上角的账号面板）；已登录显示搜索、列表、下载。
     文字类（note、section、title、err）和 Border.group 来自 ConsoleWindow 的样式。市场地址不在界面上出现。
     -->
     <UserControl.Styles>
@@ -37,37 +37,25 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{arc:ArcDesignTokenResource Accent}" />
         </Style>
-        <Style Selector="TextBlock.usercode">
-            <Setter Property="FontFamily" Value="{arc:ArcDesignTokenResource MonoFontFamily}" />
-            <Setter Property="FontSize" Value="36" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="LetterSpacing" Value="4" />
-        </Style>
     </UserControl.Styles>
 
     <StackPanel Spacing="18">
-        <!-- 未登录 -->
+        <!-- 未登录：只给引导，登录在控制台左上角的账号面板里 -->
         <Border Classes="group" Padding="24 22" IsVisible="{Binding IsLoggedOut}">
             <StackPanel Spacing="10">
                 <TextBlock Classes="title" Text="登录后浏览宠物市场" />
                 <TextBlock Classes="note"
-                           Text="市场里有其他创作者做的角色。登录后可以直接下载免费和已拥有的角色，付费角色在浏览器里购买。点「登录」会打开浏览器，在网页上确认这台电脑即可，不用在这里输入密码。" />
-                <arc:Button Variant="Primary" Content="登录" Click="OnLogin" HorizontalAlignment="Left" Margin="0 6 0 0" />
+                           Text="市场里有其他创作者做的角色。点左上角的「社区版本」登录账号后，就能在这里浏览、下载免费和已拥有的角色，付费角色在浏览器里购买。" />
+                <arc:Button Variant="Primary" Content="去登录" Click="OnGoLogin" HorizontalAlignment="Left" Margin="0 6 0 0" />
             </StackPanel>
         </Border>
 
-        <!-- 登录中：只显示设备码，让用户和网页上的核对 -->
+        <!-- 登录中：设备码在左上角账号面板里，这里只提示 -->
         <Border Classes="group" Padding="24 22" IsVisible="{Binding IsLoggingIn}">
             <StackPanel Spacing="10">
-                <TextBlock Classes="title" Text="在浏览器里确认登录" />
-                <TextBlock Classes="note" Text="已经打开浏览器。请确认网页上显示的验证码和下面这串一致，再点确认。确认后这里会自动继续。" />
-                <TextBlock Classes="usercode" Text="{Binding UserCode}" Margin="0 6"
-                           IsVisible="{Binding UserCode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                <TextBlock Classes="note" Text="正在等待确认…" />
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0 6 0 0">
-                    <arc:Button Content="重新打开浏览器" Click="OnReopenBrowser" />
-                    <arc:Button Variant="Ghost" Content="取消" Click="OnCancelLogin" />
-                </StackPanel>
+                <TextBlock Classes="title" Text="正在登录" />
+                <TextBlock Classes="note" Text="请在浏览器里确认登录，确认后这里会自动加载市场。验证码可以在左上角的账号面板里核对。" />
+                <arc:Button Content="查看验证码" Click="OnGoLogin" HorizontalAlignment="Left" Margin="0 6 0 0" />
             </StackPanel>
         </Border>
 
@@ -75,14 +63,6 @@
 
         <!-- 已登录 -->
         <StackPanel Spacing="14" IsVisible="{Binding IsLoggedIn}">
-            <Border Classes="group" Padding="18 10">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               Text="{Binding Nickname, StringFormat=已登录：{0}}" />
-                    <arc:Button Grid.Column="1" Variant="Ghost" Content="退出登录" Click="OnLogout" />
-                </Grid>
-            </Border>
-
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <arc:Input Text="{Binding Query, Mode=TwoWay}" PlaceholderText="搜索宠物，回车确认" KeyDown="OnSearchKeyDown"
                            AutomationProperties.Name="搜索宠物" />

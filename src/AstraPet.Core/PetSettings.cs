@@ -104,6 +104,8 @@ public sealed class PetSettings : Observable
     private bool _doubleClickChat = true;
     private bool _dragEnabled = true;
     private bool _petting = true;
+    private bool _proactiveChat = true;
+    private int _proactiveMinutes = 30;
     private string _clickLines = "干嘛戳我啦～\n嘿嘿，被你发现了\n今天也要加油哦！\n我在这儿陪着你呢\n别闹，我在想事情";
 
     /// <summary>单击播放点击回应动作。</summary>
@@ -114,6 +116,13 @@ public sealed class PetSettings : Observable
     public bool DragEnabled { get => _dragEnabled; set => Set(ref _dragEnabled, value); }
     /// <summary>摸头：鼠标在角色身上停留 2 秒触发一次回应。</summary>
     public bool Petting { get => _petting; set => Set(ref _petting, value); }
+    /// <summary>
+    /// 主动搭话：用户在电脑前、一阵子没理宠物时，宠物会按自己的性格（角色提示词）找用户说句话；用户离开一阵回来时也会打个招呼。
+    /// 要先配好模型；宠物也可以选择不说（高冷的性格开口更少）。
+    /// </summary>
+    public bool ProactiveChat { get => _proactiveChat; set => Set(ref _proactiveChat, value); }
+    /// <summary>主动搭话的平均间隔（分钟），每次在 0.7～1.5 倍之间随机。</summary>
+    public int ProactiveMinutes { get => _proactiveMinutes; set => Set(ref _proactiveMinutes, Math.Clamp(value, 5, 180)); }
     /// <summary>点击台词，一行一句。</summary>
     public string ClickLines { get => _clickLines; set => Set(ref _clickLines, value); }
 
@@ -196,13 +205,15 @@ public sealed class PetSettings : Observable
     // ───── 智能 ─────
 
     private string _activeProviderId = "";
-    private double _temperature = 0.8;
-    private int _maxTokens = 512;
-    private int _contextTurns = 10;
+    private int _maxTokens = FixedMaxTokens;
+    private int _contextTurns = FixedContextTurns;
     private int _timeoutSeconds = 60;
     private string _systemPrompt = DefaultSystemPrompt;
     private bool _memoryEnabled = true;
     private bool _autoMemory = true;
+    private bool _compactContext = true;
+    private bool _compactMemory = true;
+    private bool _persistChat = true;
     private PersonaMode _personaMode = PersonaMode.Pack;
     private string _personaCustom = "";
     private string _personaNotes = "";
@@ -217,10 +228,17 @@ public sealed class PetSettings : Observable
 
     public ObservableCollection<LlmProvider> Providers { get; set; } = new();
     public string ActiveProviderId { get => _activeProviderId; set => Set(ref _activeProviderId, value); }
-    public double Temperature { get => _temperature; set => Set(ref _temperature, Math.Clamp(value, 0, 2)); }
     public int MaxTokens { get => _maxTokens; set => Set(ref _maxTokens, Math.Clamp(value, 16, 8192)); }
-    /// <summary>每次请求带上最近多少轮对话。</summary>
-    public int ContextTurns { get => _contextTurns; set => Set(ref _contextTurns, Math.Clamp(value, 0, 50)); }
+    /// <summary>
+    /// 对话参数不再给用户调：温度不发（用模型自己的默认），回复长度和上下文轮数固定成宽松的上限，
+    /// 真正的上下文长度由模型窗口的预算控制、轮数不设上限（<see cref="Ai.ContextBudget"/>），超了就压缩。<see cref="Normalize"/> 会把旧设置文件里的值改回这里。
+    /// </summary>
+    public const int FixedMaxTokens = 4096;
+    /// <summary>上下文轮数不设上限：长度只由模型窗口的预算控制，超了就压缩成摘要。</summary>
+    public const int FixedContextTurns = int.MaxValue;
+
+    /// <summary>每次请求带上最近多少轮对话（不限，见 <see cref="FixedContextTurns"/>）。</summary>
+    public int ContextTurns { get => _contextTurns; set => Set(ref _contextTurns, Math.Max(0, value)); }
     public int TimeoutSeconds { get => _timeoutSeconds; set => Set(ref _timeoutSeconds, Math.Clamp(value, 5, 300)); }
     /// <summary>
     /// 旧版整段的系统提示词，只为迁移保留：加载时如果用户改过，搬进 <see cref="PersonaCustom"/>，之后清空不再使用。
@@ -240,6 +258,12 @@ public sealed class PetSettings : Observable
     public bool MemoryEnabled { get => _memoryEnabled; set => Set(ref _memoryEnabled, value); }
     /// <summary>每轮对话后让模型提取值得记住的信息。</summary>
     public bool AutoMemory { get => _autoMemory; set => Set(ref _autoMemory, value); }
+    /// <summary>超过上下文预算时，把较早的几轮交给模型压缩成摘要（写进系统提示词），而不是直接丢掉。始终开启，界面上没有开关。</summary>
+    public bool CompactContext { get => _compactContext; set => Set(ref _compactContext, value); }
+    /// <summary>压缩上下文时顺带从那几轮里提取用户信息记下来（不多发请求）。默认打开。</summary>
+    public bool CompactMemory { get => _compactMemory; set => Set(ref _compactMemory, value); }
+    /// <summary>把和智能体的对话（最近几轮和摘要）存在本机，重启后接着聊。每只宠物分开存。关掉时删除已存的记录。</summary>
+    public bool PersistChat { get => _persistChat; set => Set(ref _persistChat, value); }
     public ObservableCollection<MemoryItem> Memories { get; set; } = new();
 
     [JsonIgnore]
@@ -335,6 +359,13 @@ public sealed class PetSettings : Observable
     public void Normalize(bool upgraded = false)
     {
         MigratePrompt();
+        if (upgraded)
+        {
+            // 旧设置文件里用户调过的对话参数不再生效：改回固定值（新安装本来就是这些默认值）。
+            MaxTokens = FixedMaxTokens;
+            ContextTurns = FixedContextTurns;
+            CompactContext = true;
+        }
         if (LifeVersion < CurrentLifeVersion)
         {
             // L6：老用户升级后保持「自由放置」，新安装默认「站在地面」。
@@ -343,7 +374,12 @@ public sealed class PetSettings : Observable
         }
         foreach (var id in MenuEntry.AllIds)
             if (MenuItems.All(m => m.Id != id))
-                MenuItems.Add(new MenuEntry { Id = id, Visible = MenuEntry.DefaultVisible(id) });
+            {
+                // 新版本加的项插在「退出」前面（「退出」习惯放最后）。
+                var entry = new MenuEntry { Id = id, Visible = MenuEntry.DefaultVisible(id) };
+                var exitAt = id == MenuEntry.Exit ? -1 : MenuItems.ToList().FindIndex(m => m.Id == MenuEntry.Exit);
+                if (exitAt >= 0) MenuItems.Insert(exitAt, entry); else MenuItems.Add(entry);
+            }
         foreach (var stale in MenuItems.Where(m => !MenuEntry.AllIds.Contains(m.Id)).ToList())
             MenuItems.Remove(stale);
         foreach (var exit in MenuItems.Where(m => !m.CanHide))
@@ -535,10 +571,13 @@ public sealed class MenuEntry : Observable
     public const string Play = "play";
     public const string Sleep = "sleep";
     public const string Status = "status";
+    public const string Actions = "actions";
+    /// <summary>「做个动作」子菜单里每个动作的命令：action:&lt;动作 id&gt;。</summary>
+    public const string ActionPrefix = "action:";
     /// <summary>喂食子菜单里每个食物的命令：feed:&lt;食物 id&gt;。</summary>
     public const string FeedPrefix = "feed:";
 
-    public static readonly string[] AllIds = [Chat, Feed, Play, Sleep, Status, Console, Pause, StayStill, Pomodoro, Mute, Center, Hide, Exit];
+    public static readonly string[] AllIds = [Chat, Actions, Feed, Play, Sleep, Status, Console, Pause, StayStill, Pomodoro, Mute, Center, Hide, Exit];
 
     private bool _visible = true;
 
@@ -561,6 +600,7 @@ public sealed class MenuEntry : Observable
         Play => "陪它玩一分钟：它会追着光标跑。",
         Sleep => "哄它睡觉 / 叫醒它（这只宠物有睡觉动作时才显示）。",
         Status => "打开控制台的「状态」页。",
+        Actions => "从这只宠物的动作里挑一个让它做（还没解锁、或现在姿势做不了的会置灰）。",
         _ => "",
     };
     /// <summary>退出项不能隐藏，否则没有托盘时就关不掉了。</summary>
@@ -581,6 +621,7 @@ public sealed class MenuEntry : Observable
         Play => "陪我玩",
         Sleep => "哄睡",
         Status => "查看状态",
+        Actions => "做个动作",
         _ => id,
     };
 

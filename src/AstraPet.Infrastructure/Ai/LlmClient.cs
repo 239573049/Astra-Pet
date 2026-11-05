@@ -11,7 +11,7 @@ namespace AstraPet.Ai;
 /// 三种协议的非流式调用：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages。
 /// 只拼 JSON 发 HTTP，不依赖任何 SDK，这样兼容接口（DeepSeek、通义、Ollama 等）填个地址就能用。
 /// </summary>
-public sealed class LlmClient : ILlmClient
+public sealed partial class LlmClient : ILlmClient
 {
     /// <summary>对话智能体用的实例（实现 <see cref="ILlmClient"/>）；设置页的测试、拉模型列表直接用静态方法。</summary>
     public static readonly LlmClient Instance = new();
@@ -28,6 +28,23 @@ public sealed class LlmClient : ILlmClient
     {
         if (string.IsNullOrWhiteSpace(provider.BaseUrl)) throw new LlmException("没有填写接口地址");
         if (string.IsNullOrWhiteSpace(provider.Model)) throw new LlmException("没有填写模型名");
+
+        if (request.OnText is not null && !NoStreaming.Contains(StreamKey(provider)))
+        {
+            try
+            {
+                return await StreamAsync(provider, request, timeout, ct);
+            }
+            catch (LlmException e) when (e.Status is >= 400 and < 500 and not 401 and not 403 and not 429
+                                         && e.Message.Contains("stream", StringComparison.OrdinalIgnoreCase))
+            {
+                // 网关不支持流式：记住，这次和以后都走普通请求。
+                NoStreaming.Add(StreamKey(provider));
+            }
+            var whole = await CompleteAsync(provider, request with { OnText = null }, timeout, ct);
+            if (whole.Text.Length > 0) request.OnText(whole.Text);
+            return whole;
+        }
 
         using var message = Build(provider, request);
         var body = await SendAsync(message, timeout, ct);
@@ -180,7 +197,13 @@ public sealed class LlmClient : ILlmClient
 
     private static HttpRequestMessage BuildChatCompletions(LlmProvider p, ChatRequest r)
     {
-        var request = Post(Join(p.BaseUrl, "chat/completions"), ChatCompletionsBody(p, r));
+        var body = ChatCompletionsBody(p, r);
+        if (r.OnText is not null)
+        {
+            body["stream"] = true;
+            body["stream_options"] = new JsonObject { ["include_usage"] = true };
+        }
+        var request = Post(Join(p.BaseUrl, "chat/completions"), body);
         Bearer(request, p.ApiKey);
         return request;
     }
@@ -257,14 +280,16 @@ public sealed class LlmClient : ILlmClient
             if (Str(fn?["name"]) is not { Length: > 0 } name) continue;
             parts.Add(new ToolCallPart(Str(call?["id"]) is { Length: > 0 } id ? id : $"call_{index}", name, Arguments(fn?["arguments"])));
         }
-        return new ChatResponse(parts, Str(choice?["finish_reason"]));
+        return new ChatResponse(parts, Str(choice?["finish_reason"])) { InputTokens = Int(json?["usage"]?["prompt_tokens"]) };
     }
 
     // ───── OpenAI Responses ─────
 
     private static HttpRequestMessage BuildResponses(LlmProvider p, ChatRequest r)
     {
-        var request = Post(Join(p.BaseUrl, "responses"), ResponsesBody(p, r));
+        var body = ResponsesBody(p, r);
+        if (r.OnText is not null) body["stream"] = true;
+        var request = Post(Join(p.BaseUrl, "responses"), body);
         Bearer(request, p.ApiKey);
         return request;
     }
@@ -337,14 +362,16 @@ public sealed class LlmClient : ILlmClient
         }
         if (sb.Length == 0 && Str(json?["output_text"]) is { } direct) sb.Append(direct);
         if (sb.ToString().Trim() is { Length: > 0 } text) parts.Insert(0, new TextPart(text));
-        return new ChatResponse(parts, Str(json?["status"]));
+        return new ChatResponse(parts, Str(json?["status"])) { InputTokens = Int(json?["usage"]?["input_tokens"]) };
     }
 
     // ───── Anthropic Messages ─────
 
     private static HttpRequestMessage BuildAnthropic(LlmProvider p, ChatRequest r)
     {
-        var request = Post(AnthropicUrl(p.BaseUrl, "messages"), AnthropicBody(p, r));
+        var body = AnthropicBody(p, r);
+        if (r.OnText is not null) body["stream"] = true;
+        var request = Post(AnthropicUrl(p.BaseUrl, "messages"), body);
         request.Headers.Add("x-api-key", p.ApiKey);
         request.Headers.Add("anthropic-version", "2023-06-01");
         return request;
@@ -403,7 +430,7 @@ public sealed class LlmClient : ILlmClient
             ["messages"] = messages,
             ["max_tokens"] = MaxTokens(r.MaxTokens, info),
         };
-        Temperature(body, Math.Min(1, r.Temperature), info);   // Anthropic 的 temperature 上限是 1
+        Temperature(body, r.Temperature is { } temp ? Math.Min(1, temp) : null, info);   // Anthropic 的 temperature 上限是 1
         if (!string.IsNullOrWhiteSpace(r.System))
             body["system"] = r.System;
         if (r.HasTools)
@@ -446,7 +473,10 @@ public sealed class LlmClient : ILlmClient
             }
         }
         if (sb.ToString().Trim() is { Length: > 0 } text) parts.Insert(0, new TextPart(text));
-        return new ChatResponse(parts, Str(json?["stop_reason"]));
+        var usage = json?["usage"];
+        // Anthropic 的 input_tokens 不含命中 / 写入缓存的部分，三项加起来才是整个输入。
+        var input = Int(usage?["input_tokens"]) is { } i ? i + (Int(usage?["cache_read_input_tokens"]) ?? 0) + (Int(usage?["cache_creation_input_tokens"]) ?? 0) : (int?)null;
+        return new ChatResponse(parts, Str(json?["stop_reason"])) { InputTokens = input };
     }
 
     // ───── 公共 ─────
@@ -455,9 +485,9 @@ public sealed class LlmClient : ILlmClient
     /// 模型库（models.dev）里写明不接受 temperature 的模型（推理模型常见）就不发这个字段，
     /// 发了会被接口直接拒绝；库里没有这个模型时照常发。
     /// </summary>
-    private static void Temperature(JsonObject body, double value, ModelInfo? info)
+    private static void Temperature(JsonObject body, double? value, ModelInfo? info)
     {
-        if (info?.Temperature != false) body["temperature"] = value;
+        if (value is { } t && info?.Temperature != false) body["temperature"] = t;
     }
 
     /// <summary>max_tokens 超过模型的最大输出时接口会报错，按模型库里的上限截断。</summary>
@@ -477,6 +507,12 @@ public sealed class LlmClient : ILlmClient
     }
 
     /// <summary>字符串节点的值；不是字符串（null、对象、数字）时返回 null，不抛异常。</summary>
+    private static int? Int(JsonNode? node) =>
+        node is JsonValue v && v.TryGetValue<double>(out var d) && d > 0 ? (int)d : null;
+
+    /// <summary>模型库里的上下文窗口（自建网关按模型 id 在整个库里找）。</summary>
+    public int? ContextWindow(LlmProvider provider) => ModelCatalog.Current.FindAnywhere(provider) is { Context: > 0 } m ? m.Context : null;
+
     private static string? Str(JsonNode? node) =>
         node is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
 

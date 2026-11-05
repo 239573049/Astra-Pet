@@ -5,6 +5,7 @@ using AstraPet.Core.Behaviors;
 using AstraPet.Core.External;
 using AstraPet.External;
 using AstraPet.Platform;
+using Avalonia.Threading;
 
 namespace AstraPet.Pet;
 
@@ -31,6 +32,7 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
         Agent = new PetAgent(settings, llm)
         {
             Persona = () => _director.Library.Persona,
+            PackPrompt = () => _director.Library.Prompt,
             Actions = () => _director.Library.Actions,
             Situation = Situation,
             Usable = a => (_director.Usable?.Invoke(a) ?? true) && _director.CanReach(a),
@@ -70,22 +72,13 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
         _pet.HoverStill += () => { if (Life.Enabled) StatusCard.Present(_director.Library.Name); };
         _pet.HoverEnded += StatusCard.Dismiss;
         _pet.DragStarted += StatusCard.Dismiss;
-        _pet.FoodOptions = FoodOptions;
-        _pet.MenuAvailable = id => id switch
-        {
-            MenuEntry.Feed or MenuEntry.Status => Life.Enabled,
-            MenuEntry.Sleep => _director.Library.Actions.All.Any(a => a.Enabled && a.HasRole(Roles.Sleep)),
-            _ => true,
-        };
-
         _pet.Clicked += input.RaiseClicked;
         _pet.DoubleClicked += input.RaiseDoubleClicked;
         _pet.Petted += input.RaisePetted;
         _pet.DragStarted += input.RaiseDragStarted;
         _pet.DragEnded += input.RaiseDragEnded;
         _pet.MenuCommand += input.RaiseMenuCommand;
-        _pet.MenuLabel = _host.Menu.LabelOf;
-        _pet.MenuChecked = _host.Menu.IsChecked;
+        _pet.MenuRows = _host.Menu.Rows;
         _pet.Opened += (_, _) => _host.Start();
         _pet.Closed += (_, _) => Dispose();
         settings.PropertyChanged += (_, e) =>
@@ -117,30 +110,53 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
             if (e.PropertyName is nameof(PetSettings.ExternalApi) or nameof(PetSettings.ExternalPort)) UpdateExternal();
         };
 
-        Agent.Remembered += added => Say("我记住啦：" + (added[0].StartsWith("用户") ? "你" + added[0][2..] : added[0]), speak: false);
+        // 记忆是在回复之后提取的，正在聊的时候冒出来会盖掉回复，所以等聊完再说。
+        Agent.Remembered += added => ((IPetVoice)this).SayLater("我记住啦：" + (added[0].StartsWith("用户") ? "你" + added[0][2..] : added[0]), speak: false);
+        _pendingTimer.Tick += (_, _) => FlushPending();
+
+        // 聊天记录：启动时接上这只宠物上次的对话；每次变化存盘；换宠物换成那只的记录。
+        LoadConversation();
+        Agent.HistoryChanged += SaveConversation;
+        settings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PetSettings.PetId)) LoadConversation();
+            if (e.PropertyName == nameof(PetSettings.PersistChat))
+            {
+                if (settings.PersistChat) SaveConversation();
+                else ConversationStore.DeleteAll(SettingsStore.Directory);
+            }
+        };
     }
 
     public PetAgent Agent { get; }
+
+    // ───── 聊天记录持久化 ─────
+
+    private string ConversationPath => ConversationStore.PathFor(SettingsStore.Directory, _settings.PetId);
+
+    private void LoadConversation()
+    {
+        var snapshot = _settings.PersistChat ? ConversationStore.Load(ConversationPath) : null;
+        Agent.Restore(snapshot);
+        if (snapshot is { IsEmpty: false })
+            PetLog.Write($"接上之前的对话：{snapshot.Turns.Count} 轮" + (snapshot.Summary is null ? "" : "，有摘要"));
+    }
+
+    private void SaveConversation()
+    {
+        if (_settings.PersistChat) ConversationStore.Save(ConversationPath, Agent.Snapshot());
+    }
+    public IPlatform Platform => _platform;
 
     /// <summary>宠物体系：数值、喂食、亲密度（design/pet-life）。</summary>
     public PetLife Life { get; }
     public StatusCard StatusCard { get; }
     public PlayBehavior Play => _host.Play;
     public SummonBehavior Summon => _host.Summon;
+    /// <summary>右键菜单（控制台预览也用它，和真实菜单一致）。</summary>
+    public MenuBehavior Menu => _host.Menu;
 
     private readonly FoodSprite _food;
-
-    /// <summary>右键菜单「喂食」子菜单：每个食物一项，标出喜欢的、冷却和零食数量。</summary>
-    private IReadOnlyList<(string Id, string Label, bool Enabled)> FoodOptions()
-    {
-        var diet = Life.Profile.Diet;
-        return Foods.All.Select(f =>
-        {
-            var (available, note) = Life.FoodStatus(f);
-            var star = diet.Likes.Contains(f.Id) ? " ★" : "";
-            return (f.Id, $"{f.Icon} {f.Name}{star}" + (note.Length > 0 ? $"（{note}）" : ""), available);
-        }).ToList();
-    }
 
     /// <summary>
     /// 喂食（design/pet-life/03 §2）：食物图标先拿在光标上，移到宠物身上停一下就喂（方案 B）；
@@ -296,13 +312,146 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
 
     public void StopSpeaking() => _platform.Speech.Stop();
 
+    // ───── 聊天时不打断 ─────
+
+    /// <summary>最后一次聊天（发出或收到回复、关掉输入框）之后这么久内还算在聊，给用户看完回复、想下一句的时间。</summary>
+    public static readonly TimeSpan ConversationLinger = TimeSpan.FromSeconds(90);
+    /// <summary>攒着的话超过这么久就不说了（过时的报时、提醒没意义）。</summary>
+    public static readonly TimeSpan PendingExpiry = TimeSpan.FromMinutes(10);
+    private const int MaxPending = 3;
+
+    private bool _chatOpen;
+    private int _userTalking;
+    private DateTimeOffset _lastChatAt = DateTimeOffset.MinValue;
+
+    /// <summary>攒着等聊完再说的话：一句固定台词，或一个交给智能体的起因（Cue）加兜底台词。</summary>
+    private sealed record Pending(string Text, bool Speak, string? Cue, DateTimeOffset At);
+    private readonly List<Pending> _pending = new();
+    /// <summary>聊完后一句一句说，中间隔几秒，免得互相盖掉。</summary>
+    private readonly DispatcherTimer _pendingTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+
+    /// <summary>输入框开着（由输入框设置）。关掉时也算刚聊过，再等一会儿才说攒着的话。</summary>
+    public bool ChatOpen
+    {
+        get => _chatOpen;
+        set
+        {
+            if (_chatOpen == value) return;
+            _chatOpen = value;
+            _lastChatAt = DateTimeOffset.Now;
+        }
+    }
+
+    /// <summary>用户正在和宠物聊天：输入框开着、在等回复、或刚聊完不久。这时别的气泡不打断。</summary>
+    public bool InConversation =>
+        _chatOpen || _userTalking > 0 || DateTimeOffset.Now - _lastChatAt < ConversationLinger;
+
+    void IPetVoice.SayLater(string text, bool speak)
+    {
+        if (InConversation) Defer(new Pending(text, speak, null, DateTimeOffset.Now));
+        else Say(text, speak);
+    }
+
+    void IPetVoice.React(string text, bool speak)
+    {
+        if (!InConversation) Say(text, speak);
+    }
+
+    private void Defer(Pending item)
+    {
+        _pending.RemoveAll(p => p.Text == item.Text && p.Cue == item.Cue);
+        _pending.Add(item);
+        while (_pending.Count > MaxPending) _pending.RemoveAt(0);
+        PetLog.Write($"正在聊天，先不说：{item.Cue ?? item.Text}");
+        _pendingTimer.Start();
+    }
+
+    private void FlushPending()
+    {
+        _pending.RemoveAll(p => DateTimeOffset.Now - p.At > PendingExpiry);
+        if (_pending.Count == 0)
+        {
+            _pendingTimer.Stop();
+            return;
+        }
+        if (InConversation || _talking > 0) return;
+        var next = _pending[0];
+        _pending.RemoveAt(0);
+        if (next.Cue is null || !((IPetCommands)this).SpeakUp(next.Cue, next.Text)) Say(next.Text, next.Speak);
+    }
+
+    /// <summary>正在请求智能体（用户发的或主动开口的），这时不再主动开口。</summary>
+    private int _talking;
+
+    /// <summary>
+    /// 主动开口（搭话、问候、提醒，见 <see cref="IPetCommands.SpeakUp"/>）：没配模型返回 false。
+    /// 说的话和用户的聊天进同一个上下文。<paramref name="fallback"/> 不为 null 时这句一定要说到：
+    /// 模型没说或出错就说 fallback。出错只写日志，不在气泡里抱怨。
+    /// 用户正在聊天时：一定要说的先攒着，聊完再说；随口搭话直接不说。
+    /// </summary>
+    bool IPetCommands.SpeakUp(string cue, string? fallback)
+    {
+        if (!Agent.IsConfigured) return false;
+        if (InConversation || _talking > 0)
+        {
+            if (fallback is not null) Defer(new Pending(fallback, true, cue, DateTimeOffset.Now));
+            return true;
+        }
+        _ = SpeakUpAsync(cue, fallback);
+        return true;
+    }
+
+    private async Task SpeakUpAsync(string cue, string? fallback)
+    {
+        _talking++;
+        try
+        {
+            var shown = false;
+            var reply = await Agent.SpeakUpAsync(cue, mustSpeak: fallback is not null,
+                onPartial: partial =>
+                {
+                    // 用户在它想的时候开始聊了：别把半截话冒出来盖掉聊天。
+                    if (PetAgent.MaybeSilent(partial) || InConversation) return;
+                    shown = true;
+                    Bubble.Say(partial, 0);
+                });
+            var text = reply?.Text is { Length: > 0 } t ? t : fallback;
+            if (InConversation)
+            {
+                // 回来时用户已经在聊了：一定要说的攒着（用已经生成好的话），随口搭话就算了。
+                if (fallback is not null && text is not null) Defer(new Pending(text, true, null, DateTimeOffset.Now));
+                return;
+            }
+            if (text is null && shown) Bubble.Dismiss();   // 说了半截又决定不说
+            if (text is not null)
+            {
+                Bubble.Say(text);
+                if (_settings.SpeakReplies || fallback is not null && _settings.SpeakReminders) Speak(text);
+            }
+            if (reply is not null) Events.Publish(PetEvents.ChatReplied, ("acted", reply.Acted ? "true" : "false"));
+        }
+        catch (Exception e)
+        {
+            PetLog.Write($"主动开口失败: {e.Message}");
+            if (fallback is not null) Say(fallback);
+        }
+        finally
+        {
+            _talking--;
+        }
+    }
+
     /// <summary>发给智能体，回复显示在气泡里并按设置朗读。出错时气泡里说明原因，并把异常抛给调用方。</summary>
     public async Task<string> ChatAsync(string text)
     {
+        _talking++;
+        _userTalking++;
+        _lastChatAt = DateTimeOffset.Now;
         try
         {
             Events.Publish(PetEvents.ChatThinking);
-            var reply = await Agent.AskAsync(text);
+            // 流式：边收边更新气泡（一直显示），收完再按字数定收起的时间。
+            var reply = await Agent.AskAsync(text, partial => Bubble.Say(partial, 0));
             Bubble.Say(reply.Text);
             if (_settings.SpeakReplies) Speak(reply.Text);
             // Agent 调过 play_action 时 acted 为 true，规则 reply 就不再补一个随机反应。
@@ -316,10 +465,17 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
             Bubble.Say("呜…我好像连不上大脑了，去控制台「智能」页看看吧");
             throw;
         }
+        finally
+        {
+            _talking--;
+            _userTalking--;
+            _lastChatAt = DateTimeOffset.Now;
+        }
     }
 
     public void Dispose()
     {
+        _pendingTimer.Stop();
         _external.Dispose();
         _host.Dispose();
         StatusCard.Close();

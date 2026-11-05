@@ -36,14 +36,14 @@ public sealed class ReminderBehavior : PetBehavior
         {
             _lastChimeHour = now.Hour;
             Context.Events.Publish(PetEvents.Hour, ("hour", now.Hour.ToString()));
-            if (Settings.HourlyChime) Context.Voice.Say($"现在是 {now:HH:mm}，整点啦～");
+            if (Settings.HourlyChime) SayInCharacter($"整点报时：现在 {now:HH:mm} 了，告诉用户一声（可以顺口说点和这个时间有关的）", $"现在是 {now:HH:mm}，整点啦～");
         }
 
         if (!Settings.DrinkReminder) _lastDrink = now;
         else if (now - _lastDrink >= TimeSpan.FromMinutes(Settings.DrinkMinutes))
         {
             _lastDrink = now;
-            Context.Voice.Say(Pick(DrinkLines));
+            SayInCharacter("喝水提醒：用户有一阵子没喝水了，提醒TA喝口水", Pick(DrinkLines));
             Context.Events.Publish(PetEvents.Drink);
         }
 
@@ -54,7 +54,7 @@ public sealed class ReminderBehavior : PetBehavior
         else if (now - _sittingSince >= TimeSpan.FromMinutes(Settings.SitMinutes))
         {
             _sittingSince = now;
-            Context.Voice.Say(Pick(SitLines));
+            SayInCharacter($"久坐提醒：用户已经连续坐了 {Settings.SitMinutes} 分钟左右，提醒TA起来活动一下", Pick(SitLines));
             Context.Events.Publish(PetEvents.Sit);
         }
     }
@@ -95,9 +95,10 @@ public sealed class PomodoroBehavior : PetBehavior
         if (EndsAt is not { } end || Now < end) return;
         Resting = !Resting;
         EndsAt = Now.AddMinutes(Resting ? Settings.PomodoroRest : Settings.PomodoroWork);
-        Context.Voice.Say(Resting
-            ? $"专注结束！休息 {Settings.PomodoroRest} 分钟吧"
-            : $"休息好了，再专注 {Settings.PomodoroWork} 分钟！");
+        SayInCharacter(Resting
+                ? $"番茄钟：一段专注刚结束，告诉用户可以休息 {Settings.PomodoroRest} 分钟了"
+                : $"番茄钟：休息时间到了，告诉用户接着专注 {Settings.PomodoroWork} 分钟",
+            Resting ? $"专注结束！休息 {Settings.PomodoroRest} 分钟吧" : $"休息好了，再专注 {Settings.PomodoroWork} 分钟！");
         Context.Events.Publish(Resting ? PetEvents.FocusEnded : PetEvents.RestEnded,
             ("minutes", (Resting ? Settings.PomodoroRest : Settings.PomodoroWork).ToString()));
     }
@@ -162,7 +163,7 @@ public sealed class UpdateNotifyBehavior : PetBehavior
         {
             Settings.NotifiedUpdate = info.Version;
             Context.Events.Publish(PetEvents.UpdateFound, ("version", info.Version));
-            Context.Voice.Say($"有新版本 {info.Version} 啦～去控制台「常规」里一键更新吧", speak: false);
+            Context.Voice.SayLater($"有新版本 {info.Version} 啦～去控制台「常规」里一键更新吧", speak: false);
         }
         return info;
     }
@@ -172,5 +173,116 @@ public sealed class UpdateNotifyBehavior : PetBehavior
         // 没打开自动检查，或者根本没配服务器：安静地跳过，不往日志里刷。
         if (!Settings.AutoCheckUpdate || Context.Updates.Server.Length == 0) return;
         _ = CheckAsync(automatic: true);
+    }
+}
+
+/// <summary>
+/// 主动搭话：每 30 秒看一次。用户在电脑前、有一阵子没理宠物时，按设置的平均间隔（加随机）请 Agent 开口；
+/// 用户离开电脑一阵再回来，也请它打个招呼。说什么、说不说都由模型按当前宠物的性格决定（见 <see cref="AstraPet.Ai.PetAgent.SpeakUpAsync"/>）。
+/// 下面这些时候不开口：宠物藏起来 / 暂停、省电、专注番茄钟、睡觉、深夜、刚互动过。
+/// </summary>
+public sealed class ProactiveChatBehavior : PetBehavior
+{
+    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
+    /// <summary>空闲超过这么久算离开；回来时打招呼。</summary>
+    public static readonly TimeSpan AwayAfter = TimeSpan.FromMinutes(10);
+    /// <summary>刚互动或聊过天，这么久之内不插话。</summary>
+    public static readonly TimeSpan QuietAfterActivity = TimeSpan.FromMinutes(3);
+    /// <summary>赶上不方便开口时，过一会儿再看。</summary>
+    public static readonly TimeSpan RetryAfter = TimeSpan.FromMinutes(2);
+
+    /// <summary>没什么特别的事时，随机挑一个起因。</summary>
+    public static readonly string[] IdleCues =
+    [
+        "有一阵子没和用户说话了，你有点无聊，想找用户搭句话",
+        "你突然想到一件和自己的喜好、日常有关的小事，想跟用户分享",
+        "你想关心一下用户：在忙什么、累不累",
+        "你想根据现在的时间和【现在】里的情况随口说点什么",
+        "你想起了关于用户的某件事（如果【关于用户，你记得】里有），想顺口提一下；没有的话就随便聊点别的",
+        "你自己在桌面上待着，冒出了一个小念头或者小情绪，想说出来",
+    ];
+
+    private readonly PomodoroBehavior _pomodoro;
+    private DateTimeOffset _next;
+    private DateTimeOffset _lastActivity;
+    private TimeSpan? _awayFor;
+
+    public ProactiveChatBehavior(PomodoroBehavior pomodoro) => _pomodoro = pomodoro;
+
+    /// <summary>下一次主动开口的时间（测试用）。</summary>
+    public DateTimeOffset NextAt => _next;
+
+    protected override void OnStart()
+    {
+        _lastActivity = Now;
+        Schedule();
+        Context.Events.Published += OnEvent;
+        Every(Interval, Tick);
+    }
+
+    private void OnEvent(PetEvent e)
+    {
+        if (e.Type is PetEvents.Clicked or PetEvents.DoubleClicked or PetEvents.Petted or PetEvents.DragEnded
+            or PetEvents.ChatThinking or PetEvents.ChatReplied or PetEvents.Fed or PetEvents.PlayEnded or PetEvents.Woken)
+            _lastActivity = Now;
+    }
+
+    private void Schedule() =>
+        _next = Now + TimeSpan.FromMinutes(Settings.ProactiveMinutes * (0.7 + Context.Random.NextDouble() * 0.8));
+
+    private void Tick()
+    {
+        if (!Settings.ProactiveChat)
+        {
+            _awayFor = null;
+            if (_next < Now) Schedule();
+            return;
+        }
+
+        // 离开 → 回来：记下离开多久，回来后（刚有操作）打个招呼。读不到空闲时长的平台没有这一项。
+        var idle = Context.Monitor.IdleTime();
+        if (idle is { } away && away >= AwayAfter)
+        {
+            _awayFor = away;
+            return;
+        }
+        if (_awayFor is { } gone && idle < TimeSpan.FromMinutes(1))
+        {
+            _awayFor = null;
+            if (CanTalk(ignoreQuiet: true))
+            {
+                Talk($"用户离开电脑大约 {Math.Round(gone.TotalMinutes)} 分钟，刚刚回来");
+                return;
+            }
+        }
+
+        if (Now < _next) return;
+        if (!CanTalk(ignoreQuiet: false))
+        {
+            _next = Now + RetryAfter;
+            return;
+        }
+        Talk(Pick(IdleCues));
+    }
+
+    private bool CanTalk(bool ignoreQuiet)
+    {
+        if (!Settings.Visible || Settings.Paused || Settings.PowerSavingActive) return false;
+        if (_pomodoro.Running && !_pomodoro.Resting) return false;
+        if (Context.Director.Sleeping) return false;
+        if (Now.Hour is >= 1 and < 7) return false;   // 深夜别吵
+        return ignoreQuiet || Now - _lastActivity >= QuietAfterActivity;
+    }
+
+    private void Talk(string cue)
+    {
+        Schedule();
+        if (Context.Commands.SpeakUp(cue)) PetLog.Write($"主动搭话：{cue}");
+    }
+
+    public override void Dispose()
+    {
+        if (Context is not null) Context.Events.Published -= OnEvent;
+        base.Dispose();
     }
 }

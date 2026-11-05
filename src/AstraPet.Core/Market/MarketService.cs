@@ -55,7 +55,7 @@ public sealed class MarketService
     {
         var token = await WaitForApprovalAsync(code, ct);
         var me = await _client.GetMeAsync(token.AccessToken, ct);
-        var session = new HubSession(token.AccessToken, me.Nickname, me.Id, DateTimeOffset.Now);
+        var session = new HubSession(token.AccessToken, me.Nickname, me.Id, DateTimeOffset.Now, me.Email, me.AvatarUrl);
         _store.Save(session);
         Session = session;
         PetLog.Write($"已登录宠物市场: {me.Nickname}");
@@ -86,6 +86,22 @@ public sealed class MarketService
                 PetLog.Write($"市场登录轮询出错，继续等待: {e.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// 重新取一次昵称、邮箱和头像（用户可能在网页上改过，旧的登录文件里也没有邮箱头像）。有变化就存下来并返回 true。
+    /// 401 时登录状态被清掉、抛 <see cref="HubUnauthorizedException"/>；其他错误原样抛出，调用方忽略即可。
+    /// </summary>
+    public async Task<bool> RefreshProfileAsync(CancellationToken ct)
+    {
+        if (Session is not { } before) return false;
+        var me = await Authed(token => _client.GetMeAsync(token, ct));
+        if (Session is not { } current || current.AccessToken != before.AccessToken) return false;   // 期间退出或换了账号
+        var updated = current with { Nickname = me.Nickname, Email = me.Email, AvatarUrl = me.AvatarUrl };
+        if (updated == current) return false;
+        _store.Save(updated);
+        Session = updated;
+        return true;
     }
 
     /// <summary>退出：先让服务器吊销令牌（失败也无所谓），再删本地文件。</summary>
@@ -141,12 +157,18 @@ public sealed class MarketService
     /// <summary>装好后的文件：角色目录下的 {packId}.astrapet。它在角色列表里的 id 就是这个文件名。</summary>
     public string InstalledPath(MarketPet pet) => Path.Combine(_catalog.UserDirectory, pet.PackId + PetPack.Extension);
 
-    /// <summary>本机装的和市场上的比。会读整个文件算哈希（按大小和修改时间缓存），放后台线程上调。</summary>
+    /// <summary>
+    /// 本机装的和市场上的比：两边版本号都读得出来时，只有市场版本更新才算「有更新」（自己导出的、比市场还新的不算）；
+    /// 任何一边没有版本号时才退回比 SHA-256（会读整个文件算哈希，按大小和修改时间缓存）。放后台线程上调。
+    /// </summary>
     public MarketInstallState InstallStateOf(MarketPet pet)
     {
         if (!IsSafeId(pet.PackId)) return MarketInstallState.NotInstalled;
         var path = InstalledPath(pet);
         if (!File.Exists(path)) return MarketInstallState.NotInstalled;
+        if (pet.Version is { Length: > 0 } market && PetPack.ReadVersion(path) is { } local
+            && SemVer.TryParse(market, out _) && SemVer.TryParse(local, out _))
+            return SemVer.Compare(market, local) > 0 ? MarketInstallState.Outdated : MarketInstallState.Installed;
         if (pet.Sha256 is not { Length: > 0 } expected) return MarketInstallState.Installed;
         try
         {
