@@ -1,6 +1,6 @@
 {
   "_comment": "小t 的格式 2 元数据：人设和动作（tools/pack_pet.py --format 2 --meta）。clips 写素材文件名（不带 .webm）。没写 ambient 的按角色默认值平分，和格式 1 一样。",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "persona": {
     "name": "小t",
     "identity": "蓝色蓬松短发、穿蓝白背带裙和白围裙的 Q 版小女孩，脚边总跟着一只头顶小番茄的水豚",
@@ -127,6 +127,457 @@
       "clips": [
         "东张西望"
       ]
+    },
+    {
+      "id": "eat",
+      "name": "吃东西",
+      "description": "双手捧着小碗吃东西",
+      "roles": [
+        "eat"
+      ],
+      "clips": [
+        "eat"
+      ]
+    },
+    {
+      "id": "hungry",
+      "name": "饿了",
+      "description": "摸着肚子，可怜巴巴",
+      "roles": [
+        "hungry"
+      ],
+      "clips": [
+        "hungry"
+      ]
+    },
+    {
+      "id": "yawn",
+      "name": "打哈欠",
+      "description": "张大嘴打哈欠、揉眼睛",
+      "roles": [
+        "yawn"
+      ],
+      "clips": [
+        "yawn"
+      ]
+    },
+    {
+      "id": "dizzy",
+      "name": "晕乎乎",
+      "description": "摇摇晃晃，头顶转星星",
+      "roles": [
+        "dizzy"
+      ],
+      "clips": [
+        "dizzy"
+      ]
+    },
+    {
+      "id": "fall",
+      "name": "下落",
+      "description": "手脚张开慌张挣扎（循环）",
+      "roles": [
+        "fall"
+      ],
+      "clips": [
+        "fall"
+      ]
+    },
+    {
+      "id": "land",
+      "name": "落地",
+      "description": "膝盖弯曲缓冲后站直",
+      "roles": [
+        "land"
+      ],
+      "clips": [
+        "land"
+      ]
+    },
+    {
+      "id": "wall-idle",
+      "name": "贴墙待机",
+      "description": "抓着墙轻轻呼吸、回头看你",
+      "roles": [
+        "idle"
+      ],
+      "stance": "wall",
+      "anchor": {
+        "contactX": 114
+      },
+      "clips": [
+        "wall-idle"
+      ]
+    },
+    {
+      "id": "climb",
+      "name": "攀爬",
+      "description": "手脚交替往上爬",
+      "roles": [
+        "climb"
+      ],
+      "stance": "wall",
+      "anchor": {
+        "contactX": 113
+      },
+      "gait": {
+        "stride": 100,
+        "curve": [
+          0,
+          0,
+          0.0021,
+          0.0049,
+          0.0156,
+          0.0242,
+          0.0393,
+          0.047,
+          0.0517,
+          0.0544,
+          0.0615,
+          0.0665,
+          0.081,
+          0.085,
+          0.0904,
+          0.0904,
+          0.0957,
+          0.0957,
+          0.0978,
+          0.1046,
+          0.11,
+          0.1188,
+          0.1319,
+          0.1562,
+          0.16,
+          0.1655,
+          0.1688,
+          0.1788,
+          0.197,
+          0.2065,
+          0.2199,
+          0.2339,
+          0.2407,
+          0.2434,
+          0.2452,
+          0.2452,
+          0.2476,
+          0.254,
+          0.2777,
+          0.2868,
+          0.2979,
+          0.3072,
+          0.3183,
+          0.3216,
+          0.3349,
+          0.3432,
+          0.3628,
+          0.3661,
+          0.3715,
+          0.3715,
+          0.3715,
+          0.3715,
+          0.3743,
+          0.3905,
+          0.4014,
+          0.4085,
+          0.4155,
+          0.4229,
+          0.4338,
+          0.4357,
+          0.4413,
+          0.4551,
+          0.4592,
+          0.461,
+          0.4629,
+          0.4665,
+          0.4665,
+          0.4665,
+          0.4705,
+          0.485,
+          0.4982,
+          0.5124,
+          0.5301,
+          0.5341,
+          0.5341,
+          0.5357,
+          0.5619,
+          0.567,
+          0.5816,
+          0.5881,
+          0.6021,
+          0.6063,
+          0.6103,
+          0.6103,
+          0.6103,
+          0.6119,
+          0.6152,
+          0.6207,
+          0.6321,
+          0.6359,
+          0.6421,
+          0.6562,
+          0.6578,
+          0.6628,
+          0.6698,
+          0.6758,
+          0.6758,
+          0.6777,
+          0.6798,
+          0.6962,
+          0.7078,
+          0.7156,
+          0.7265,
+          0.7374,
+          0.7411,
+          0.7425,
+          0.7436,
+          0.7436,
+          0.7436,
+          0.7476,
+          0.7658,
+          0.7713,
+          0.7785,
+          0.7884,
+          0.797,
+          0.7993,
+          0.8045,
+          0.8081,
+          0.8267,
+          0.8281,
+          0.8334,
+          0.836,
+          0.8445,
+          0.8457,
+          0.847,
+          0.847,
+          0.8522,
+          0.8539,
+          0.8586,
+          0.8808,
+          0.8874,
+          0.9005,
+          0.9065,
+          0.9186,
+          0.9212,
+          0.9235,
+          0.9265,
+          0.9528,
+          0.9605,
+          0.9663,
+          0.9767,
+          0.9908,
+          0.9963,
+          0.9985,
+          1
+        ],
+        "axis": "y"
+      },
+      "clips": [
+        "climb"
+      ]
+    },
+    {
+      "id": "wall-enter",
+      "name": "上墙",
+      "description": "走近左边，跳起扒住墙",
+      "roles": [],
+      "transition": {
+        "from": "ground",
+        "to": "wall"
+      },
+      "anchor": {
+        "contactX": 114
+      },
+      "clips": [
+        "wall-enter"
+      ]
+    },
+    {
+      "id": "wall-exit",
+      "name": "下墙",
+      "description": "松开墙轻轻跳下站好",
+      "roles": [],
+      "transition": {
+        "from": "wall",
+        "to": "ground"
+      },
+      "clips": [
+        "wall-exit"
+      ]
+    },
+    {
+      "id": "let-go",
+      "name": "松手",
+      "description": "手一滑松开墙",
+      "roles": [],
+      "transition": {
+        "from": "wall",
+        "to": "air"
+      },
+      "clips": [
+        "let-go"
+      ]
+    },
+    {
+      "id": "pounce",
+      "name": "扑",
+      "description": "原地向前一扑",
+      "roles": [
+        "pounce"
+      ],
+      "lines": [
+        "抓到啦！"
+      ],
+      "clips": [
+        "pounce"
+      ]
+    },
+    {
+      "id": "sit-enter",
+      "name": "坐下",
+      "description": "原地坐下",
+      "roles": [],
+      "transition": {
+        "from": "ground",
+        "to": "sit"
+      },
+      "clips": [
+        "sit-enter"
+      ]
+    },
+    {
+      "id": "sit-idle",
+      "name": "坐着待机",
+      "description": "坐着晃晃脚",
+      "roles": [
+        "idle"
+      ],
+      "stance": "sit",
+      "clips": [
+        "sit-idle"
+      ]
+    },
+    {
+      "id": "sit-exit",
+      "name": "起身",
+      "description": "站起来",
+      "roles": [],
+      "transition": {
+        "from": "sit",
+        "to": "ground"
+      },
+      "clips": [
+        "sit-exit"
+      ]
+    },
+    {
+      "id": "sleep-enter",
+      "name": "入睡",
+      "description": "坐着打瞌睡，慢慢躺下",
+      "roles": [
+        "sleep"
+      ],
+      "transition": {
+        "from": "sit",
+        "to": "lie"
+      },
+      "clips": [
+        "sleep-enter"
+      ]
+    },
+    {
+      "id": "sleep-loop",
+      "name": "睡着",
+      "description": "安静地睡觉，冒 Z",
+      "roles": [
+        "idle",
+        "sleep"
+      ],
+      "stance": "lie",
+      "clips": [
+        "sleep-loop"
+      ]
+    },
+    {
+      "id": "sleep-exit",
+      "name": "醒来",
+      "description": "伸懒腰醒来站好",
+      "roles": [],
+      "transition": {
+        "from": "lie",
+        "to": "ground"
+      },
+      "clips": [
+        "sleep-exit"
+      ]
+    },
+    {
+      "id": "ceiling-idle",
+      "name": "倒挂待机",
+      "description": "倒挂在天花板上晃晃",
+      "roles": [
+        "idle"
+      ],
+      "stance": "ceiling",
+      "clips": [
+        "ceiling-idle"
+      ]
+    },
+    {
+      "id": "ceiling-crawl",
+      "name": "倒挂爬行",
+      "description": "倒挂着朝左爬",
+      "roles": [
+        "climb"
+      ],
+      "stance": "ceiling",
+      "gait": {
+        "stride": 220
+      },
+      "clips": [
+        "ceiling-crawl"
+      ]
+    },
+    {
+      "id": "ceiling-enter",
+      "name": "翻上天花板",
+      "description": "从墙顶翻上去倒挂",
+      "roles": [],
+      "transition": {
+        "from": "wall",
+        "to": "ceiling"
+      },
+      "clips": [
+        "ceiling-enter"
+      ]
+    },
+    {
+      "id": "ceiling-exit",
+      "name": "回到墙上",
+      "description": "从天花板翻回墙上",
+      "roles": [],
+      "transition": {
+        "from": "ceiling",
+        "to": "wall"
+      },
+      "anchor": {
+        "contactX": 114
+      },
+      "clips": [
+        "ceiling-exit"
+      ]
+    },
+    {
+      "id": "ceiling-drop",
+      "name": "从天花板松手",
+      "description": "手一松掉下去",
+      "roles": [],
+      "transition": {
+        "from": "ceiling",
+        "to": "air"
+      },
+      "clips": [
+        "ceiling-drop"
+      ]
     }
   ],
   "profile": {
@@ -147,6 +598,15 @@
       "dislikes": [
         "vegetable"
       ]
+    },
+    "body": {
+      "wall": {
+        "contactX": 114,
+        "feetY": 329
+      },
+      "ceiling": {
+        "contactY": 27
+      }
     }
   }
 }
