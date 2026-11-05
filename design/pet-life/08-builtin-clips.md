@@ -41,7 +41,8 @@
    只导入宠物体系的动作（非地面姿态、过渡，以及 eat / fall / land / dizzy / hungry / yawn / pounce / climb / sleep 角色），
    片段拷成 `characters/小t/life/<动作id>.webm`；动作定义（姿态、过渡、步态、接触点）和量出来的贴墙 / 倒挂身体数据合并进 `tools/pets/xiaot.json`。
    规则和工作台导出（`StudioEngine.BuildSpec`）一致；给导出的 `.astrapet` 也可以。
-8. 把 `tools/pets/xiaot.json` 的 `version` 加一，跑 `tools/pets/build.sh`（它用 `--add-clips` 把 `characters/小t/life` 打进包）。
+8. 把 `tools/pets/xiaot.json` 的 `version` 加一，跑 `tools/pets/build.sh`（它从现有的包读片段，再用 `--add-clips` 把 `characters/小t/life` 打进包）。
+   打完片段就在 `src/Assets/pets/xiaot.astrapet` 里了；`characters/*/life/` 只是中转目录，在 .gitignore 里，不提交，打完可以删。
 9. 验收：`dotnet test`（PetPackTests 会加载内置包）、启动后控制台「位置」页「允许爬墙」可用、「去爬墙」能爬上去；「状态」页喂食播吃东西的片段。
 
 ## 3. 大肥鱼

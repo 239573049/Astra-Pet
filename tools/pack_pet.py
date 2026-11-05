@@ -21,6 +21,7 @@
   clips/<动作 id>/*.webm  格式 2
   preview.png           预览图（可选）
   LICENSE.txt           许可说明（可选，--license-file）
+  prompt.md             自定义提示词（可选，--prompt）：完整的人设，pet.json 的 prompt 指向它，程序用它代替 persona 拼出来的人设
 
 webm 本来就是压缩过的视频，用 ZIP_STORED 原样存，json 用 deflate。条目按名字排序、时间戳固定，
 同样的输入打出来的包逐字节相同，提交进仓库时 diff 干净。程序第一次用到时解压到缓存目录。
@@ -209,6 +210,7 @@ def main() -> None:
     ap.add_argument("--credit", action="append", default=[], help="署名的一行，可以给多次")
     ap.add_argument("--preview", help="预览图 png")
     ap.add_argument("--license-file", help="随包附带的许可说明文本")
+    ap.add_argument("--prompt", help="自定义提示词 .md（完整人设），打成包里的 prompt.md")
     ap.add_argument("--add-clips", action="append", default=[],
                     help="再加一个放 *.webm 的目录（文件名就是片段名），可以给多次。宠物体系的新动作用它（见 tools/pets/import_studio.py）")
     args = ap.parse_args()
@@ -239,6 +241,12 @@ def main() -> None:
     if args.license_file:
         with open(args.license_file, "rb") as f:
             license_text = f.read()
+    prompt_text = None
+    if args.prompt:
+        with open(args.prompt, "rb") as f:
+            prompt_text = f.read()
+        if len(prompt_text) > 4 * 1024 * 1024:
+            sys.exit("提示词文件不能超过 4 MB")
 
     manifest = {
         "format": args.format,
@@ -257,6 +265,8 @@ def main() -> None:
         files, count, summary = build_format2(src, meta, manifest)
     else:
         files, count, summary = build_format1(src)
+    if prompt_text is not None:
+        manifest["prompt"] = "prompt.md"
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     tmp = args.out + ".tmp"
@@ -268,6 +278,8 @@ def main() -> None:
             add(zf, "preview.png", preview, False)
         if license_text is not None:
             add(zf, "LICENSE.txt", license_text, True)
+        if prompt_text is not None:
+            add(zf, "prompt.md", prompt_text, True)
     os.replace(tmp, args.out)
 
     size = os.path.getsize(args.out) / 1024 / 1024

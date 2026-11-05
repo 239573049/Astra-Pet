@@ -17,5 +17,9 @@ __pycache__/
 # src/Assets/pets/dafeiyu.astrapet（带署名和许可），见 LICENSE-ASSETS.md 第 2 节、tools/pets/build.sh
 characters/deepseek/
 
+# 给内置角色补动作时的中转目录（tools/pets/import_studio.py → tools/pets/build.sh --add-clips）。
+# 片段打进 src/Assets/pets/*.astrapet 后包里就有了，不重复提交。
+characters/*/life/
+
 # 素材生成的任务记录（petgen 用它防止重复提交付费任务）。里面有带签名的下载链接，含云服务的 Access Key ID，不能公开。
 characters/**/*.task.json

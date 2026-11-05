@@ -109,13 +109,22 @@ public class PetPackTests : IDisposable
         var lib = PetLibrary.Load(PetPack.Extract(path, Path.Combine(_dir, "cache")), new FakeDecoder());
         Assert.Equal(name, lib.Persona.Name);
         Assert.NotEmpty(lib.Persona.Personality);
+        // 内置角色带完整人设（tools/pets/<id>-prompt.md）和宠物体系的动作（design/pet-life/08）：贴墙、坐、睡、倒挂。
+        // 用旧素材重新打包把它们弄丢时这里会挂。
+        Assert.False(string.IsNullOrWhiteSpace(lib.Prompt));
+        foreach (var stance in new[] { Stances.Wall, Stances.Sit, Stances.Lie, Stances.Ceiling })
+            Assert.Contains(stance, lib.Stances.Available);
+        foreach (var role in new[] { Roles.Eat, Roles.Fall, Roles.Land, Roles.Climb, Roles.Sleep })
+            Assert.Contains(lib.Actions.All, a => a.HasRole(role));
         Assert.All(lib.Actions.All, a => Assert.NotEmpty(a.Description));
         Assert.Equal(celebrate, lib.Actions.PickByRole(Roles.Celebrate, new Random(1))!.Id);
         Assert.NotEmpty(AstraPet.Ai.PlayActionTool.Choosable(lib.Actions));
         Assert.Empty(lib.Actions.MissingRequired());
-        // 随机链的总权重和格式 1 一样：待机 30、点击 40、移动 20、转身 10
+        // 地面上随机链的总权重和格式 1 一样：待机 30、点击 40、移动 20、转身 10。
+        // 随机链只在当前姿态里抽（PetDirector.AllowedAmbient），贴墙 / 坐 / 睡 / 倒挂的待机和过渡动作（没有角色）不算。
+        var ground = lib.Actions.All.Where(a => a.Stance == Stances.Ground && a.Transition is null && a.Roles.Count > 0).ToList();
         foreach (var (role, weight) in new[] { (Roles.Idle, 30.0), (Roles.Click, 40.0), (Roles.Move, 20.0), (Roles.Turn, 10.0) })
-            Assert.Equal(weight, lib.Actions.All.Where(a => a.Roles[0] == role).Sum(a => a.Ambient), 6);
+            Assert.Equal(weight, ground.Where(a => a.Roles[0] == role).Sum(a => a.Ambient), 6);
         Assert.Contains(lib.Actions.All, a => a.Gait is not null);
     }
 
