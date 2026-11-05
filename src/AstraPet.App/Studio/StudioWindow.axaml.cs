@@ -157,6 +157,9 @@ public partial class StudioWindow : Window
     }
 
     private void OnOpenProject(object? sender, RoutedEventArgs e) { if (TagOf<ProjectCard>(sender) is { } c) _vm.Open(c.Project); }
+    private void OnDeleteProject(object? sender, RoutedEventArgs e) { if (TagOf<ProjectCard>(sender) is { } c) _vm.AskDelete(c); }
+    private void OnDeleteCancel(object? sender, RoutedEventArgs e) => _vm.CancelDelete();
+    private void OnDeleteConfirm(object? sender, RoutedEventArgs e) => _vm.ConfirmDelete();
     private void OnProjectCardDoubleTapped(object? sender, TappedEventArgs e) { if (TagOf<ProjectCard>(sender) is { } c) _vm.Open(c.Project); }
     private void OnOpenRoot(object? sender, RoutedEventArgs e) => _vm.OpenRootFolder();
     private void OnBackHome(object? sender, RoutedEventArgs e) => _vm.BackHome();

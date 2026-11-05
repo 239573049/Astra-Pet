@@ -121,6 +121,51 @@ public sealed class StudioViewModel : Observable, ICostGate, IDisposable
         RefreshProjects();
     }
 
+    // ───── 删除工程（二次确认） ─────
+
+    private ProjectCard? _deleting;
+
+    public bool IsDeleteOpen
+    {
+        get => _deleting is not null;
+        set { if (!value) CancelDelete(); }   // Esc、点右上角都算取消
+    }
+
+    public string DeleteTitle => _deleting is null ? "" : $"删除「{_deleting.Name}」？";
+
+    public void AskDelete(ProjectCard card)
+    {
+        _deleting = card;
+        Raise(nameof(IsDeleteOpen));
+        Raise(nameof(DeleteTitle));
+    }
+
+    public void CancelDelete()
+    {
+        if (_deleting is null) return;
+        _deleting = null;
+        Raise(nameof(IsDeleteOpen));
+    }
+
+    public void ConfirmDelete()
+    {
+        if (_deleting is not { } card) return;
+        var title = DeleteTitle;
+        _deleting = null;
+        Raise(nameof(IsDeleteOpen));
+        try
+        {
+            Directory.Delete(card.Project.Directory, recursive: true);
+            HomeMessage = "";
+            PetLog.Write($"工作台：删除工程 {card.Project.Id}「{card.Name}」");
+        }
+        catch (Exception e)
+        {
+            HomeMessage = "删除失败：" + e.Message;
+        }
+        RefreshProjects();
+    }
+
     public void OpenRootFolder() => Shell.OpenFolder(Root);
 
     // ───── ⓪ 生成接口 ─────
