@@ -11,7 +11,6 @@ name: release
 # 站点固定是 https://hub.astra-gate.si（程序里的更新检测地址也是它，见 Directory.Build.props 的 UpdateBaseUrl）。
 # 需要在 GitHub 仓库里配置：
 #   Secrets  HUB_RELEASE_TOKEN  和 Hub 的配置 Releases__UploadToken 一致（没配时只构建，不上传）
-#   Secrets  PET_UPLOAD_TOKEN   可选：同时上传到旧站点 LocalGate，给 0.1.4 及以前的老程序检测更新
 #   Secrets  MACOS_CERT_P12_BASE64、MACOS_CERT_PASSWORD   Developer ID Application 证书（没配时 mac 包只做 ad-hoc 签名）
 #   公证（可选）：APPLE_API_KEY_P8_BASE64 + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID，或 APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
 on:
@@ -313,10 +312,6 @@ jobs:
       CHANNEL: ${{ needs.meta.outputs.channel }}
       HUB: https://hub.astra-gate.si
       HUB_TOKEN: ${{ secrets.HUB_RELEASE_TOKEN }}
-      # 旧站点 LocalGate：0.1.4 及以前的程序从 astra-gate.si 检测更新。配了 PET_UPLOAD_TOKEN 就同时传一份，
-      # 让老用户也能收到这次更新（新版本改从 Hub 检测），老用户都升级后删掉这个 Secret 即可。
-      LEGACY_SITE: https://astra-gate.si
-      LEGACY_TOKEN: ${{ secrets.PET_UPLOAD_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -368,30 +363,3 @@ jobs:
             fi
           done
           echo "已发布 $VERSION（$CHANNEL）：$HUB/download"
-
-      - name: Upload to LocalGate (legacy)
-        if: env.LEGACY_TOKEN != ''
-        shell: bash
-        run: |
-          for FILE in dist/AstraPet-*; do
-            NAME=$(basename "$FILE")
-            REST=${NAME#AstraPet-$VERSION-}
-            KIND=${REST##*.}
-            PLATFORM=${REST%.*}
-            echo "上传 $NAME 到 LocalGate"
-            curl --fail-with-body -sS -X POST "$LEGACY_SITE/api/pet-releases/upload" \
-              -H "Authorization: Bearer $LEGACY_TOKEN" \
-              -H "x-astra-version: $VERSION" \
-              -H "x-astra-channel: $CHANNEL" \
-              -H "x-astra-platform: $PLATFORM" \
-              -H "x-astra-kind: $KIND" \
-              -H "x-astra-notes-b64: $NOTES_B64" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE" -o response.json
-            LOCAL=$(sha256sum "$FILE" | cut -d' ' -f1)
-            REMOTE=$(python3 -c "import json;print(json.load(open('response.json'))['file']['sha256'])")
-            if [ "$LOCAL" != "$REMOTE" ]; then
-              echo "::error::$NAME 的 sha256 对不上（LocalGate）：本地 $LOCAL，站点 $REMOTE"
-              exit 1
-            fi
-          done
