@@ -63,7 +63,7 @@ case "$OS" in
 esac
 
 fetch() { # <url> <文件>
-  curl -fsSL --retry 3 "$1" -o "$2"
+  curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 --connect-timeout 30 "$1" -o "$2"
 }
 
 echo "== libvpx $LIBVPX_VERSION ($VPX_TARGET)"
