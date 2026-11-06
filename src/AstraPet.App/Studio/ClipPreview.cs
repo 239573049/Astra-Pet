@@ -57,6 +57,9 @@ public sealed class ClipPreview : Control
     {
         base.OnDetachedFromVisualTree(e);
         Stop();
+        // 离开界面（换页、关窗）就把位图还掉，一张 640x360 约 0.9MB；再显示时重新建。
+        _bitmap?.Dispose();
+        _bitmap = null;
     }
 
     private void Restart()

@@ -35,6 +35,8 @@ public partial class App : Application
     private readonly DispatcherTimer _consoleReleaseTimer = new() { Interval = ConsoleReleaseDelay };
     private ChatInputWindow? _chat;
     private StudioWindow? _studio;
+    /// <summary>工作台收起后也同样过一阵释放（见 <see cref="StudioWindow.Release"/>）。</summary>
+    private readonly DispatcherTimer _studioReleaseTimer = new() { Interval = ConsoleReleaseDelay };
     private VideoTaskQueue? _videoQueue;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
@@ -60,6 +62,7 @@ public partial class App : Application
 
             _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); SettingsStore.Save(settings); };
             _consoleReleaseTimer.Tick += (_, _) => TryReleaseConsole();
+            _studioReleaseTimer.Tick += (_, _) => TryReleaseStudio();
             settings.Changed += () => { _saveTimer.Stop(); _saveTimer.Start(); };
 
             _pet = new PetWindow(director, settings, c.Platform);
@@ -150,16 +153,41 @@ public partial class App : Application
         }
         console.Release();
         PetLog.Write("控制台已释放");
-        // 宠物平时几乎不分配内存，不主动收一次的话，释放掉的界面树要很久以后才被回收、还给系统。
-        // 窗口的原生资源在关闭后的几帧里才放完，稍等一下再收。低频事件，一次几十毫秒的阻塞 GC 可以接受。
-        DispatcherTimer.RunOnce(() =>
-        {
-            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        }, TimeSpan.FromSeconds(1), DispatcherPriority.Background);
+        CompactSoon();
     }
 
-    /// <summary>角色工作台：第一次打开时建，关掉只是隐藏。试用和安装通过控制台的 ViewModel 换角色。</summary>
+    /// <summary>
+    /// 释放收起着的工作台。本机上的活（出图、抠像、导出、试用、安装）没做完就过一会儿再试；
+    /// 服务端的视频任务不拦着：它们在 App 级的 <see cref="VideoTaskQueue"/> 里接着查询、下载。
+    /// 工作台释放后控制台也不再被它拖住，按控制台自己的规则接着释放。
+    /// </summary>
+    private void TryReleaseStudio()
+    {
+        _studioReleaseTimer.Stop();
+        if (_studio is not { } studio || studio.IsVisible) return;
+        if (!studio.CanRelease)
+        {
+            _studioReleaseTimer.Start();
+            return;
+        }
+        studio.Release();
+        PetLog.Write("工作台已释放");
+        // 工作台一直开着时控制台释不掉；现在控制台要是也收着，就接着走它的释放（它自己会再等收起的时长）。
+        if (_console is { IsVisible: false }) _consoleReleaseTimer.Start();
+        CompactSoon();
+    }
+
+    /// <summary>
+    /// 宠物平时几乎不分配内存，不主动收一次的话，释放掉的界面树要很久以后才被回收、还给系统。
+    /// 窗口的原生资源在关闭后的几帧里才放完，稍等一下再收。低频事件，一次几十毫秒的阻塞 GC 可以接受。
+    /// </summary>
+    private static void CompactSoon() => DispatcherTimer.RunOnce(() =>
+    {
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+    }, TimeSpan.FromSeconds(1), DispatcherPriority.Background);
+
+    /// <summary>角色工作台：要用时建，关掉先隐藏，收起一阵后释放（<see cref="TryReleaseStudio"/>）。试用和安装通过控制台的 ViewModel 换角色。</summary>
     private void ShowStudio()
     {
         if (_studio is null)
@@ -171,7 +199,19 @@ public partial class App : Application
             var engine = new StudioEngine(AvaloniaImageCodec.Instance, gate, _videoQueue!, c.Ffmpeg);
             vm = new StudioViewModel(_settings!, engine, c.StudioRoot, c.Decoder, c.Platform.Paths.CacheDirectory,
                 c.Platform.Shell, (IStudioHost)console.DataContext!);
-            _studio = new StudioWindow(vm);
+            var studio = _studio = new StudioWindow(vm);
+            studio.PropertyChanged += (_, e) =>
+            {
+                if (e.Property != Visual.IsVisibleProperty) return;
+                if (studio.IsVisible) _studioReleaseTimer.Stop();
+                else _studioReleaseTimer.Start();
+            };
+            studio.Closed += (_, _) =>
+            {
+                if (_studio != studio) return;
+                _studio = null;
+                _studioReleaseTimer.Stop();
+            };
         }
         _studio.Present();
     }

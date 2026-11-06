@@ -158,6 +158,12 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
         Raise(nameof(ExportNote));
     }
 
+    /// <summary>
+    /// 有跑在本机、随这个 ViewModel 一起取消的活（出图、抠像、导出、试用、安装）。工作台要等这些做完才释放；
+    /// 服务端的视频任务归 <see cref="VideoTaskQueue"/> 管，不算在内，释放了也照常查询、下载，下次打开工程接着处理。
+    /// </summary>
+    public bool HasLocalWork => _background > 0 || _running.Count > 0 || _processing.Count > 0 || TryoutBusy || _installing;
+
     private bool IsRunning(StepId step) => _running.Contains(step)
         || (step == StepId.Generate && Rows.Any(r => r.Waiting > 0 || r.Takes.Any(t => !t.Record.IsFinished)))
         || (step == StepId.Process && _processing.Count > 0);
@@ -768,6 +774,8 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
         catch (GenerationException e)
         {
             // 提交失败：没有任务记录，也不自动重试（可能已经计费），让用户决定要不要再点一次。
+            // 工作台可能已经释放、界面上看不到，日志里留一笔。
+            PetLog.Write($"工作台：{action.Id} 提交失败：{e.Message}");
             if (RowOf(action.Id) is { } row) row.Note = "提交失败：" + e.Message;
         }
         catch (OperationCanceledException) { }
@@ -776,7 +784,8 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
             PetLog.Write($"工作台：{action.Id} 出错：{e}");
             if (RowOf(action.Id) is { } row) row.Note = "出错了：" + e.Message;
         }
-        RefreshRowsAndStates();
+        // 工作台已经释放：任务照常在队列里跑完，这里不再碰界面。
+        if (!_life.IsCancellationRequested) RefreshRowsAndStates();
     }
 
     public async Task CancelTakeAsync(TakeItem take)
@@ -1004,9 +1013,10 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
     {
         var path = Project.PathOf("export/" + SuggestedFileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        if (!await ExportAsync(path)) return;
+        _installing = true;
         try
         {
+            if (!await ExportAsync(path)) return;
             var installed = await _owner.Host.InstallPackAsync(path, Data.Export.Id);
             Raise(nameof(IsTryingOut));
             Say($"装好了，桌面上已经换成「{ExportNameOrDefault}」。文件在 {installed}，控制台「角色」里可以换回去");
@@ -1015,7 +1025,13 @@ public sealed partial class ProjectViewModel : Observable, IDisposable
         {
             Say("安装失败：" + e.Message.Split('\n')[0], error: true);
         }
+        finally
+        {
+            _installing = false;
+        }
     }
+
+    private bool _installing;
 
     public void Dispose()
     {
