@@ -35,7 +35,8 @@ public sealed class PetAgent
         _time = time ?? TimeProvider.System;
         PlayAction = new PlayActionTool(() => Actions(), id => ActionRequested?.Invoke(id), a => Usable?.Invoke(a) ?? a.Stance == Stances.Ground);
         Memory = new MemoryTool(() => _settings.MemoryEnabled, RememberByTool, Forget);
-        Tools = [PlayAction, Memory];
+        Reminder = new ReminderTool(() => _settings.Reminders, () => _time.GetLocalNow().DateTime);
+        Tools = [PlayAction, Memory, Reminder];
     }
 
     /// <summary>当前角色的人设（换宠物时由外面换掉）。</summary>
@@ -54,6 +55,7 @@ public sealed class PetAgent
 
     public PlayActionTool PlayAction { get; }
     public MemoryTool Memory { get; }
+    public ReminderTool Reminder { get; }
     public IReadOnlyList<IAgentTool> Tools { get; }
 
     /// <summary>智能体开始思考 / 思考结束。</summary>
@@ -236,7 +238,8 @@ public sealed class PetAgent
                 if (tool.Definition() is { } def)
                     tools.Add((tool, def));
 
-        var system = BuildSystemPrompt(canAct: tools.Any(t => t.Tool == PlayAction), canRemember: tools.Any(t => t.Tool == Memory));
+        var system = BuildSystemPrompt(canAct: tools.Any(t => t.Tool == PlayAction), canRemember: tools.Any(t => t.Tool == Memory),
+            canRemind: tools.Any(t => t.Tool == Reminder));
         var context = _turns.Skip(Math.Max(0, _turns.Count - _settings.ContextTurns)).SelectMany(t => t).ToList();
         if (_settings.ContextTurns == 0) context.Clear();
         if (tools.Count == 0) context = StripTools(context);
@@ -281,7 +284,8 @@ public sealed class PetAgent
                     r = await InvokeAsync(tool, call, ct);
                 if (tool == PlayAction && !r.IsError) acted = true;
                 if (r.IsError) PetLog.Write($"工具 {call.Name}({call.ArgumentsJson}) 失败: {r.Content}");
-                presentationalOnly &= tool?.IsPresentational ?? true;
+                // 有副作用的工具出错（时间写错、编号不对）时把错误喂回去，让模型改了再试，别对用户说「设好了」。
+                presentationalOnly &= (tool?.IsPresentational ?? true) && !(r.IsError && tool is not null && tool != PlayAction);
                 results.Add(new ToolResultPart(call.CallId, r.Content, r.IsError));
             }
             turn.Add(new ChatMessage("user", results));
@@ -320,10 +324,12 @@ public sealed class PetAgent
     /// <summary>
     /// 分层系统提示词。<paramref name="canAct"/> 为 null 时按当前提供商是否带工具判断（控制台预览用）。
     /// </summary>
-    public string BuildSystemPrompt(bool? canAct = null, bool? canRemember = null)
+    public string BuildSystemPrompt(bool? canAct = null, bool? canRemember = null, bool? canRemind = null)
     {
         canAct ??= _settings.ActiveProvider is { UsesTools: true } && PlayAction.Definition() is not null;
         canRemember ??= _settings.ActiveProvider is { UsesTools: true } && Memory.Definition() is not null;
+        canRemind ??= _settings.ActiveProvider is { UsesTools: true };
+        var now = _time.GetLocalNow().DateTime;
         return SystemPrompt.Build(new PromptInputs
         {
             Persona = Persona(),
@@ -333,8 +339,10 @@ public sealed class PetAgent
             Memories = _settings.MemoryEnabled ? _settings.Memories.Select(m => m.Text).ToList() : [],
             CanAct = canAct.Value,
             CanRemember = canRemember.Value,
+            CanRemind = canRemind.Value,
+            Reminders = _settings.Reminders.OrderBy(r => r.DueAt).Select(r => ReminderSchedule.PromptLine(r, now)).ToList(),
             ActionExample = ExampleAction(),
-            Now = _time.GetLocalNow().DateTime,
+            Now = now,
             Situation = GapLine() is { } gap ? [gap, .. Situation()] : Situation(),
             Summary = _settings.ContextTurns > 0 ? _summary : null,
         });

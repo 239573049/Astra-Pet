@@ -21,6 +21,7 @@ public sealed class PetHost : IDisposable
         Menu = new MenuBehavior(Pomodoro, Play);
         UpdateNotifier = new UpdateNotifyBehavior();
         Reminders = new ReminderBehavior();
+        Scheduled = new ScheduledReminderBehavior();
         Triggers = new TriggerEngine();
         Proactive = new ProactiveChatBehavior(Pomodoro);
         _behaviors =
@@ -31,6 +32,7 @@ public sealed class PetHost : IDisposable
             Menu,
             Pomodoro,
             Reminders,
+            Scheduled,
             new PresenceBehavior(),
             new GreetingBehavior(),
             UpdateNotifier,
@@ -47,6 +49,7 @@ public sealed class PetHost : IDisposable
     public SummonBehavior Summon { get; }
     public PomodoroBehavior Pomodoro { get; }
     public ReminderBehavior Reminders { get; }
+    public ScheduledReminderBehavior Scheduled { get; }
     public MenuBehavior Menu { get; }
     public UpdateNotifyBehavior UpdateNotifier { get; }
     public ProactiveChatBehavior Proactive { get; }

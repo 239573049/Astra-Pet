@@ -18,6 +18,10 @@ public sealed record PromptInputs
     public bool CanAct { get; init; }
     /// <summary>这次请求带了 remember 工具：有【记东西】一段。</summary>
     public bool CanRemember { get; init; }
+    /// <summary>这次请求带了 remind 工具：有【定提醒】一段。</summary>
+    public bool CanRemind { get; init; }
+    /// <summary>已设的定时提醒，每条一行（带编号），按时间排好。</summary>
+    public IReadOnlyList<string> Reminders { get; init; } = [];
     /// <summary>示例里用的庆祝动作 id 或心情。</summary>
     public string ActionExample { get; init; } = "happy";
     public DateTime Now { get; init; }
@@ -62,7 +66,9 @@ public static class SystemPrompt
         sb.AppendLine();
 
         sb.AppendLine("【你的边界】");
-        sb.AppendLine("- 你看不到用户的屏幕，不能上网、查资料，也不能操作电脑、打开软件或设置闹钟。别假装做了这些事；");
+        sb.AppendLine(input.CanRemind
+            ? "- 你看不到用户的屏幕，不能上网、查资料，也不能操作电脑、打开软件。别假装做了这些事；"
+            : "- 你看不到用户的屏幕，不能上网、查资料，也不能操作电脑、打开软件或设置闹钟。别假装做了这些事；");
         sb.AppendLine("  用户需要时，坦白说做不到，可以建议TA怎么做。（番茄钟、喝水和久坐提醒是用户在右键菜单和设置里开的，你可以提醒TA去开。）");
         sb.AppendLine("- 不知道或记不清的事就直说，不要编。");
         sb.AppendLine("- 下面「现在」那一节写了你饿了、困了的话，可以顺口提一句，但一次对话最多提一次，不要反复要吃的、催用户。");
@@ -107,6 +113,17 @@ public static class SystemPrompt
             sb.AppendLine();
         }
 
+        if (input.CanRemind)
+        {
+            sb.AppendLine("【定提醒】");
+            sb.AppendLine("你有一个 remind 工具，可以替用户定时提醒：到点时你会自己开口提醒TA。");
+            sb.AppendLine("- 用户让你「X 点提醒我…」「过半小时叫我…」「每天提醒我…」时调用它。相对时间用 in_minutes，具体时刻用 at（按【现在】的时间算）。");
+            sb.AppendLine("- 用户要改时间、内容或重复方式时用 update，说不用了、取消时用 cancel，都用【你答应的提醒】里的编号；问有哪些提醒时照那里的回答。");
+            sb.AppendLine("- 用户没让你提醒就不要自己设。");
+            sb.AppendLine("- 设好后照常回复，顺口确认时间（如「好，八点叫你」），不用念编号。");
+            sb.AppendLine();
+        }
+
         if (input.Memories.Count > 0)
         {
             sb.AppendLine("【关于用户，你记得】（之前聊天时记下的，可能已经过时。自然地用上，不要一次全说出来，也不要逐条复述）");
@@ -119,6 +136,15 @@ public static class SystemPrompt
         {
             sb.AppendLine("【之前聊过的】（较早的对话已经压缩成下面的摘要，最近的几轮在消息里）");
             sb.AppendLine(summary);
+            sb.AppendLine();
+        }
+
+        // 会变的放后面，不影响前面几段命中提示词缓存。
+        if (input.Reminders.Count > 0)
+        {
+            sb.AppendLine("【你答应的提醒】（到点时你会主动提醒用户；编号只给你自己用）");
+            foreach (var r in input.Reminders)
+                sb.Append("- ").AppendLine(r);
             sb.AppendLine();
         }
 

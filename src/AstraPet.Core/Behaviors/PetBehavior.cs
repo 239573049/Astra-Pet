@@ -41,6 +41,12 @@ public interface IPetCommands
     /// 返回是否接手了（没配模型时返回 false，调用方自己说 fallback）。用户正在聊天时，界面会把一定要说的攒到聊完，随口搭话直接不说。默认不支持。
     /// </summary>
     bool SpeakUp(string cue, string? fallback = null) => false;
+
+    /// <summary>
+    /// 到点的定时提醒（用户托付的事）：和 <see cref="SpeakUp"/> 一样交给智能体说，但更要紧——
+    /// 用户正在聊天时攒得更久、不会被别的攒着的话挤掉。返回是否接手了。
+    /// </summary>
+    bool Remind(string cue, string fallback) => SpeakUp(cue, fallback);
 }
 
 /// <summary>宠物窗口上的输入事件，由界面层转发进来。行为只订阅这里，不认识窗口。</summary>

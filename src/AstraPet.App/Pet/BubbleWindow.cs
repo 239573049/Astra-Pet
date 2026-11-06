@@ -84,10 +84,18 @@ public sealed class BubbleWindow : Window
         _text.FontSize = _settings.BubbleFontSize;
     }
 
+    /// <summary>气泡正显示着。</summary>
+    public bool Showing => IsVisible;
+
+    /// <summary>当前这句是智能体说的（聊天回复、主动开口、「…」）。显示期间别的自发气泡不该盖掉它。</summary>
+    public bool ShowingAgent => IsVisible && _agent;
+    private bool _agent;
+
     /// <summary>显示一句话。<paramref name="seconds"/> 为空时按字数估算，为 0 时一直显示直到下一次调用。</summary>
-    public void Say(string text, double? seconds = null)
+    public void Say(string text, double? seconds = null, bool agent = false)
     {
         if (!_settings.Visible) return;
+        _agent = agent;
         _text.Text = text.Trim();
         _hideTimer.Stop();
         var duration = seconds ?? Math.Clamp(2.5 + text.Length * 0.18, 3, 15);
@@ -103,6 +111,7 @@ public sealed class BubbleWindow : Window
     public void Dismiss()
     {
         _hideTimer.Stop();
+        _agent = false;
         if (IsVisible) Hide();
     }
 

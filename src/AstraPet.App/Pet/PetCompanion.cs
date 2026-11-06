@@ -86,7 +86,7 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
             if (e.PropertyName == nameof(PetSettings.LifeEnabled) && !settings.LifeEnabled) StatusCard.Dismiss();
         };
 
-        Agent.Busy += busy => { if (busy) Bubble.Say("…", 0); };
+        Agent.Busy += busy => { if (busy) Bubble.Say("…", 0, agent: true); };
         // 03 §1.6：收到 play_action 就开始播，不等文字；规则 agent-action 把它变成 Agent 优先级的请求。
         Agent.ActionRequested += id => Events.Publish(PetEvents.ChatAction, ("action", id));
         Events.Published += e =>
@@ -205,6 +205,8 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     PetSettings IExternalPet.Settings => _settings;
     PetEventBus IExternalPet.Events => Events;
     PetLife? IExternalPet.Life => Life;
+    /// <summary>外部程序让宠物说话：和提醒一样，智能体占着气泡或正在聊天时先攒着，空了再说。</summary>
+    void IExternalPet.Say(string text, bool speak) => ((IPetVoice)this).SayLater(text, speak);
 
     /// <summary>按设置开关本地 HTTP 接口。打开时没有令牌就生成一个。</summary>
     private void UpdateExternal()
@@ -318,17 +320,25 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     public static readonly TimeSpan ConversationLinger = TimeSpan.FromSeconds(90);
     /// <summary>攒着的话超过这么久就不说了（过时的报时、提醒没意义）。</summary>
     public static readonly TimeSpan PendingExpiry = TimeSpan.FromMinutes(10);
+    /// <summary>用户托付的定时提醒攒得更久：聊得再久，聊完也要说到。</summary>
+    public static readonly TimeSpan ImportantExpiry = TimeSpan.FromHours(3);
     private const int MaxPending = 3;
 
     private bool _chatOpen;
     private int _userTalking;
     private DateTimeOffset _lastChatAt = DateTimeOffset.MinValue;
 
-    /// <summary>攒着等聊完再说的话：一句固定台词，或一个交给智能体的起因（Cue）加兜底台词。</summary>
-    private sealed record Pending(string Text, bool Speak, string? Cue, DateTimeOffset At);
+    /// <summary>
+    /// 攒着等聊完再说的话：一句固定台词，或一个交给智能体的起因（Cue）加兜底台词。
+    /// <see cref="Important"/>：定时提醒，攒得更久，攒多了先挤掉别的。
+    /// </summary>
+    private sealed record Pending(string Text, bool Speak, string? Cue, DateTimeOffset At, bool Important = false)
+    {
+        public bool Expired => DateTimeOffset.Now - At > (Important ? ImportantExpiry : PendingExpiry);
+    }
     private readonly List<Pending> _pending = new();
-    /// <summary>聊完后一句一句说，中间隔几秒，免得互相盖掉。</summary>
-    private readonly DispatcherTimer _pendingTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    /// <summary>聊完后一句一句说：每次都等上一句气泡收起来再说下一句，免得互相盖掉。</summary>
+    private readonly DispatcherTimer _pendingTimer = new() { Interval = TimeSpan.FromSeconds(2) };
 
     /// <summary>输入框开着（由输入框设置）。关掉时也算刚聊过，再等一会儿才说攒着的话。</summary>
     public bool ChatOpen
@@ -346,38 +356,49 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     public bool InConversation =>
         _chatOpen || _userTalking > 0 || DateTimeOffset.Now - _lastChatAt < ConversationLinger;
 
+    /// <summary>
+    /// 智能体占着气泡：正在请求（聊天或主动开口，可能正流式冒字），或它说的话还没收起。
+    /// 这时自发的气泡（触发规则的随口反应、提醒、攒着的话）不能盖上去，否则用户还没看完就被冲掉了。
+    /// </summary>
+    private bool AgentHolding => _talking > 0 || Bubble.ShowingAgent;
+
     void IPetVoice.SayLater(string text, bool speak)
     {
-        if (InConversation) Defer(new Pending(text, speak, null, DateTimeOffset.Now));
+        if (InConversation || AgentHolding) Defer(new Pending(text, speak, null, DateTimeOffset.Now));
         else Say(text, speak);
     }
 
     void IPetVoice.React(string text, bool speak)
     {
-        if (!InConversation) Say(text, speak);
+        if (!InConversation && !AgentHolding) Say(text, speak);
     }
 
     private void Defer(Pending item)
     {
         _pending.RemoveAll(p => p.Text == item.Text && p.Cue == item.Cue);
         _pending.Add(item);
-        while (_pending.Count > MaxPending) _pending.RemoveAt(0);
-        PetLog.Write($"正在聊天，先不说：{item.Cue ?? item.Text}");
+        while (_pending.Count > MaxPending)
+        {
+            var drop = _pending.FindIndex(p => !p.Important);
+            _pending.RemoveAt(drop >= 0 ? drop : 0);
+        }
+        PetLog.Write($"气泡被占着，先不说：{item.Cue ?? item.Text}");
         _pendingTimer.Start();
     }
 
     private void FlushPending()
     {
-        _pending.RemoveAll(p => DateTimeOffset.Now - p.At > PendingExpiry);
+        _pending.RemoveAll(p => p.Expired);
         if (_pending.Count == 0)
         {
             _pendingTimer.Stop();
             return;
         }
-        if (InConversation || _talking > 0) return;
+        // 任何气泡还挂着都等它收起（上一句攒着的话最长显示 15 秒，固定间隔会把它盖掉）。
+        if (InConversation || AgentHolding || Bubble.Showing) return;
         var next = _pending[0];
         _pending.RemoveAt(0);
-        if (next.Cue is null || !((IPetCommands)this).SpeakUp(next.Cue, next.Text)) Say(next.Text, next.Speak);
+        if (next.Cue is null || !SpeakUp(next.Cue, next.Text, next.Important)) Say(next.Text, next.Speak);
     }
 
     /// <summary>正在请求智能体（用户发的或主动开口的），这时不再主动开口。</summary>
@@ -389,19 +410,24 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     /// 模型没说或出错就说 fallback。出错只写日志，不在气泡里抱怨。
     /// 用户正在聊天时：一定要说的先攒着，聊完再说；随口搭话直接不说。
     /// </summary>
-    bool IPetCommands.SpeakUp(string cue, string? fallback)
+    bool IPetCommands.SpeakUp(string cue, string? fallback) => SpeakUp(cue, fallback, important: false);
+
+    /// <summary>定时提醒到点：同样请智能体开口，只是用户正在聊天时攒得更久（<see cref="ImportantExpiry"/>）。</summary>
+    bool IPetCommands.Remind(string cue, string fallback) => SpeakUp(cue, fallback, important: true);
+
+    private bool SpeakUp(string cue, string? fallback, bool important)
     {
         if (!Agent.IsConfigured) return false;
-        if (InConversation || _talking > 0)
+        if (InConversation || AgentHolding)
         {
-            if (fallback is not null) Defer(new Pending(fallback, true, cue, DateTimeOffset.Now));
+            if (fallback is not null) Defer(new Pending(fallback, true, cue, DateTimeOffset.Now, important));
             return true;
         }
-        _ = SpeakUpAsync(cue, fallback);
+        _ = SpeakUpAsync(cue, fallback, important);
         return true;
     }
 
-    private async Task SpeakUpAsync(string cue, string? fallback)
+    private async Task SpeakUpAsync(string cue, string? fallback, bool important)
     {
         _talking++;
         try
@@ -413,19 +439,19 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
                     // 用户在它想的时候开始聊了：别把半截话冒出来盖掉聊天。
                     if (PetAgent.MaybeSilent(partial) || InConversation) return;
                     shown = true;
-                    Bubble.Say(partial, 0);
+                    Bubble.Say(partial, 0, agent: true);
                 });
             var text = reply?.Text is { Length: > 0 } t ? t : fallback;
             if (InConversation)
             {
                 // 回来时用户已经在聊了：一定要说的攒着（用已经生成好的话），随口搭话就算了。
-                if (fallback is not null && text is not null) Defer(new Pending(text, true, null, DateTimeOffset.Now));
+                if (fallback is not null && text is not null) Defer(new Pending(text, true, null, DateTimeOffset.Now, important));
                 return;
             }
             if (text is null && shown) Bubble.Dismiss();   // 说了半截又决定不说
             if (text is not null)
             {
-                Bubble.Say(text);
+                Bubble.Say(text, agent: true);
                 if (_settings.SpeakReplies || fallback is not null && _settings.SpeakReminders) Speak(text);
             }
             if (reply is not null) Events.Publish(PetEvents.ChatReplied, ("acted", reply.Acted ? "true" : "false"));
@@ -451,8 +477,8 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
         {
             Events.Publish(PetEvents.ChatThinking);
             // 流式：边收边更新气泡（一直显示），收完再按字数定收起的时间。
-            var reply = await Agent.AskAsync(text, partial => Bubble.Say(partial, 0));
-            Bubble.Say(reply.Text);
+            var reply = await Agent.AskAsync(text, partial => Bubble.Say(partial, 0, agent: true));
+            Bubble.Say(reply.Text, agent: true);
             if (_settings.SpeakReplies) Speak(reply.Text);
             // Agent 调过 play_action 时 acted 为 true，规则 reply 就不再补一个随机反应。
             Events.Publish(PetEvents.ChatReplied, ("acted", reply.Acted ? "true" : "false"));
@@ -462,7 +488,7 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
         {
             Events.Publish(PetEvents.ChatFailed);
             PetLog.Write($"对话失败: {e.Message}");
-            Bubble.Say("呜…我好像连不上大脑了，去控制台「智能」页看看吧");
+            Bubble.Say("呜…我好像连不上大脑了，去控制台「智能」页看看吧", agent: true);
             throw;
         }
         finally

@@ -20,6 +20,7 @@ public sealed class PetSettings : Observable
     {
         Providers.CollectionChanged += OnCollectionChanged;
         Memories.CollectionChanged += OnCollectionChanged;
+        Reminders.CollectionChanged += OnCollectionChanged;
         MenuItems.CollectionChanged += OnCollectionChanged;
         MediaProviders.CollectionChanged += OnCollectionChanged;
     }
@@ -265,6 +266,8 @@ public sealed class PetSettings : Observable
     /// <summary>把和智能体的对话（最近几轮和摘要）存在本机，重启后接着聊。每只宠物分开存。关掉时删除已存的记录。</summary>
     public bool PersistChat { get => _persistChat; set => Set(ref _persistChat, value); }
     public ObservableCollection<MemoryItem> Memories { get; set; } = new();
+    /// <summary>宠物答应用户的定时提醒（Agent 的 remind 工具设的），到点由宠物自己开口提醒。</summary>
+    public ObservableCollection<ScheduledReminder> Reminders { get; set; } = new();
 
     [JsonIgnore]
     public LlmProvider? ActiveProvider =>
@@ -385,12 +388,17 @@ public sealed class PetSettings : Observable
         foreach (var exit in MenuItems.Where(m => !m.CanHide))
             exit.Visible = true;
 
-        foreach (var list in new INotifyCollectionChanged[] { Providers, Memories, MenuItems, MediaProviders })
+        foreach (var empty in Reminders.Where(r => r.Text.Trim().Length == 0).ToList())
+            Reminders.Remove(empty);
+        foreach (var reminder in Reminders.Where(r => r.Id.Length == 0 || Reminders.Count(o => o.Id == r.Id) > 1).ToList())
+            reminder.Id = ReminderSchedule.NewId(Reminders);
+
+        foreach (var list in new INotifyCollectionChanged[] { Providers, Memories, Reminders, MenuItems, MediaProviders })
         {
             list.CollectionChanged -= OnCollectionChanged;
             list.CollectionChanged += OnCollectionChanged;
         }
-        foreach (var item in Providers.Cast<INotifyPropertyChanged>().Concat(Memories).Concat(MenuItems).Concat(MediaProviders))
+        foreach (var item in Providers.Cast<INotifyPropertyChanged>().Concat(Memories).Concat(Reminders).Concat(MenuItems).Concat(MediaProviders))
         {
             item.PropertyChanged -= OnItemChanged;
             item.PropertyChanged += OnItemChanged;

@@ -490,7 +490,7 @@ public class PetAgentTests
         Assert.Equal(["cheer"], played);
 
         var request = llm.Requests[0];
-        Assert.Equal(["play_action", MemoryTool.ToolName], request.Tools!.Select(t => t.Name));
+        Assert.Equal(["play_action", MemoryTool.ToolName, ReminderTool.ToolName], request.Tools!.Select(t => t.Name));
         var tool = request.Tools![0];
         Assert.Contains("- wave：举起一只手朝你挥手（打招呼、开心）", tool.Description);
         Assert.DoesNotContain("idle-1", tool.Description);   // 系统控制的动作不给 Agent 选
