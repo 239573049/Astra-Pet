@@ -36,6 +36,13 @@ public static class DefaultTriggers
                 Until = [PetEvents.ExternalDone, PetEvents.ExternalFailed] },
         new() { Id = "external-done", On = PetEvents.ExternalDone, Do = "role:" + Roles.Celebrate, Priority = "agent" },
         new() { Id = "external-failed", On = PetEvents.ExternalFailed, Do = "role:" + Roles.Sad, Priority = "agent" },
+        // 绑定了 hook 的编程智能体（design/agent-hooks §4.3）：按会话聚合过，只在最后一个会话停下时收起思考；
+        // 庆祝、招手打断思考循环后会回到循环（还有别的会话在干活时）。冒泡由 AgentSessions 说，这里只管动作。
+        new() { Id = "agent-working", On = PetEvents.AgentWorking, Do = "role:" + Roles.Think, Priority = "agent",
+                Until = [PetEvents.AgentIdle] },
+        new() { Id = "agent-done", On = PetEvents.AgentDone, Do = "role:" + Roles.Celebrate, Priority = "agent" },
+        new() { Id = "agent-failed", On = PetEvents.AgentFailed, Do = "role:" + Roles.Sad, Priority = "agent" },
+        new() { Id = "agent-waiting", On = PetEvents.AgentWaiting, Do = "role:" + Roles.Greet, Priority = "agent" },
 
         // ───── 宠物体系（design/pet-life/06 §3.2） ─────
         new() { Id = "feed-liked", On = PetEvents.Fed, Do = "role:" + Roles.Eat, Priority = "user", Speak = false,

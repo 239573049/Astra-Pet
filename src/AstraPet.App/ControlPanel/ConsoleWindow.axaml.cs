@@ -520,6 +520,8 @@ public partial class ConsoleWindow : Window
     private void OnRegenerateExternalToken(object? sender, RoutedEventArgs e) => _vm.RegenerateExternalToken();
     private void OnCopyMcpCommand(object? sender, RoutedEventArgs e) => _ = ArcClipboard.CopyTextAsync(this, _vm.McpCommandText);
     private void OnCopyCurlExample(object? sender, RoutedEventArgs e) => _ = ArcClipboard.CopyTextAsync(this, _vm.CurlExample);
+    private void OnTestAgents(object? sender, RoutedEventArgs e) => _vm.Agents.Test();
+    private void OnUnbindAllAgents(object? sender, RoutedEventArgs e) => _vm.Agents.UnbindAll();
     private void OnAddMemory(object? sender, RoutedEventArgs e) => _vm.AddMemory();
     private void OnMemoryKeyDown(object? sender, KeyEventArgs e)
     {

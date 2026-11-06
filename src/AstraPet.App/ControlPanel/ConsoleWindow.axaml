@@ -1336,6 +1336,9 @@
                         <arc:Button Grid.Column="1" VerticalAlignment="Top" Content="复制" Click="OnCopyMcpCommand" />
                     </Grid>
                 </local:SettingRow>
+                <local:SettingRow Title="编程智能体" Description="Claude Code、Codex 可以一键绑定，不用自己写 hook。">
+                    <arc:Button Content="去「智能体」页" Tag="Agents" Click="OnNavigate" />
+                </local:SettingRow>
                 <local:SettingRow Classes="stack" Title="用脚本或 hooks 发事件"
                                   Description="外部只报告发生了什么，宠物怎么反应由「动作」页的触发规则决定。内置：external.started 思考、external.done 庆祝、external.failed 难过。">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -1348,6 +1351,60 @@
                 </local:SettingRow>
             </StackPanel>
         </Border>
+    </StackPanel>
+</StackPanel>
+</arc:ScrollArea>
+
+<!-- ═════════ 智能体（design/agent-hooks §6） ═════════ -->
+<arc:ScrollArea IsVisible="{Binding IsAgents}" HorizontalScrollBarVisibility="Disabled">
+<StackPanel Classes="page" DataContext="{Binding Agents}" x:DataType="local:AgentsViewModel">
+    <StackPanel>
+        <TextBlock Classes="section" Text="绑定互动" />
+        <Border Classes="group">
+            <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:AgentCard">
+                        <local:SettingRow Title="{Binding Name}" Description="{Binding Status}">
+                            <arc:Switch IsChecked="{Binding IsBound, Mode=TwoWay}" IsEnabled="{Binding CanToggle}"
+                                        AutomationProperties.Name="{Binding Name}" />
+                        </local:SettingRow>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+        <TextBlock Classes="note" Margin="4 8 0 0" TextWrapping="Wrap"
+                   Text="打开后会往它的 hook 配置里追加几条命令（别的工具的 hook 不动，第一次会备份原文件）。只转发开始、完成、出错、等确认这几件事和项目目录名，不读你的对话内容。" />
+    </StackPanel>
+
+    <StackPanel>
+        <TextBlock Classes="section" Text="怎么反应" />
+        <Border Classes="group">
+            <StackPanel>
+                <local:SettingRow Classes="stack" Title="庆祝的门槛"
+                                  Description="一轮跑了这么久才庆祝并说一句，短的只安静地收起思考。"
+                                  Value="{Binding Settings.AgentCelebrateSeconds, StringFormat={}{0} 秒}">
+                    <arc:Slider Minimum="0" Maximum="300" SmallChange="5" IsValueVisible="False"
+                                Value="{Binding CelebrateSeconds, Mode=TwoWay}" AutomationProperties.Name="庆祝的门槛" />
+                </local:SettingRow>
+                <local:SettingRow Title="说出项目名" Description="「Claude Code 在 Astra-Pet 里忙完了」，关掉只说智能体的名字。">
+                    <arc:Switch IsChecked="{Binding Settings.AgentShowProject, Mode=TwoWay}" AutomationProperties.Name="说出项目名" />
+                </local:SettingRow>
+                <local:SettingRow Title="等确认时念出来" Description="智能体在等你批准权限时，提醒也用语音念（要开了「朗读提醒」）。">
+                    <arc:Switch IsChecked="{Binding Settings.AgentSpeakWaiting, Mode=TwoWay}" AutomationProperties.Name="等确认时念出来" />
+                </local:SettingRow>
+                <local:SettingRow Title="试一下" Description="假装 Claude Code 开始干活，4 秒后忙完。动作可以在「动作 → 绑定触发」里改。">
+                    <arc:Button Content="测试" Click="OnTestAgents" />
+                </local:SettingRow>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+
+    <StackPanel>
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="note" VerticalAlignment="Center" Margin="4 0 0 0"
+                       Text="卸载前想清干净？一次删掉所有智能体里的宠物 hook。" />
+            <arc:Button Grid.Column="1" Variant="Danger" Content="全部解除绑定" Click="OnUnbindAllAgents" />
+        </Grid>
     </StackPanel>
 </StackPanel>
 </arc:ScrollArea>

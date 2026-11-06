@@ -54,6 +54,15 @@ public static class PetEvents
     public const string ExternalStarted = "external.started";
     public const string ExternalDone = "external.done";
     public const string ExternalFailed = "external.failed";
+    /// <summary>
+    /// 绑定了 hook 的编程智能体（design/agent-hooks §4），按会话聚合过：working 第一个会话开始干活，idle 最后一个停下，
+    /// done 一轮够久地完成，failed 出错，waiting 等用户确认。数据 agent、project、active、seconds。
+    /// </summary>
+    public const string AgentWorking = "agent.working";
+    public const string AgentIdle = "agent.idle";
+    public const string AgentDone = "agent.done";
+    public const string AgentFailed = "agent.failed";
+    public const string AgentWaiting = "agent.waiting";
 
     // 宠物体系（design/pet-life）
     public const string Fed = "pet.fed";
@@ -103,6 +112,11 @@ public static class PetEvents
         (ExternalStarted, "外部 Agent 开始工作"),
         (ExternalDone, "外部 Agent 完成"),
         (ExternalFailed, "外部 Agent 出错"),
+        (AgentWorking, "编程智能体开始干活"),
+        (AgentDone, "编程智能体忙完了"),
+        (AgentFailed, "编程智能体出错"),
+        (AgentWaiting, "编程智能体等你确认"),
+        (AgentIdle, "编程智能体都停下了"),
         (Fed, "喂食"),
         (Spammed, "连点"),
         (Thrown, "被甩出去"),

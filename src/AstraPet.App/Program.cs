@@ -14,6 +14,8 @@ class Program
     {
         // MCP 服务（03 §2.2）：stdio 上说 JSON-RPC，转发给正在运行的宠物。不起界面，stdout 只能写协议消息。
         if (args.Length > 0 && args[0] == "mcp") return Mcp();
+        // 编程智能体的 hook（design/agent-hooks §3）：转发一次事件就退出，必须快、不能往 stdout 写东西。
+        if (args.Length > 0 && args[0] == "hook") return Hook(args);
         if (args.Contains("--smoke")) return Smoke();
         if (args.Contains("--platform-report")) return PlatformReport();
 
@@ -45,6 +47,23 @@ class Program
         {
             PetLog.Write($"MCP 服务出错: {e}");
             return 1;
+        }
+    }
+
+    private static int Hook(string[] args)
+    {
+        // Claude Code 会把一部分 hook 的 stdout 交给模型，日志一律不进 stdout。
+        Console.SetOut(TextWriter.Null);
+        try
+        {
+            var paths = PlatformFactory.Create().Paths;
+            PetLog.UseDirectory(paths.LogDirectory);
+            SettingsStore.UseDirectory(paths.DataDirectory);
+            return AstraPet.External.AgentHookCommand.Run(SettingsStore.FilePath, args);
+        }
+        catch (Exception)
+        {
+            return 0;
         }
     }
 
