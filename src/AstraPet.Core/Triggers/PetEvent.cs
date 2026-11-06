@@ -34,6 +34,8 @@ public static class PetEvents
     public const string Hour = "time.hour";
     public const string Drink = "reminder.drink";
     public const string Sit = "reminder.sit";
+    /// <summary>Agent 设的定时提醒到点了，数据 text。</summary>
+    public const string ScheduledReminder = "reminder.scheduled";
     public const string PomodoroStarted = "pomodoro.started";
     public const string FocusEnded = "pomodoro.focusEnded";
     public const string RestEnded = "pomodoro.restEnded";
@@ -89,6 +91,7 @@ public static class PetEvents
         (Hour, "整点"),
         (Drink, "喝水提醒"),
         (Sit, "久坐提醒"),
+        (ScheduledReminder, "定时提醒到点"),
         (PomodoroStarted, "番茄钟开始"),
         (FocusEnded, "专注结束"),
         (RestEnded, "休息结束"),

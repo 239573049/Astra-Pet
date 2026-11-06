@@ -9,7 +9,10 @@ using TKCode.Arc;
 
 namespace AstraPet.Studio;
 
-/// <summary>工作台窗口：按钮转给 ViewModel，文件选择框在这里开。关窗口只是隐藏，后台的视频任务照常跑。</summary>
+/// <summary>
+/// 工作台窗口：按钮转给 ViewModel，文件选择框在这里开。关窗口先隐藏，收起一段时间后由 App 调 <see cref="Release"/> 真的释放；
+/// 后台的视频任务都在 App 级的队列里，照常跑。
+/// </summary>
 public partial class StudioWindow : Window
 {
     private readonly StudioViewModel _vm;
@@ -36,8 +39,13 @@ public partial class StudioWindow : Window
                 StepScroll.Offset = default;
             }
         };
-        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(StudioViewModel.Current)) BuildSteps(); };
+        vm.PropertyChanged += OnVmChanged;
         BuildSteps();
+    }
+
+    private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(StudioViewModel.Current)) BuildSteps();
     }
 
     /// <summary>
@@ -109,6 +117,31 @@ public partial class StudioWindow : Window
     {
         _quitting = true;
         Close();
+    }
+
+    /// <summary>收起着、没有本机上的活在跑，可以释放（见 <see cref="StudioViewModel.CanRelease"/>）。</summary>
+    public bool CanRelease => !IsVisible && _vm is not null && _vm.CanRelease;
+
+    /// <summary>
+    /// 真的关掉窗口，连同界面树、渲染表面、缩略图和 ViewModel 一起释放。工程都存在盘上，
+    /// 服务端的视频任务由 App 级的 VideoTaskQueue 接着查询、下载，下次打开工程时处理。
+    /// </summary>
+    public void Release()
+    {
+        _quitting = true;
+        Close();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        if (_vm is null) return;
+        _unhookSteps?.Invoke();
+        _unhookSteps = null;
+        _vm.PropertyChanged -= OnVmChanged;
+        _vm.Dispose();
+        DataContext = null;
+        Thumbs.Clear();
     }
 
     public void Present()

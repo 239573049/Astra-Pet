@@ -15,7 +15,7 @@ internal sealed class StanceLibrary : IDisposable
 {
     public string Dir { get; } = Path.Combine(Path.GetTempPath(), "astra-stance-" + Guid.NewGuid().ToString("N"));
 
-    public StanceLibrary(IEnumerable<string>? omit = null, JsonObject? profile = null, bool ceiling = false)
+    public StanceLibrary(IEnumerable<string>? omit = null, JsonObject? profile = null, bool ceiling = false, bool land = false)
     {
         var skip = (omit ?? []).ToHashSet();
         var actions = new JsonArray();
@@ -39,6 +39,7 @@ internal sealed class StanceLibrary : IDisposable
         Add("wall-enter", new() { ["transition"] = new JsonObject { ["from"] = "ground", ["to"] = "wall" } }, "clips/wall-enter.webm");
         Add("wall-exit", new() { ["transition"] = new JsonObject { ["from"] = "wall", ["to"] = "ground" } }, "clips/wall-exit.webm");
         Add("let-go", new() { ["transition"] = new JsonObject { ["from"] = "wall", ["to"] = "air" } }, "clips/let-go.webm");
+        if (land) Add("land", new() { ["roles"] = new JsonArray("land") }, "clips/land.webm");
         if (ceiling)
         {
             Add("ceiling-idle", new() { ["roles"] = new JsonArray("idle"), ["stance"] = "ceiling" }, "clips/ceiling-idle.webm");
@@ -70,7 +71,8 @@ internal sealed class StanceLibrary : IDisposable
         File.WriteAllBytes(path, []);
     }
 
-    public PetLibrary Load(string? overlay = null) => PetLibrary.Load(Dir, new FakeDecoder(), overlayDirectory: overlay);
+    public PetLibrary Load(string? overlay = null, FakeDecoder? decoder = null) =>
+        PetLibrary.Load(Dir, decoder ?? new FakeDecoder(), overlayDirectory: overlay);
 
     public void Dispose()
     {
@@ -707,6 +709,43 @@ public class PetBodyTests : IDisposable
         Assert.Equal(900, FeetY, 3);
         Assert.Equal(Stances.Ground, _director.Stance);
         Assert.Contains(_events, e => e.Type == PetEvents.Landed && e["thrown"] == "false");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Landing_opens_the_land_clip_directly_or_falls_back_to_idle(bool ruleReacts)
+    {
+        // 回归：落地先开待机流（加预取两个 ffmpeg），马上又被落地动作打断，首帧被拖慢，看着落地慢半拍。
+        using var dir = new StanceLibrary(land: true);
+        var decoder = new FakeDecoder();
+        var director = new PetDirector(dir.Load(decoder: decoder), _settings, new Random(3), _time);
+        director.Start();
+        var land = director.Library.Actions.Find("land")!;
+        var body = new PetBody(director, _settings, e =>
+        {
+            // 模拟默认规则 landed：收到落地事件就请求落地动作。
+            if (ruleReacts && e.Type == PetEvents.Landed)
+                director.Request(new ActionRequest(land, ActionPriority.System, "rule:landed"));
+        }, new Random(1), _time);
+        body.Configure(Screen, 0.5, 1);
+        body.Toss(0, 0);
+        var before = decoder.Opened.Count;
+        for (var i = 0; i < 200 && body.Airborne; i++) body.PhysicsStep(TimeSpan.FromMilliseconds(16));
+
+        Assert.False(body.Airborne);
+        Assert.Equal(Stances.Ground, director.Stance);
+        var opened = decoder.Opened.Skip(before).Select(s => s.Clip.Name).ToList();
+        if (ruleReacts)
+        {
+            Assert.Equal("land", director.CurrentAction.Id);
+            Assert.Equal("land", opened[0]);   // 第一个打开的就是落地动作，没有白开的待机流
+        }
+        else
+        {
+            Assert.Equal("breathe", director.CurrentAction.Id);
+            Assert.Equal("breathe", opened[0]);
+        }
     }
 
     [Fact]

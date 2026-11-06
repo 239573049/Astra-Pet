@@ -39,6 +39,13 @@ public static class Thumbs
             return null;
         }
     }
+
+    /// <summary>工作台窗口关掉后调：已经没有控件在显示，位图的原生内存可以直接还掉。</summary>
+    public static void Clear()
+    {
+        foreach (var bitmap in Cache.Values) bitmap.Dispose();
+        Cache.Clear();
+    }
 }
 
 /// <summary>左侧的一步。</summary>

@@ -277,6 +277,29 @@ public sealed class PetDirector : IDisposable
         Start(Open(PickInStance(Roles.Idle, Stances.Ground), ActionPriority.Ambient, "ambient", null));
     }
 
+    /// <summary>
+    /// 物理落地的第一步：只回到地面姿态，下落片段先接着播，也不预取下一段。
+    /// 紧接着发的 landed 事件会让规则直接请求落地动作，第一条打开的解码流就是它。
+    /// 以前先 <see cref="Land"/> 开待机流（加预取共两个 ffmpeg），马上又被落地动作打断再开两个，首帧要等这几个进程都起来，看着像落地慢半拍。
+    /// 之后一定要调 <see cref="FinishLanding"/>。
+    /// </summary>
+    public void Touchdown()
+    {
+        SetStance(Stances.Ground);
+        _queued?.Stream.Dispose();
+        _queued = null;
+        _touchdown = true;
+    }
+
+    /// <summary>落地的第二步：落地反应没接上（规则关了、在冷却、被拒绝）就回待机。</summary>
+    public void FinishLanding()
+    {
+        if (_touchdown && Stance == Stances.Ground) Land();
+        _touchdown = false;
+    }
+
+    private bool _touchdown;
+
     /// <summary>在空中抓住了墙：没有可用的贴墙姿态时返回 false（继续掉）。</summary>
     public bool GrabWall()
     {
@@ -406,6 +429,7 @@ public sealed class PetDirector : IDisposable
     [MemberNotNull(nameof(Current), nameof(CurrentAction))]
     private void Start(Next next)
     {
+        _touchdown = false;
         Current = next.Stream;
         CurrentAction = next.Action;
         CurrentPriority = next.Priority;

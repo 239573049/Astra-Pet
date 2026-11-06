@@ -7,6 +7,9 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>AstraPet</AssemblyName>
     <RootNamespace>AstraPet</RootNamespace>
+    <!-- 进程列表里显示的名字：Windows 任务管理器显示 exe 的文件描述（取自 AssemblyTitle，默认等于程序集名 AstraPet）。
+         macOS 的在 .app 的 Info.plist（CFBundleName）和 App.axaml 的 Name 里。可执行文件名不变。 -->
+    <AssemblyTitle>Astra Pet</AssemblyTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- Windows 上 exe 文件和任务栏的图标。macOS 的在 .app 的 Info.plist 里、Linux 的在 .desktop 里，由发布工作流放进去。 -->
     <ApplicationIcon>$(AstraAssets)icons\app.ico</ApplicationIcon>

@@ -32,14 +32,20 @@ public sealed class StudioViewModel : Observable, ICostGate, IDisposable
         Shell = shell;
         Host = host;
         EnsureFixedProviders();
-        settings.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(PetSettings.ActiveImageProvider) or nameof(PetSettings.ActiveVideoProvider)
-                or nameof(PetSettings.ActiveImageProviderId) or nameof(PetSettings.ActiveVideoProviderId))
-                RaiseProviders();
-        };
+        // 设置活得比工作台长，释放时要退订，不然整个 ViewModel 跟着设置一直留在内存里。
+        settings.PropertyChanged += OnSettingsChanged;
         RefreshProjects();
     }
+
+    private void OnSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PetSettings.ActiveImageProvider) or nameof(PetSettings.ActiveVideoProvider)
+            or nameof(PetSettings.ActiveImageProviderId) or nameof(PetSettings.ActiveVideoProviderId))
+            RaiseProviders();
+    }
+
+    /// <summary>工作台可以释放：没开工程，或者开着的工程没有本机上的活在跑（见 <see cref="ProjectViewModel.HasLocalWork"/>）。</summary>
+    public bool CanRelease => _current is not { HasLocalWork: true } && _costAnswer is null;
 
     public StudioEngine Engine { get; }
     public string Root { get; }
@@ -395,6 +401,7 @@ public sealed class StudioViewModel : Observable, ICostGate, IDisposable
 
     public void Dispose()
     {
+        _settings.PropertyChanged -= OnSettingsChanged;
         _current?.SaveNow();
         Current = null;
         AnswerCost(false);

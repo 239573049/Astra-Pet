@@ -1,7 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:arc="https://github.com/AIDotNet/TKCode.Arc"
-             x:Class="AstraPet.App">
+             x:Class="AstraPet.App"
+             Name="Astra Pet">
     <!-- 主题由 Program.cs 里的 UseArc 装，明暗和主色由设置决定（见 App.ApplyTheme），这里不挂 FluentTheme。
          宠物右键用 Avalonia 原生 ContextMenu（宠物窗口没有 overlay 层），没有主题就没有模板、画不出来，
          所以这里补一套菜单样式，颜色全部取 Arc 的设计令牌，跟着明暗和主色走。

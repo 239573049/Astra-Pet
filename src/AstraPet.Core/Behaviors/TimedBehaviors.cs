@@ -60,6 +60,59 @@ public sealed class ReminderBehavior : PetBehavior
     }
 }
 
+/// <summary>
+/// 定时提醒（Agent 用 remind 工具设的，存在 <see cref="PetSettings.Reminders"/>）：每 15 秒看一次有没有到点的。
+/// 到点不另起智能体，而是请宠物自己的 Agent 主动开口（<see cref="IPetCommands.Remind"/>），说的话进同一个对话上下文；
+/// 没配模型时说固定台词。一次性的响过就删，重复的挪到下一次。
+/// 程序没开着错过的：一次性的晚了 <see cref="MaxLateOnce"/> 以内补一句（说明晚了），再晚就算了；重复的只补最近一次（晚了不超过 <see cref="MaxLateRepeating"/>）。
+/// </summary>
+public sealed class ScheduledReminderBehavior : PetBehavior
+{
+    /// <summary>晚了这么久以内算准时。</summary>
+    public static readonly TimeSpan OnTime = TimeSpan.FromMinutes(2);
+    public static readonly TimeSpan MaxLateOnce = TimeSpan.FromHours(12);
+    public static readonly TimeSpan MaxLateRepeating = TimeSpan.FromMinutes(30);
+
+    /// <summary>启动后稍等一下再查（先让宠物打完招呼），之后每 15 秒一次。</summary>
+    protected override void OnStart() => Every(ReminderBehavior.Interval, Tick, TimeSpan.FromSeconds(10));
+
+    private void Tick()
+    {
+        var now = Now.DateTime;
+        var due = Settings.Reminders.Where(r => r.DueAt <= now).OrderBy(r => r.DueAt).ToList();
+        foreach (var r in due)
+        {
+            var at = r.DueAt;
+            var late = now - at;
+            if (ReminderSchedule.Next(at, r.Repeat, now) is { } next) r.DueAt = next;
+            else Settings.Reminders.Remove(r);
+
+            if (late > (r.Repeat == ReminderRepeat.Once ? MaxLateOnce : MaxLateRepeating))
+            {
+                PetLog.Write($"定时提醒错过太久，不提了：{r.Text}（{at:yyyy-MM-dd HH:mm}）");
+                continue;
+            }
+            Fire(r, at, late);
+        }
+    }
+
+    private void Fire(ScheduledReminder r, DateTime at, TimeSpan late)
+    {
+        var when = at.Date == Now.Date ? at.ToString("HH:mm") : ReminderSchedule.When(at, Now.DateTime);
+        var cue = $"定时提醒：用户之前让你在 {when} 提醒TA「{r.Text}」" +
+                  (r.Repeat == ReminderRepeat.Once ? "" : $"（{ReminderSchedule.RepeatLabel(r.Repeat)}都要提醒）") +
+                  (late > OnTime ? $"。你刚才没在运行，已经晚了 {LateText(late)}，提醒时顺口说一声晚了" : "。现在到时间了") +
+                  "。用你的口吻提醒TA，要把提醒的事说清楚，别只是打招呼";
+        var fallback = (late > OnTime ? "刚才错过了，" : "") + $"⏰ 到点啦：{r.Text}";
+        PetLog.Write($"定时提醒到点：{r.Text}");
+        Context.Events.Publish(PetEvents.ScheduledReminder, ("text", r.Text));
+        if (!Context.Commands.Remind(cue, fallback)) Context.Voice.SayLater(fallback);
+    }
+
+    private static string LateText(TimeSpan late) =>
+        late.TotalHours >= 1 ? $"{(int)late.TotalHours} 小时" + (late.Minutes > 0 ? $" {late.Minutes} 分钟" : "") : $"{(int)late.TotalMinutes} 分钟";
+}
+
 /// <summary>番茄钟：专注 / 休息交替，每 15 秒看一次是否到点。</summary>
 public sealed class PomodoroBehavior : PetBehavior
 {

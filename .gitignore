@@ -3,6 +3,8 @@ bin/
 obj/
 publish/
 *.dSYM/
+promo-video/
+
 
 # 编辑器、系统
 .DS_Store

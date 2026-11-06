@@ -94,7 +94,8 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
             RefreshPets, UseInstalledPet, () => IsMarket);
         companion.ExternalStatusChanged += RaiseExternal;
         // 菜单预览和真实菜单是同一份数据（MenuBehavior.Rows）；设置一变（勾选、排序、宠物体系开关）就重算。
-        settings.Changed += () => { if (IsMenu) RaiseMenuPreview(); };
+        // 具名方法：Dispose 时要退订，不然设置一直拽着整个控制台（连同窗口）释放不掉。
+        settings.Changed += OnSettingsChanged;
 
         Pages =
         [
@@ -794,11 +795,17 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
     /// <summary>有没有跑到一半的活（导入动作、安装更新）。有的话控制台不释放。</summary>
     public bool Busy => Actions.Import.IsProcessing || Update.Busy || Market.Busy;
 
+    private void OnSettingsChanged()
+    {
+        if (IsMenu) RaiseMenuPreview();
+    }
+
     public void Dispose()
     {
         _statusTimer.Stop();
         Actions.Save();
         Settings.PropertyChanged -= OnSettingChanged;
+        Settings.Changed -= OnSettingsChanged;
         _companion.ExternalStatusChanged -= RaiseExternal;
         Hub.Dispose();
         Update.Dispose();

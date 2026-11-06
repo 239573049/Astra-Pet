@@ -234,7 +234,7 @@ public enum ToolSupport { Auto, On, Off }   // 默认 Auto
 | GET | `/v1/status` | 当前宠物、当前动作、是否暂停 / 省电 |
 | GET | `/v1/actions` | 动作清单（id、名字、描述、角色） |
 | POST | `/v1/actions/play` | `{ "id": "wave" }` 或 `{ "role": "celebrate" }`，可带 `"loopSeconds"`；优先级固定 `agent` |
-| POST | `/v1/say` | `{ "text": "测试全部通过！", "speak": false }` |
+| POST | `/v1/say` | `{ "text": "测试全部通过！", "speak": false }`；用户正在聊天或智能体的话还没收起时先攒着，空了再说（最多攒 3 句，10 分钟过期） |
 | POST | `/v1/events` | `{ "type": "external.build-failed" }`，交给触发规则处理，用户可以在规则里决定反应 |
 
 `/v1/events` 是推荐的用法：外部工具只报告「发生了什么」，宠物怎么反应由用户的规则决定，外部工具不用知道这只宠物有哪些动作。

@@ -352,8 +352,8 @@ public partial class ConsoleWindow : Window
     /// <summary>预热完了，而且用户没在等着打开（App 借这个时机把窗口释放掉）。</summary>
     public event Action? WarmedUp;
 
-    /// <summary>收起着、没在预热、也没有跑到一半的活，可以释放。</summary>
-    public bool CanRelease => !IsVisible && !_warming && _vm is not null && !_vm.Busy;
+    /// <summary>收起着、没在预热、也没有跑到一半的活，可以释放。试用中不释放：换回原角色要靠 ViewModel 记着的那个。</summary>
+    public bool CanRelease => !IsVisible && !_warming && _vm is not null && !_vm.Busy && !_vm.IsTryingOut;
 
     /// <summary>
     /// 真的关掉窗口，连同整棵界面树、渲染表面和 ViewModel 一起释放（约 150MB）。
