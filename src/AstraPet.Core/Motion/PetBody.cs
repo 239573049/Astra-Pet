@@ -297,9 +297,11 @@ public sealed class PetBody
             _vx = _vy = 0;
             var thrown = _thrown;
             _thrown = false;
-            _director.Land();
+            // 先只换姿态，落地事件里的规则直接接上落地动作；没人接就回待机。
+            _director.Touchdown();
             Moved?.Invoke();
             _publish(PetEvent.Of(PetEvents.Landed, ("impact", hard ? "hard" : "soft"), ("thrown", thrown ? "true" : "false")));
+            _director.FinishLanding();
             return;
         }
         Moved?.Invoke();
