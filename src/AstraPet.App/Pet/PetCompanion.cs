@@ -103,6 +103,11 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
             };
             if (text is not null) _lastLifeEvent = (text, DateTimeOffset.Now);
         };
+        Agents = new AgentSessions(Events, settings, Notify);
+        _agentSweep.Tick += (_, _) => Agents.Sweep();
+        _agentSweep.Start();
+        // 更新、移动过程序后，已绑定的 hook 还指着旧路径：启动时悄悄改过来（读写别人的配置文件，不占 UI 线程）。
+        if (Environment.ProcessPath is { } exe) _ = Task.Run(() => AgentIntegrations.RepairStale(exe));
         _external = new LocalHttpServer(new ExternalApi(this, AvaloniaUiDispatcher.Instance).HandleAsync);
         _pet.Opened += (_, _) => UpdateExternal();
         settings.PropertyChanged += (_, e) =>
@@ -205,6 +210,11 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     PetSettings IExternalPet.Settings => _settings;
     PetEventBus IExternalPet.Events => Events;
     PetLife? IExternalPet.Life => Life;
+    AgentSessions? IExternalPet.Agents => Agents;
+
+    /// <summary>编程智能体的会话聚合（design/agent-hooks §4）。</summary>
+    public AgentSessions Agents { get; }
+    private readonly DispatcherTimer _agentSweep = new() { Interval = TimeSpan.FromMinutes(1) };
     /// <summary>外部程序让宠物说话：和提醒一样，智能体占着气泡或正在聊天时先攒着，空了再说。</summary>
     void IExternalPet.Say(string text, bool speak) => ((IPetVoice)this).SayLater(text, speak);
 
@@ -332,7 +342,8 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     /// 攒着等聊完再说的话：一句固定台词，或一个交给智能体的起因（Cue）加兜底台词。
     /// <see cref="Important"/>：定时提醒，攒得更久，攒多了先挤掉别的。
     /// </summary>
-    private sealed record Pending(string Text, bool Speak, string? Cue, DateTimeOffset At, bool Important = false)
+    /// <see cref="Urgent"/>：编程智能体的通知，不等「刚聊完」的 90 秒，只等输入框关上、回复收起。
+    private sealed record Pending(string Text, bool Speak, string? Cue, DateTimeOffset At, bool Important = false, bool Urgent = false)
     {
         public bool Expired => DateTimeOffset.Now - At > (Important ? ImportantExpiry : PendingExpiry);
     }
@@ -368,6 +379,18 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
         else Say(text, speak);
     }
 
+    /// <summary>
+    /// 编程智能体的通知（design/agent-hooks §4.4）：「在等你确认」这类话要及时，不等刚聊完的那 90 秒；
+    /// 只在用户正在打字、回复还在路上、智能体的话还挂着时先攒着。
+    /// </summary>
+    private bool NotifyBlocked => _chatOpen || _userTalking > 0 || AgentHolding;
+
+    public void Notify(string text, bool speak)
+    {
+        if (NotifyBlocked) Defer(new Pending(text, speak, null, DateTimeOffset.Now, Urgent: true));
+        else Say(text, speak);
+    }
+
     void IPetVoice.React(string text, bool speak)
     {
         if (!InConversation && !AgentHolding) Say(text, speak);
@@ -395,9 +418,14 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
             return;
         }
         // 任何气泡还挂着都等它收起（上一句攒着的话最长显示 15 秒，固定间隔会把它盖掉）。
-        if (InConversation || AgentHolding || Bubble.Showing) return;
-        var next = _pending[0];
-        _pending.RemoveAt(0);
+        if (Bubble.Showing) return;
+        // 智能体的通知先说，它们只等最基本的条件；其他的还要等聊完。
+        var index = _pending.FindIndex(p => p.Urgent);
+        if (index >= 0 ? NotifyBlocked : InConversation || AgentHolding)
+            return;
+        if (index < 0) index = 0;
+        var next = _pending[index];
+        _pending.RemoveAt(index);
         if (next.Cue is null || !SpeakUp(next.Cue, next.Text, next.Important)) Say(next.Text, next.Speak);
     }
 
@@ -502,6 +530,7 @@ public sealed class PetCompanion : IPetVoice, IPetCommands, IExternalPet, IDispo
     public void Dispose()
     {
         _pendingTimer.Stop();
+        _agentSweep.Stop();
         _external.Dispose();
         _host.Dispose();
         StatusCard.Close();

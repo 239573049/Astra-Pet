@@ -303,6 +303,19 @@ public sealed class PetSettings : Observable
     /// <summary>外部请求要带的令牌（Authorization: Bearer）。打开接口时生成。</summary>
     public string ExternalToken { get => _externalToken; set => Set(ref _externalToken, value ?? ""); }
 
+    // ───── 编程智能体联动（design/agent-hooks） ─────
+
+    private int _agentCelebrateSeconds = 30;
+    private bool _agentShowProject = true;
+    private bool _agentSpeakWaiting = true;
+
+    /// <summary>智能体一轮跑了这么久（秒）才庆祝并冒泡，短的只安静收起思考。</summary>
+    public int AgentCelebrateSeconds { get => _agentCelebrateSeconds; set => Set(ref _agentCelebrateSeconds, Math.Clamp(value, 0, 3600)); }
+    /// <summary>冒泡里带项目目录名。</summary>
+    public bool AgentShowProject { get => _agentShowProject; set => Set(ref _agentShowProject, value); }
+    /// <summary>智能体等确认时把提醒念出来（还要开了朗读提醒）。</summary>
+    public bool AgentSpeakWaiting { get => _agentSpeakWaiting; set => Set(ref _agentSpeakWaiting, value); }
+
     // ───── 语音 ─────
 
     private bool _speakReplies;

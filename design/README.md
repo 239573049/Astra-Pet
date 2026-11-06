@@ -40,3 +40,4 @@
 - [pet-studio/](pet-studio/README.md)：动作系统、Agent 触发与系统提示词、宠物工作台、角色包格式 2
 - [pet-life/](pet-life/README.md)：宠物体系——档案与性格、饱腹 / 精力 / 心情 / 亲密度、更多互动、地面重力与爬墙（姿态图）、工作台扩展
 - [market/](market/README.md)：宠物市场——设备码登录、固定的 Hub 地址、令牌存储、下载安装与校验
+- [agent-hooks/](agent-hooks/README.md)：外部智能体联动——识别 Claude Code / Codex / DeepSeek Harness，一键写入 hook，按会话驱动宠物反应

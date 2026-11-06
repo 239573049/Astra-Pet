@@ -15,6 +15,8 @@ public interface IExternalPet
     void Say(string text, bool speak);
     /// <summary>宠物体系；没有或关着时状态里不写 life（只读，外部不能喂食、改数值：design/pet-life/06 §4.3）。</summary>
     PetLife? Life => null;
+    /// <summary>编程智能体的会话聚合（design/agent-hooks §4）；没有时 /v1/agent-hooks 回 404。</summary>
+    AgentSessions? Agents => null;
 }
 
 /// <summary>一次 HTTP 请求（已经由服务器解析好）。</summary>
@@ -37,6 +39,8 @@ public sealed record ExternalResponse(int Status, JsonObject Body)
 public sealed partial class ExternalApi
 {
     public const int MaxRequestsPerSecond = 5;
+    /// <summary>/v1/agent-hooks 单独一个限流桶：多开几个智能体会话不该挤掉脚本的请求，反过来也一样。</summary>
+    public const int MaxHookRequestsPerSecond = 10;
     public const int MaxSayLength = 200;
     public const int MaxBodyBytes = 16 * 1024;
     public const int MaxLoopSeconds = 600;
@@ -47,6 +51,7 @@ public sealed partial class ExternalApi
     private readonly TimeProvider _time;
     private readonly Random _random = new();
     private readonly Queue<DateTimeOffset> _recent = new();
+    private readonly Queue<DateTimeOffset> _recentHooks = new();
     private readonly Lock _lock = new();
 
     public ExternalApi(IExternalPet pet, IUiDispatcher ui, TimeProvider? time = null)
@@ -71,10 +76,11 @@ public sealed partial class ExternalApi
             return ExternalResponse.Error(403, "不接受浏览器的请求");
         if (!Authorized(request.Authorization))
             return ExternalResponse.Error(401, "令牌不对：请求头要带 Authorization: Bearer <令牌>，令牌在控制台「智能 → 外部控制」里复制");
-        if (!Admit())
-            return ExternalResponse.Error(429, $"请求太频繁，每秒最多 {MaxRequestsPerSecond} 个");
-
         var path = request.Path.Split('?')[0].TrimEnd('/');
+        var hook = path == "/v1/agent-hooks";
+        if (hook ? !Admit(_recentHooks, MaxHookRequestsPerSecond) : !Admit(_recent, MaxRequestsPerSecond))
+            return ExternalResponse.Error(429, $"请求太频繁，每秒最多 {(hook ? MaxHookRequestsPerSecond : MaxRequestsPerSecond)} 个");
+
         JsonObject? body = null;
         if (request.Method == "POST")
         {
@@ -91,7 +97,8 @@ public sealed partial class ExternalApi
             ("POST", "/v1/actions/play") => await OnUi(() => Play(body!)),
             ("POST", "/v1/say") => await OnUi(() => Say(body!)),
             ("POST", "/v1/events") => await OnUi(() => Publish(body!)),
-            (_, "/v1/status" or "/v1/actions" or "/v1/actions/play" or "/v1/say" or "/v1/events") =>
+            ("POST", "/v1/agent-hooks") => await OnUi(() => AgentHook(body!)),
+            (_, "/v1/status" or "/v1/actions" or "/v1/actions/play" or "/v1/say" or "/v1/events" or "/v1/agent-hooks") =>
                 ExternalResponse.Error(405, "方法不对"),
             _ => ExternalResponse.Error(404, "没有这个接口"),
         };
@@ -108,14 +115,14 @@ public sealed partial class ExternalApi
     }
 
     /// <summary>滑动窗口：最近一秒内超过上限就拒绝。</summary>
-    private bool Admit()
+    private bool Admit(Queue<DateTimeOffset> recent, int max)
     {
         var now = _time.GetUtcNow();
         lock (_lock)
         {
-            while (_recent.Count > 0 && now - _recent.Peek() >= TimeSpan.FromSeconds(1)) _recent.Dequeue();
-            if (_recent.Count >= MaxRequestsPerSecond) return false;
-            _recent.Enqueue(now);
+            while (recent.Count > 0 && now - recent.Peek() >= TimeSpan.FromSeconds(1)) recent.Dequeue();
+            if (recent.Count >= max) return false;
+            recent.Enqueue(now);
             return true;
         }
     }
@@ -229,6 +236,25 @@ public sealed partial class ExternalApi
         _pet.Events.Publish(type, [.. data]);
         return ExternalResponse.Ok(new JsonObject { ["ok"] = true });
     }
+
+    /// <summary>转发命令 <c>AstraPet hook</c> 发来的一次 hook（design/agent-hooks §4.1）。</summary>
+    private ExternalResponse AgentHook(JsonObject body)
+    {
+        if (_pet.Agents is not { } agents) return ExternalResponse.Error(404, "没有这个接口");
+        var agent = Str(body, "agent");
+        var ev = Str(body, "event");
+        var session = Str(body, "session") ?? "default";
+        var project = Str(body, "project");
+        if (agent is null || !AgentKinds.IsKnown(agent)) return ExternalResponse.Error(400, "agent 不认识");
+        if (ev is null || !AgentHookEvents.All.Contains(ev)) return ExternalResponse.Error(400, "event 不认识");
+        if (session.Length > MaxSessionLength) return ExternalResponse.Error(400, $"session 最多 {MaxSessionLength} 个字符");
+        if (project is { Length: > MaxProjectLength }) project = project[..MaxProjectLength];
+        agents.Handle(new AgentHook(agent, ev, session, project));
+        return ExternalResponse.Ok(new JsonObject { ["ok"] = true });
+    }
+
+    public const int MaxSessionLength = 128;
+    public const int MaxProjectLength = 64;
 
     private static string? Str(JsonObject body, string key) =>
         body[key] is JsonValue v && v.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s) ? s.Trim() : null;

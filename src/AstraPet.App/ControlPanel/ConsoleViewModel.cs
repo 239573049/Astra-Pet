@@ -92,6 +92,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         Life = new LifeViewModel(companion, director, pet, settings, platform.Capabilities, platform.Hotkey.Display);
         Market = new MarketViewModel(App.Composition!.Market, App.Composition.HubClient, platform.Shell,
             RefreshPets, UseInstalledPet, () => IsMarket);
+        Agents = new AgentsViewModel(companion.Agents, settings);
         companion.ExternalStatusChanged += RaiseExternal;
         // 菜单预览和真实菜单是同一份数据（MenuBehavior.Rows）；设置一变（勾选、排序、宠物体系开关）就重算。
         // 具名方法：Dispose 时要退订，不然设置一直拽着整个控制台（连同窗口）释放不掉。
@@ -117,6 +118,8 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
                 "M 12,6 A 7.5,7.5 0 1 0 12,21 A 7.5,7.5 0 1 0 12,6 Z M 12,10 L 12,14 L 14.5,15.5 M 10,3 L 14,3"),
             new("Ai", "模型与记忆", "大模型接口、对话参数、人设与记忆。",
                 "M 12,3 L 14,10 L 21,12 L 14,14 L 12,21 L 10,14 L 3,12 L 10,10 Z"),
+            new("Agents", "智能体", "让 Claude Code、Codex 这些编程智能体干活时，宠物也跟着反应。",
+                "M 3,5 L 21,5 L 21,19 L 3,19 Z M 7,9 L 10,12 L 7,15 M 12,15 L 17,15"),
             new("Voice", "语音", "用系统语音朗读回复和提醒。",
                 "M 9,5 A 3,3 0 0 1 15,5 L 15,11 A 3,3 0 0 1 9,11 Z M 5,10 A 7,7 0 0 0 19,10 M 12,17 L 12,21"),
             new("Market", "宠物市场", "浏览、购买和下载其他创作者做的角色。",
@@ -131,7 +134,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         [
             new("", [Page("Overview")]),
             new("宠物", [Page("Pet"), Page("Life"), Page("Actions"), Page("Place"), Page("Interaction"), Page("Menu")]),
-            new("陪伴", [Page("Widgets"), Page("Ai"), Page("Voice")]),
+            new("陪伴", [Page("Widgets"), Page("Ai"), Page("Agents"), Page("Voice")]),
             new("市场", [Page("Market")]),
             new("应用", [Page("General")]),
         ];
@@ -170,6 +173,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
     public UpdateViewModel Update { get; }
     public ActionsViewModel Actions { get; }
     public LifeViewModel Life { get; }
+    public AgentsViewModel Agents { get; }
     public MarketViewModel Market { get; }
     public NavItem[] Pages { get; }
     public NavGroup[] NavGroups { get; }
@@ -196,6 +200,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
     public bool IsWidgets => _page.Key == "Widgets";
     public bool IsAi => _page.Key == "Ai";
     public bool IsVoice => _page.Key == "Voice";
+    public bool IsAgents => _page.Key == "Agents";
     public bool IsLife => _page.Key == "Life";
     public bool IsPlace => _page.Key == "Place";
     public bool IsMarket => _page.Key == "Market";
@@ -207,10 +212,12 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         _page = page;
         page.IsActive = true;
         foreach (var name in new[] { nameof(PageTitle), nameof(PageDescription), nameof(IsOverview), nameof(IsGeneral),
-                     nameof(IsPet), nameof(IsInteraction), nameof(IsActions), nameof(IsMenu), nameof(IsWidgets), nameof(IsAi), nameof(IsVoice),
+                     nameof(IsPet), nameof(IsInteraction), nameof(IsActions), nameof(IsMenu), nameof(IsWidgets), nameof(IsAi), nameof(IsVoice), nameof(IsAgents),
                      nameof(IsLife), nameof(IsPlace), nameof(IsMarket), nameof(CurrentKey) })
             Raise(name);
         if (IsMarket) Market.Activate();
+        if (IsAgents) Agents.Activate();
+        else Agents.Deactivate();
         if (IsMenu) RaiseMenuPreview();
     }
 
@@ -807,6 +814,7 @@ public sealed class ConsoleViewModel : Observable, IDisposable, Studio.IStudioHo
         Settings.PropertyChanged -= OnSettingChanged;
         Settings.Changed -= OnSettingsChanged;
         _companion.ExternalStatusChanged -= RaiseExternal;
+        Agents.Dispose();
         Hub.Dispose();
         Update.Dispose();
         Life.Dispose();

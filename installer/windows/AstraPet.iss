@@ -77,6 +77,10 @@ Filename: "{app}\AstraPet.exe"; Description: "{cm:LaunchProgram,Astra Pet}"; Fla
 ; 应用内更新：程序用 /SILENT /relaunch=1 启动安装包，装完自动重新打开
 Filename: "{app}\AstraPet.exe"; Flags: nowait; Check: ShouldRelaunch
 
+[UninstallRun]
+; 卸载前删掉写进 Claude Code / Codex 配置里的宠物 hook（design/agent-hooks §5.3），别的工具的 hook 不动。
+Filename: "{app}\AstraPet.exe"; Parameters: "hook --unbind-all"; Flags: runhidden waituntilterminated; RunOnceId: "UnbindAgentHooks"
+
 [Code]
 // 更新或卸载时宠物可能正在运行，文件被占用。先把它关掉（它没有任务栏窗口，Windows 的「重启管理器」关不掉）。
 // 只杀 AstraPet.exe；它起的 ffmpeg 子进程在父进程退出后会因为管道断开自己退出。
